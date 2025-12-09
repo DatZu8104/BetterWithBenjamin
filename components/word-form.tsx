@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -12,10 +12,19 @@ const TYPE_OPTIONS = [
   { value: "phrase", label: "Phrase (Cụm từ)" },
 ];
 
-export function WordForm({ onAdd, onCancel }: any) {
+export function WordForm({ onSave, onCancel, initialData }: any) {
   const [english, setEnglish] = useState('');
   const [definition, setDefinition] = useState('');
   const [types, setTypes] = useState<string[]>([]);
+
+  // Nếu có dữ liệu cũ (chế độ Edit), điền vào form
+  useEffect(() => {
+    if (initialData) {
+      setEnglish(initialData.english);
+      setDefinition(initialData.definition);
+      setTypes(initialData.type || []);
+    }
+  }, [initialData]);
 
   const toggleType = (value: string) => {
     setTypes((prev) =>
@@ -33,46 +42,57 @@ export function WordForm({ onAdd, onCancel }: any) {
       return;
     }
 
-    // gửi cho page.tsx
-    onAdd(english, definition, types);
+    onSave(
+      english.trim().toLowerCase(), 
+      definition.trim().toLowerCase(), 
+      types
+    );
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <h3 className="text-lg font-semibold mb-4">
+        {initialData ? 'Chỉnh sửa từ' : 'Thêm từ mới'}
+      </h3>
 
-      <Input
-        placeholder="English word"
-        value={english}
-        onChange={(e) => setEnglish(e.target.value)}
-      />
-
-      <Input
-        placeholder="Definition"
-        value={definition}
-        onChange={(e) => setDefinition(e.target.value)}
-      />
-
-      {/* LOẠI TỪ */}
-      <div className="space-y-2">
-        <p className="text-sm font-semibold">Word types (chọn nhiều):</p>
-
-        {TYPE_OPTIONS.map((type) => (
-          <label key={type.value} className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={types.includes(type.value)}
-              onChange={() => toggleType(type.value)}
-            />
-            <span>{type.label}</span>
-          </label>
-        ))}
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Tiếng Anh</label>
+        <Input
+          placeholder="Ví dụ: hello"
+          value={english}
+          onChange={(e) => setEnglish(e.target.value)}
+        />
       </div>
 
-      <div className="flex gap-3 mt-3">
-        <Button type="submit" className="flex-1">Add</Button>
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
-          Cancel
-        </Button>
+      <div className="space-y-1">
+        <label className="text-sm font-medium">Định nghĩa</label>
+        <Input
+          placeholder="Ví dụ: xin chào"
+          value={definition}
+          onChange={(e) => setDefinition(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Loại từ:</p>
+        <div className="flex flex-wrap gap-2">
+          {TYPE_OPTIONS.map((type) => (
+            <label key={type.value} className={`cursor-pointer px-3 py-1 rounded border text-sm transition-colors ${types.includes(type.value) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-accent'}`}>
+              <input
+                type="checkbox"
+                checked={types.includes(type.value)}
+                onChange={() => toggleType(type.value)}
+                className="hidden"
+              />
+              <span>{type.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-3 mt-4 pt-2">
+        <Button type="submit" className="flex-1">{initialData ? 'Lưu thay đổi' : 'Thêm từ'}</Button>
+        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>Hủy</Button>
       </div>
     </form>
   );
