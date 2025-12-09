@@ -7,7 +7,7 @@ import {
   Plus, Trash2, Calendar, Hash, 
   ArrowUpDown, ArrowDownAZ, ArrowUpAZ, 
   Folder, FolderOpen, MoreVertical, MoveRight, PlayCircle, RotateCcw,
-  GraduationCap, Library, ChevronDown, Check, X
+  GraduationCap, Library, ChevronDown, Check, X, Settings, Pencil
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -16,27 +16,29 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
 
-// --- ĐỊNH NGHĨA BẢNG MÀU ---
 const COLORS = [
-  { id: 'blue', name: 'Blue', style: {
+  { id: 'blue', name: 'Blue', bg: 'bg-blue-600', style: {
       bg: "bg-blue-950/20", border: "border-blue-900/50", iconBox: "bg-blue-900/50 text-blue-300", title: "text-blue-300", progressTrack: "bg-blue-950", progressFill: "bg-blue-600", button: "bg-blue-700 hover:bg-blue-600 text-white", resetBtn: "text-blue-400 hover:bg-blue-950/50", cardBorder: "border-blue-900/50", cardBg: "bg-blue-950/10", folderText: "text-blue-400"
   }},
-  { id: 'violet', name: 'Violet', style: {
+  { id: 'violet', name: 'Violet', bg: 'bg-violet-600', style: {
       bg: "bg-violet-950/20", border: "border-violet-900/50", iconBox: "bg-violet-900/50 text-violet-300", title: "text-violet-300", progressTrack: "bg-violet-950", progressFill: "bg-violet-600", button: "bg-violet-700 hover:bg-violet-600 text-white", resetBtn: "text-violet-400 hover:bg-violet-950/50", cardBorder: "border-violet-900/50", cardBg: "bg-violet-950/10", folderText: "text-violet-400"
   }},
-  { id: 'emerald', name: 'Green', style: {
+  { id: 'emerald', name: 'Green', bg: 'bg-emerald-600', style: {
       bg: "bg-emerald-950/20", border: "border-emerald-900/50", iconBox: "bg-emerald-900/50 text-emerald-300", title: "text-emerald-300", progressTrack: "bg-emerald-950", progressFill: "bg-emerald-600", button: "bg-emerald-700 hover:bg-emerald-600 text-white", resetBtn: "text-emerald-400 hover:bg-emerald-950/50", cardBorder: "border-emerald-900/50", cardBg: "bg-emerald-950/10", folderText: "text-emerald-400"
   }},
-  { id: 'amber', name: 'Orange', style: {
+  { id: 'amber', name: 'Orange', bg: 'bg-amber-600', style: {
       bg: "bg-amber-950/20", border: "border-amber-900/50", iconBox: "bg-amber-900/50 text-amber-300", title: "text-amber-300", progressTrack: "bg-amber-950", progressFill: "bg-amber-600", button: "bg-amber-700 hover:bg-amber-600 text-white", resetBtn: "text-amber-400 hover:bg-amber-950/50", cardBorder: "border-amber-900/50", cardBg: "bg-amber-950/10", folderText: "text-amber-400"
   }},
-  { id: 'rose', name: 'Red', style: {
+  { id: 'rose', name: 'Red', bg: 'bg-rose-600', style: {
       bg: "bg-rose-950/20", border: "border-rose-900/50", iconBox: "bg-rose-900/50 text-rose-300", title: "text-rose-300", progressTrack: "bg-rose-950", progressFill: "bg-rose-600", button: "bg-rose-700 hover:bg-rose-600 text-white", resetBtn: "text-rose-400 hover:bg-rose-950/50", cardBorder: "border-rose-900/50", cardBg: "bg-rose-950/10", folderText: "text-rose-400"
   }},
-  { id: 'cyan', name: 'Cyan', style: {
+  { id: 'cyan', name: 'Cyan', bg: 'bg-cyan-600', style: {
       bg: "bg-cyan-950/20", border: "border-cyan-900/50", iconBox: "bg-cyan-900/50 text-cyan-300", title: "text-cyan-300", progressTrack: "bg-cyan-950", progressFill: "bg-cyan-600", button: "bg-cyan-700 hover:bg-cyan-600 text-white", resetBtn: "text-cyan-400 hover:bg-cyan-950/50", cardBorder: "border-cyan-900/50", cardBg: "bg-cyan-950/10", folderText: "text-cyan-400"
   }}
 ];
@@ -45,46 +47,43 @@ interface GroupListProps {
   groups: any[]; 
   searchResults: any[];
   searchTerm: string;
+  onSearchChange: (val: string) => void;
   onClearSearch: () => void;
   onSelectGroup: (name: string) => void;
   onAddGroup: () => void;
   onDeleteGroup: (name: string) => void;
   onDeleteWordResult: (id: string) => void;
-  
   sortOption: 'date' | 'name' | 'size';
   sortDirection: 'asc' | 'desc';
   onSort: (option: 'date' | 'name' | 'size') => void;
-
   folders: string[];
   currentFolder: string | null;
   onSelectFolder: (f: string | null) => void;
   onMoveGroup: (group: string, folder: string) => void;
   onCreateFolder: (folder: string, color: string) => void;
-
+  onUpdateFolder: (oldName: string, newName: string, newColor: string) => void; 
+  onDeleteFolder: (folderName: string) => void;
   totalWords: number;
   learnedCount: number;
   onStartLearn: () => void;
   onResetLearn: () => void;
-  
-  folderColors: Record<string, string>;
+  folderColors: Record<string, string>; 
 }
 
 export function GroupListView({
-  groups, searchResults, searchTerm, onClearSearch,
+  groups, searchResults, searchTerm, onSearchChange, onClearSearch,
   onSelectGroup, onAddGroup, onDeleteGroup, onDeleteWordResult,
   sortOption, sortDirection, onSort,
-  folders, currentFolder, onSelectFolder, onMoveGroup, onCreateFolder,
+  folders, currentFolder, onSelectFolder, onMoveGroup, onCreateFolder, onUpdateFolder, onDeleteFolder,
   totalWords, learnedCount, onStartLearn, onResetLearn,
   folderColors
 }: GroupListProps) {
   
-  // State quản lý việc di chuyển nhóm (Lưu tên nhóm đang được chọn để di chuyển)
   const [groupToMove, setGroupToMove] = useState<string | null>(null);
-  
-  // State quản lý tạo folder mới
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [newFolderColor, setNewFolderColor] = useState('blue');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [folderNameInput, setFolderNameInput] = useState('');
+  const [folderColorInput, setFolderColorInput] = useState('blue');
 
   const currentThemeColor = currentFolder && folderColors[currentFolder] ? folderColors[currentFolder] : 'blue';
   const currentTheme = COLORS.find(c => c.id === currentThemeColor)?.style || COLORS[0].style;
@@ -95,59 +94,117 @@ export function GroupListView({
 
   const progressPercent = totalWords > 0 ? Math.round((learnedCount / totalWords) * 100) : 0;
 
-  const handleCreateSubmit = () => {
-    if(newFolderName.trim()) {
-        onCreateFolder(newFolderName, newFolderColor);
-        setNewFolderName('');
-        setNewFolderColor('blue');
-        setIsCreatingFolder(false);
+  const openCreateModal = () => {
+    setModalMode('create');
+    setFolderNameInput('');
+    setFolderColorInput('blue');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = () => {
+    if (!currentFolder) return;
+    setModalMode('edit');
+    setFolderNameInput(currentFolder);
+    setFolderColorInput(folderColors[currentFolder] || 'blue');
+    setIsModalOpen(true);
+  };
+
+  const handleModalSubmit = () => {
+    if (!folderNameInput.trim()) return;
+    if (modalMode === 'create') {
+        onCreateFolder(folderNameInput, folderColorInput);
+        if (groupToMove) { onMoveGroup(groupToMove, folderNameInput); setGroupToMove(null); }
+    } else {
+        if (currentFolder) onUpdateFolder(currentFolder, folderNameInput, folderColorInput);
     }
+    setIsModalOpen(false);
   };
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-8 bg-black text-white relative">
       <div className="max-w-6xl mx-auto pb-20">
         
-        {/* BANNER */}
-        {!searchTerm && totalWords > 0 && (
+        {/* === BANNER (SỬA LỖI: HIỆN BANNER KHI CÓ FOLDER HOẶC CÓ TỪ VỰNG) === */}
+        {!searchTerm && (totalWords > 0 || currentFolder) && (
           <div className={cn("mb-8 border p-6 md:p-8 rounded-3xl shadow-sm flex flex-col md:flex-row items-center gap-8 relative overflow-hidden transition-colors duration-500", currentTheme.bg, currentTheme.border)}>
             <div className="flex-1 w-full z-10">
               <div className="flex items-center gap-3 mb-2">
                 <div className={cn("p-2 rounded-lg transition-colors", currentTheme.iconBox)}>
                    {currentFolder ? <Library className="w-6 h-6" /> : <GraduationCap className="w-6 h-6" />}
                 </div>
-                <h2 className={cn("text-2xl md:text-3xl font-bold transition-colors", currentTheme.title)}>
-                  {currentFolder ? currentFolder : "Kho từ vựng tổng hợp"}
-                </h2>
+                
+                <div className="flex items-center gap-3">
+                    <h2 className={cn("text-2xl md:text-3xl font-bold transition-colors", currentTheme.title)}>
+                    {currentFolder ? currentFolder : "Kho từ vựng tổng hợp"}
+                    </h2>
+                    
+                    {/* NÚT BÁNH RĂNG (LUÔN HIỆN TRONG FOLDER) */}
+                    {currentFolder && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button className="p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors outline-none" title="Cài đặt thư mục">
+                                    <Settings className="w-5 h-5" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="bg-zinc-900 border border-zinc-800 text-white p-1 shadow-xl z-50">
+                                <DropdownMenuItem onClick={openEditModal} className="focus:bg-zinc-800 focus:text-white cursor-pointer py-2 px-3 rounded-md">
+                                    <Pencil className="w-4 h-4 mr-2 text-zinc-400" /> Chỉnh sửa
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator className="bg-zinc-800"/>
+                                <DropdownMenuItem onClick={() => {
+                                    if(confirm(`Bạn có chắc muốn xóa thư mục "${currentFolder}"? Các nhóm bên trong sẽ được đưa ra ngoài.`)) {
+                                        onDeleteFolder(currentFolder);
+                                    }
+                                }} className="focus:bg-red-950/30 text-red-500 focus:text-red-400 cursor-pointer py-2 px-3 rounded-md">
+                                    <Trash2 className="w-4 h-4 mr-2" /> Xóa thư mục
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
+                </div>
               </div>
               <p className="text-zinc-400 mb-6 text-base max-w-xl">
-                {currentFolder ? `Thư mục này gồm ${displayGroups.length} nhóm. Tổng cộng ${totalWords} từ vựng.` : `Tổng hợp toàn bộ ${totalWords} từ vựng từ tất cả các nhóm.`}
+                {currentFolder 
+                    ? (totalWords > 0 ? `Thư mục này gồm ${displayGroups.length} nhóm. Tổng cộng ${totalWords} từ vựng.` : "Thư mục này đang trống. Hãy thêm nhóm từ vựng mới.")
+                    : `Tổng hợp toàn bộ ${totalWords} từ vựng từ tất cả các nhóm.`
+                }
               </p>
-              <div className="space-y-2 max-w-md">
-                <div className="flex justify-between text-sm font-semibold">
-                  <span className="text-zinc-500">Tiến độ ghi nhớ</span>
-                  <span className="text-white">{progressPercent}%</span>
+              
+              {/* Chỉ hiện tiến độ nếu có từ vựng */}
+              {totalWords > 0 && (
+                <div className="space-y-2 max-w-md">
+                    <div className="flex justify-between text-sm font-semibold">
+                    <span className="text-zinc-500">Tiến độ ghi nhớ</span>
+                    <span className="text-white">{progressPercent}%</span>
+                    </div>
+                    <div className={cn("h-3 w-full rounded-full overflow-hidden border border-white/5", currentTheme.progressTrack)}>
+                    <div className={cn("h-full transition-all duration-1000 ease-out rounded-full", currentTheme.progressFill)} style={{ width: `${progressPercent}%` }} />
+                    </div>
+                    <p className="text-xs text-zinc-500 pt-1">Đã thuộc {learnedCount} / {totalWords} từ</p>
                 </div>
-                <div className={cn("h-3 w-full rounded-full overflow-hidden border border-white/5", currentTheme.progressTrack)}>
-                  <div className={cn("h-full transition-all duration-1000 ease-out rounded-full", currentTheme.progressFill)} style={{ width: `${progressPercent}%` }} />
+              )}
+            </div>
+
+            {/* Chỉ hiện nút học nếu có từ vựng */}
+            {totalWords > 0 && (
+                <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto z-10">
+                <Button size="lg" onClick={onStartLearn} className={cn("w-full md:w-64 h-14 text-lg font-bold shadow-lg transition-all hover:scale-105 rounded-2xl border-none", currentTheme.button)}>
+                    <PlayCircle className="w-6 h-6 mr-2 fill-current" /> {learnedCount > 0 && learnedCount < totalWords ? "Tiếp tục học" : "Bắt đầu học"}
+                </Button>
+                {learnedCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={() => { if(confirm("Xóa tiến độ?")) onResetLearn(); }} className={cn("w-full transition-colors", currentTheme.resetBtn)}>
+                    <RotateCcw className="w-4 h-4 mr-2" /> Đặt lại tiến độ
+                    </Button>
+                )}
                 </div>
-                <p className="text-xs text-zinc-500 pt-1">Đã thuộc {learnedCount} / {totalWords} từ</p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto z-10">
-               <Button size="lg" onClick={onStartLearn} className={cn("w-full md:w-64 h-14 text-lg font-bold shadow-lg transition-all hover:scale-105 rounded-2xl border-none", currentTheme.button)}>
-                 <PlayCircle className="w-6 h-6 mr-2 fill-current" /> {learnedCount > 0 && learnedCount < totalWords ? "Tiếp tục học" : "Bắt đầu học"}
-               </Button>
-               {learnedCount > 0 && (
-                 <Button variant="ghost" size="sm" onClick={() => { if(confirm("Xóa tiến độ?")) onResetLearn(); }} className={cn("w-full transition-colors", currentTheme.resetBtn)}>
-                   <RotateCcw className="w-4 h-4 mr-2" /> Đặt lại tiến độ
-                 </Button>
-               )}
-            </div>
+            )}
           </div>
         )}
 
-        {/* SEARCH RESULTS */}
+        {/* ... (Phần còn lại giữ nguyên: Search, List, Modals) ... */}
+        {/* Copy lại toàn bộ phần dưới của file group-list.tsx cũ dán vào đây */}
+        {/* (Code dưới đây đã được include đầy đủ để bạn copy 1 lần) */}
+        
         {searchTerm && (
              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
              <h2 className="text-xl font-bold flex items-center gap-2 pb-4 border-b border-zinc-800 text-white">
@@ -173,7 +230,6 @@ export function GroupListView({
         {!searchTerm && (
           <>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-              {/* Folder Selector */}
               <div className="flex items-center">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -202,25 +258,23 @@ export function GroupListView({
                       </DropdownMenuItem>
                     ))}
                     <div className="h-px bg-zinc-800 my-1" />
-                    <DropdownMenuItem onClick={() => setIsCreatingFolder(true)} className="cursor-pointer py-2.5 px-3 rounded-lg text-white focus:bg-zinc-800 font-bold">
+                    <DropdownMenuItem onClick={openCreateModal} className="cursor-pointer py-2.5 px-3 rounded-lg text-white focus:bg-zinc-800 font-bold">
                       <Plus className="w-4 h-4 mr-3" /> <span className="font-bold">Tạo thư mục mới</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
 
-              {/* Toolbar */}
               <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 no-scrollbar">
                 <div className="flex items-center bg-zinc-900 p-1 rounded-lg border border-zinc-800 shadow-sm shrink-0">
                   <Button variant="ghost" size="sm" className="h-8 px-3 rounded text-zinc-400 hover:text-white hover:bg-zinc-800" onClick={() => onSort('date')}>Calendar</Button>
                   <Button variant="ghost" size="sm" className="h-8 px-3 rounded text-zinc-400 hover:text-white hover:bg-zinc-800" onClick={() => onSort('size')}>Size</Button>
                   <Button variant="ghost" size="sm" className="h-8 px-3 rounded text-zinc-400 hover:text-white hover:bg-zinc-800" onClick={() => onSort('name')}>Name</Button>
                 </div>
-                <Button onClick={onAddGroup} className="shrink-0 h-10 px-4 rounded-xl font-bold bg-white text-black hover:bg-zinc-200 border-none"><Plus className="w-5 h-5 mr-1.5"/> Nhóm mới</Button>
+                <Button onClick={onAddGroup} className="shrink-0 h-10 px-4 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> Nhóm mới</Button>
               </div>
             </div>
 
-            {/* GRID CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in slide-in-from-bottom-4 duration-500">
               {displayGroups.map((g: any) => {
                 const cardFolder = g.folder;
@@ -240,8 +294,6 @@ export function GroupListView({
                         <div className={cn("p-2 rounded-lg border mb-3 transition-colors", cardFolder && cardTheme ? `${cardTheme.iconBox} border-transparent` : "bg-zinc-800 border-zinc-700 text-zinc-400")}>
                             <Folder className="w-5 h-5" />
                         </div>
-                        
-                        {/* MENU 3 CHẤM */}
                         <div onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -252,13 +304,9 @@ export function GroupListView({
                             <DropdownMenuContent align="end" className="w-56 bg-neutral-900 border border-zinc-800 text-zinc-300 shadow-2xl p-1 z-50">
                                 <DropdownMenuLabel className="text-xs text-zinc-500 uppercase tracking-widest pl-2 py-2">Thao tác</DropdownMenuLabel>
                                 <DropdownMenuSeparator className="bg-zinc-800" />
-                                
-                                {/* KÍCH HOẠT MODAL DI CHUYỂN */}
-                                <DropdownMenuItem onSelect={() => setGroupToMove(g.name)} className="rounded-md focus:bg-zinc-800 focus:text-white py-2 px-2 cursor-pointer">
-                                    <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> 
-                                    <span>Di chuyển sang...</span>
+                                <DropdownMenuItem onSelect={() => setGroupToMove(g.name)} className="rounded-md focus:bg-zinc-800 focus:text-white py-2 px-2 cursor-pointer text-zinc-300">
+                                    <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Di chuyển sang...</span>
                                 </DropdownMenuItem>
-
                                 <DropdownMenuSeparator className="bg-zinc-800" />
                                 <DropdownMenuItem onSelect={() => onDeleteGroup(g.name)} className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer">
                                 <Trash2 className="w-4 h-4 mr-2" /> Xóa nhóm này
@@ -288,7 +336,7 @@ export function GroupListView({
           </>
         )}
 
-        {/* === MODAL DI CHUYỂN NHÓM (FIXED) === */}
+        {/* MODAL DI CHUYỂN */}
         {groupToMove && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setGroupToMove(null)}>
                 <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
@@ -298,16 +346,11 @@ export function GroupListView({
                     </div>
                     <div className="p-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
                         <p className="text-xs text-zinc-500 font-bold uppercase px-3 py-2 tracking-wider">Chọn nơi đến</p>
-                        
-                        {/* Option: Ngoài cùng */}
                         <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800 transition-colors text-left group" onClick={() => { onMoveGroup(groupToMove, ""); setGroupToMove(null); }}>
                             <div className="p-2 bg-zinc-800 rounded-lg text-zinc-400 group-hover:text-white group-hover:bg-zinc-700 transition-colors"><Folder className="w-5 h-5"/></div>
                             <span className="font-medium text-zinc-300 group-hover:text-white">Ngoài cùng (Không có thư mục)</span>
                         </button>
-
                         <div className="h-px bg-zinc-800 my-2 mx-3"></div>
-
-                        {/* List Folder */}
                         <div className="space-y-1">
                             {folders.map(f => {
                                 const fColor = folderColors[f];
@@ -319,13 +362,8 @@ export function GroupListView({
                                 </button>
                             )})}
                         </div>
-
-                        {folders.length === 0 && <p className="text-center text-zinc-600 italic py-4 text-sm">Chưa có thư mục nào</p>}
-
                         <div className="h-px bg-zinc-800 my-2 mx-3"></div>
-
-                        {/* Create New */}
-                        <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800 transition-colors text-left text-white" onClick={() => { setIsCreatingFolder(true); }}>
+                        <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800 transition-colors text-left text-white" onClick={openCreateModal}>
                             <div className="p-2 bg-zinc-800 rounded-lg"><Plus className="w-5 h-5"/></div>
                             <span className="font-bold">Tạo thư mục mới...</span>
                         </button>
@@ -334,11 +372,11 @@ export function GroupListView({
             </div>
         )}
 
-        {/* === MODAL TẠO FOLDER === */}
-        {isCreatingFolder && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsCreatingFolder(false)}>
+        {/* MODAL TẠO/SỬA FOLDER */}
+        {isModalOpen && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsModalOpen(false)}>
                 <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-                    <h3 className="text-xl font-bold text-white mb-4">Tạo thư mục mới</h3>
+                    <h3 className="text-xl font-bold text-white mb-4">{modalMode === 'create' ? "Tạo thư mục mới" : "Chỉnh sửa thư mục"}</h3>
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Tên thư mục</label>
@@ -347,9 +385,9 @@ export function GroupListView({
                                 type="text" 
                                 placeholder="Ví dụ: Luyện thi TOEIC" 
                                 className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-600 transition-colors"
-                                value={newFolderName}
-                                onChange={(e) => setNewFolderName(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleCreateSubmit()}
+                                value={folderNameInput}
+                                onChange={(e) => setFolderNameInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleModalSubmit()}
                             />
                         </div>
                         <div className="space-y-2">
@@ -358,11 +396,11 @@ export function GroupListView({
                                 {COLORS.map((color) => (
                                     <button
                                         key={color.id}
-                                        onClick={() => setNewFolderColor(color.id)}
+                                        onClick={() => setFolderColorInput(color.id)}
                                         className={cn(
                                             "w-10 h-10 rounded-full transition-all border-2",
                                             color.bg,
-                                            newFolderColor === color.id ? "border-white scale-110 shadow-lg ring-2 ring-white/20" : "border-transparent opacity-50 hover:opacity-100 hover:scale-105"
+                                            folderColorInput === color.id ? "border-white scale-110 shadow-lg ring-2 ring-white/20" : "border-transparent opacity-50 hover:opacity-100 hover:scale-105"
                                         )}
                                         title={color.name}
                                     />
@@ -370,9 +408,9 @@ export function GroupListView({
                             </div>
                         </div>
                         <div className="pt-4 flex gap-3">
-                            <Button className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white h-12 rounded-xl" onClick={() => setIsCreatingFolder(false)}>Hủy</Button>
-                            <Button className="flex-1 bg-white hover:bg-zinc-200 text-black h-12 rounded-xl font-bold" onClick={handleCreateSubmit}>
-                                {groupToMove ? "Tạo & Di chuyển" : "Tạo mới"}
+                            <Button className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white h-12 rounded-xl" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+                            <Button className="flex-1 bg-white hover:bg-zinc-200 text-black h-12 rounded-xl font-bold" onClick={handleModalSubmit}>
+                                {modalMode === 'create' ? (groupToMove ? "Tạo & Di chuyển" : "Tạo mới") : "Lưu thay đổi"}
                             </Button>
                         </div>
                     </div>
