@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AuthScreen } from '..@/frontend/components/auth/AuthScreen'; // Import file mới
-import { MainApp } from '..@/frontend/components/home/MainApp';       // Import file mới
+import { AuthScreen } from '../components/auth/AuthScreen'; // Import file mới
+import { MainApp } from '../components/home/MainApp';       // Import file mới
 
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
