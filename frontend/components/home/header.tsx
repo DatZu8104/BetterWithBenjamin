@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/frontend/components/ui/button';
-import { Input } from '@/frontend/components/ui/input'; 
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input'; 
 import { BookOpen, Download, Upload, Search, X, LogOut, User } from 'lucide-react'; 
 
 interface HeaderProps {

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/frontend/components/ui/button';
-import { Input } from '@/frontend/components/ui/input';
-import { Flashcard } from '@/frontend/components/flashcard';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Flashcard } from '../../components/flashcard';
 import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw } from 'lucide-react';
-import { cn } from '@/frontend/lib/utils';
+import { cn } from '../../lib/utils';
 
 // ... (Giữ nguyên interfaces và logic state)
 interface LearnModeProps {

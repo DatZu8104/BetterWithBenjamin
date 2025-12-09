@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/frontend/components/ui/button';
-import { WordForm } from '@/frontend/components/word-form';
-import { BulkForm } from '@/frontend/components/bulk-form';
+import { Button } from '../ui/button';
+import { WordForm } from '../word-form';
+import { BulkForm } from '../bulk-form';
 import { ArrowLeft, Plus, Trash2, X, Pencil } from 'lucide-react'; // Thêm Pencil icon
 
 interface WordListViewProps {

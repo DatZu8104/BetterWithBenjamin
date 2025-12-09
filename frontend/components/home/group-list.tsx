@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Card } from '@/frontend/components/ui/card';
-import { Button } from '@/frontend/components/ui/button';
+import { Card } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
 import { 
   Plus, Trash2, Calendar, Hash, 
   ArrowUpDown, ArrowDownAZ, ArrowUpAZ, 
@@ -19,8 +19,8 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
-} from "@/frontend/components/ui/dropdown-menu";
-import { cn } from '@/frontend/lib/utils';
+} from "../../components/ui/dropdown-menu";
+import { cn } from '../../lib/utils';
 
 const COLORS = [
   { id: 'blue', name: 'Blue', bg: 'bg-blue-600', style: {

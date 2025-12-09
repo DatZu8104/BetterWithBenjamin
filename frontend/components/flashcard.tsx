@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card } from '@/frontend/components/ui/card';
+import { Card } from '../components/ui/card';
 import { Volume2, RotateCcw } from 'lucide-react';
-import { cn } from '@/frontend/lib/utils';
+import { cn } from '../lib/utils';
 
 interface FlashcardProps {
   word: { id: string; english: string; definition: string; type: string[]; };

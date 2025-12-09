@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Button } from '@/frontend/components/ui/button';
-import { db } from '@/frontend/lib/db';
+import { Button } from '../components/ui/button';
+import { db } from '../lib/db';
 
 type ParsedWord = {
   english: string;

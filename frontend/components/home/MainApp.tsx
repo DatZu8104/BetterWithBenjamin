@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { api } from '@/frontend/lib/api'; // Import API helper thay vì db
-import { Header } from '@/frontend/components/home/header';
-import { GroupListView } from '@/frontend/components/home/group-list';
-import { WordListView } from '@/frontend/components/home/word-list';
-import { LearnModeView } from '@/frontend/components/home/learn-mode';
+import { api } from '../../lib/api'; 
+import { Header } from '@/components/home/header';
+import { GroupListView } from '@/components/home/group-list';
+import { WordListView } from '@/components/home/word-list';
+import { LearnModeView } from '@/components/home/learn-mode';
 
 // Định nghĩa Interface (Giữ nguyên)
 interface Word { id: string; english: string; definition: string; type: string[]; group: string; learned?: boolean; }

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/frontend/components/ui/button';
-import { Input } from '@/frontend/components/ui/input';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 
 const TYPE_OPTIONS = [
   { value: "noun", label: "Noun (Danh từ)" },
