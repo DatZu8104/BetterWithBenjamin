@@ -15,7 +15,8 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const API_URL = 'const API_URL = process.env.NEXT_PUBLIC_API_URL || http://localhost:5000/api';;
+// Bỏ dấu nháy bao quanh, bỏ phần lặp lại tên biến
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
