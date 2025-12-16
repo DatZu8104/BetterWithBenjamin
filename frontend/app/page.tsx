@@ -1,51 +1,39 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AuthScreen } from '@/components/auth/AuthScreen'; 
 import { MainApp } from '@/components/home/MainApp';       
+import { setApiToken } from '../lib/api'; // ✅ Import hàm này từ file api.ts
 
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<string>('User');
-  const [userRole, setUserRole] = useState<string>('user'); // ✅ Thêm state Role
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [userRole, setUserRole] = useState<string>('user');
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user'); 
-    const storedRole = localStorage.getItem('role'); // ✅ Lấy role từ storage
-    
-    if (storedToken) {
-      setToken(storedToken);
-      if (storedUser) setCurrentUser(storedUser);
-      if (storedRole) setUserRole(storedRole);
-    }
-    setIsCheckingAuth(false);
-  }, []);
+  // ❌ KHÔNG CÒN useEffect kiểm tra localStorage nữa
+  // Khi F5 trang -> State reset -> Token = null -> Hiện AuthScreen
 
-  const handleLoginSuccess = (newToken: string, user: string, role: string) => { // ✅ Nhận thêm role
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', user);
-    localStorage.setItem('role', role); // ✅ Lưu role
+  const handleLoginSuccess = (newToken: string, user: string, role: string) => {
+    // 1. Lưu token vào biến RAM (để gọi API)
+    setApiToken(newToken);
     
+    // 2. Lưu vào State (để chuyển màn hình)
     setToken(newToken);
     setCurrentUser(user);
     setUserRole(role);
+    
+    // ❌ KHÔNG lưu localStorage
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('role');
+    setApiToken(''); // Xóa biến RAM
     setToken(null);
   };
 
-  if (isCheckingAuth) return <div className="h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
-
+  // Nếu chưa có token (vừa vào hoặc vừa F5) -> Hiện màn hình đăng nhập
   if (!token) {
     return <AuthScreen onLoginSuccess={handleLoginSuccess} />; 
-    // ⚠️ Bạn nhớ vào AuthScreen sửa chỗ gọi onLoginSuccess để truyền thêm role nhé (xem lưu ý cuối bài)
   }
 
-  return <MainApp currentUser={currentUser} role={userRole} onLogout={handleLogout} />; // ✅ Truyền role xuống MainApp
+  return <MainApp currentUser={currentUser} role={userRole} onLogout={handleLogout} />;
 }

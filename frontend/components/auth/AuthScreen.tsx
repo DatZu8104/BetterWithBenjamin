@@ -58,7 +58,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
         {/* Header */}
         <div className="bg-zinc-950 p-8 text-center border-b border-zinc-800">
           <h2 className="text-3xl font-bold text-white mb-2">
-            {isLogin ? 'Flashcards App' : 'Tạo tài khoản'}
+            {isLogin ? 'Better With Benjamin' : 'Tạo tài khoản'}
           </h2>
           <p className="text-zinc-400 text-sm">
             {isLogin ? 'Đăng nhập để đồng bộ tiến độ học' : 'Tham gia cùng chúng tôi ngay hôm nay'}
