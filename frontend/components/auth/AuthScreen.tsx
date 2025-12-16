@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { User, Lock, Loader2, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface AuthScreenProps {
-  onLoginSuccess: (token: string, user: string) => void;
+  // ✅ Cập nhật: Thêm tham số role
+  onLoginSuccess: (token: string, user: string, role: string) => void;
 }
 
 export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
@@ -15,7 +16,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-// Bỏ dấu nháy bao quanh, bỏ phần lặp lại tên biến
+  // ✅ Đã làm sạch dòng này theo ý bạn
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,13 +38,14 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
       if (!res.ok) throw new Error(data.error || 'Có lỗi xảy ra');
 
       if (isLogin) {
-        // Đăng nhập thành công
-        onLoginSuccess(data.token, data.username);
+        // ✅ Đăng nhập thành công -> Truyền thêm role ra ngoài
+        // Nếu server chưa trả về role thì mặc định là 'user' để không bị lỗi
+        onLoginSuccess(data.token, data.username, data.role || 'user');
       } else {
         // Đăng ký thành công
         setSuccess('Đăng ký thành công! Vui lòng đăng nhập.');
         setIsLogin(true);
-        setPassword(''); // Xóa mật khẩu để người dùng nhập lại
+        setPassword(''); 
       }
     } catch (err: any) {
       setError(err.message);
@@ -53,11 +55,11 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-zinc-900 to-black p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-zinc-800">
         
         {/* Header */}
-        <div className="bg-zinc-950 p-8 text-center">
+        <div className="bg-black p-8 text-center border-b border-zinc-800">
           <h2 className="text-3xl font-bold text-white mb-2">
             {isLogin ? 'Chào mừng trở lại' : 'Tạo tài khoản mới'}
           </h2>
@@ -67,20 +69,20 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
         </div>
 
         {/* Form Body */}
-        <div className="p-8">
+        <div className="p-8 bg-white">
           <form onSubmit={handleSubmit} className="space-y-5">
             
             {/* Username Input */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 ml-1">Tên đăng nhập</label>
+              <label className="text-sm font-bold text-zinc-700 ml-1">Tên đăng nhập</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
                 <input
                   type="text"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all bg-gray-50 text-gray-900 placeholder:text-gray-400"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-zinc-50 text-zinc-900 placeholder:text-zinc-400 font-medium"
                   placeholder="Nhập username..."
                 />
               </div>
@@ -88,15 +90,15 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
 
             {/* Password Input */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 ml-1">Mật khẩu</label>
+              <label className="text-sm font-bold text-zinc-700 ml-1">Mật khẩu</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all bg-gray-50 text-gray-900 placeholder:text-gray-400"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-zinc-50 text-zinc-900 placeholder:text-zinc-400 font-medium"
                   placeholder="••••••••"
                 />
               </div>
@@ -104,14 +106,14 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
 
             {/* Thông báo lỗi / thành công */}
             {error && (
-              <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg text-sm font-bold animate-in fade-in slide-in-from-top-1 border border-red-100">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>
             )}
             
             {success && (
-              <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg text-sm font-bold animate-in fade-in slide-in-from-top-1 border border-green-100">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 {success}
               </div>
@@ -139,7 +141,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
 
           {/* Footer Toggle */}
           <div className="mt-8 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-zinc-500 font-medium">
               {isLogin ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
               <button
                 type="button"
@@ -155,11 +157,10 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
             </p>
           </div>
         </div>
-        
       </div>
       
       {/* Footer bản quyền nhỏ */}
-      <div className="fixed bottom-4 text-xs text-gray-400">
+      <div className="fixed bottom-4 text-xs text-zinc-500 font-mono">
         © 2025 English Flashcard App
       </div>
     </div>

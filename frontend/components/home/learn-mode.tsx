@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Flashcard } from '../../components/flashcard';
-import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Flashcard } from '../flashcard'; 
+import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-// ... (Giữ nguyên interfaces và logic state)
 interface LearnModeProps {
   currentWord: any;
   allWords: any[];
@@ -17,12 +16,13 @@ interface LearnModeProps {
   onNext: () => void;
   onReset: () => void;
   onExit: () => void;
+  themeColor?: string;
 }
 
 type Mode = 'flashcard' | 'quiz' | 'typing';
 
 export function LearnModeView({ 
-  currentWord, allWords, progress, total, isResetting, onNext, onReset, onExit 
+  currentWord, allWords, progress, total, isResetting, onNext, onReset, onExit, themeColor 
 }: LearnModeProps) {
   
   const [mode, setMode] = useState<Mode>('flashcard');
@@ -31,7 +31,25 @@ export function LearnModeView({
   const [typingInput, setTypingInput] = useState('');
   const [typingStatus, setTypingStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
 
-  // ... (Giữ nguyên useEffect logic Quiz và Typing)
+  // --- LOGIC CHUYỂN TỪ ---
+  const handleNext = useCallback(() => {
+      onNext();
+  }, [onNext]);
+
+  // --- PHÍM TẮT ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (mode === 'typing' && typingStatus === 'idle') return;
+      if (e.key === 'Enter' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNext();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleNext, mode, typingStatus]);
+
+  // --- LOGIC QUIZ ---
   useEffect(() => {
     if (mode === 'quiz' && currentWord) {
       const correct = currentWord;
@@ -46,9 +64,10 @@ export function LearnModeView({
   const handleQuizAnswer = (wordId: string) => {
     if (selectedAnswer) return;
     setSelectedAnswer(wordId);
-    if (wordId === currentWord.id) setTimeout(() => onNext(), 800);
+    if (wordId === currentWord.id) setTimeout(() => handleNext(), 800);
   };
 
+  // --- LOGIC TYPING ---
   useEffect(() => {
     if (mode === 'typing') {
       setTypingInput('');
@@ -61,15 +80,15 @@ export function LearnModeView({
     if (typingStatus !== 'idle') return;
     if (typingInput.trim().toLowerCase() === currentWord.english.trim().toLowerCase()) {
       setTypingStatus('correct');
-      setTimeout(() => onNext(), 800);
+      setTimeout(() => handleNext(), 800);
     } else {
       setTypingStatus('wrong');
     }
   };
 
-  // --- RENDER (DARK MODE FULL) ---
+  // --- RENDER ---
   return (
-    <div className="h-[100dvh] w-full flex flex-col bg-black text-white overflow-hidden">
+    <div className="h-[100dvh] w-full flex flex-col bg-black text-white overflow-hidden relative">
       
       {/* 1. TOP BAR */}
       <div className="shrink-0 h-14 flex justify-between items-center px-4 border-b border-zinc-800 bg-black z-20 gap-4">
@@ -77,7 +96,7 @@ export function LearnModeView({
            <ArrowLeft className="w-5 h-5 mr-2"/> <span className="font-medium">Thoát</span>
          </Button>
 
-         {/* MODE SELECTOR (SỬA MÀU TẠI ĐÂY) */}
+         {/* Mode Selector */}
          <div className="flex-1 flex justify-center max-w-xs">
             <div className="bg-zinc-900 p-1 rounded-lg flex w-full border border-zinc-800">
                 {[
@@ -91,8 +110,8 @@ export function LearnModeView({
                     className={cn(
                         "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold transition-all outline-none",
                         mode === item.id 
-                        ? "bg-zinc-800 text-white shadow-sm ring-1 ring-zinc-700" // Active: Xám sáng hơn chút
-                        : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50" // Inactive: Xám tối
+                        ? "bg-zinc-800 text-white shadow-sm ring-1 ring-zinc-700" 
+                        : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
                     )}
                     >
                     <item.icon className="w-3.5 h-3.5" />
@@ -102,56 +121,55 @@ export function LearnModeView({
             </div>
          </div>
 
-         <div className="shrink-0 text-xs font-mono font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full min-w-[60px] text-center">
+         <div className="shrink-0 text-xs font-mono font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-full min-w-[60px] text-center"
+              style={{ color: themeColor || 'white', borderColor: themeColor ? `${themeColor}40` : '#27272a' }}>
             {progress} / {total}
          </div>
       </div>
 
-      {/* 2. BODY */}
-      <div className="flex-1 flex flex-col w-full max-w-lg mx-auto p-4 min-h-0 overflow-hidden">
-        <div className="flex-1 w-full flex flex-col min-h-0 relative overflow-y-auto no-scrollbar">
+      {/* 2. BODY CHÍNH */}
+      <div className="flex-1 w-full max-w-lg mx-auto p-4 flex flex-col min-h-0 relative">
+        
+        {/* NỘI DUNG HỌC */}
+        <div className="flex-1 w-full flex flex-col min-h-0 overflow-y-auto no-scrollbar pb-4">
             
             {isResetting ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center animate-pulse">
+                <div className="flex-1 flex flex-col items-center justify-center animate-pulse">
                     <RotateCcw className="w-10 h-10 animate-spin text-zinc-600 mb-3"/>
                     <p className="text-base text-zinc-500 font-medium">Đang trộn thẻ...</p>
                 </div>
             ) : currentWord ? (
             <div className="w-full h-full flex flex-col animate-in zoom-in-95 fade-in duration-300">
                 
-                {/* MODE 1: FLASHCARD */}
+                {/* MODE 1: FLASHCARD - Dùng Flex Grow để thẻ tự giãn */}
                 {mode === 'flashcard' && (
-                <div className="flex-1 flex flex-col h-full">
-                    <div className="flex-1 min-h-[200px] mb-4">
-                       <Flashcard 
-                          word={currentWord} 
-                          className="text-white" // Đảm bảo text trắng
-                       />
+                    <div className="flex-1 flex flex-col justify-center min-h-0">
+                       <div className="w-full h-full flex flex-col">
+                           {/* Dùng min-h thay vì h cố định để giãn nếu chữ dài */}
+                           <Flashcard 
+                              word={currentWord} 
+                              className="text-white min-h-[300px] flex-1"
+                           />
+                       </div>
                     </div>
-                    <div className="shrink-0 pb-2">
-                        <Button size="lg" className="w-full h-14 text-lg font-bold bg-white text-black hover:bg-zinc-200 rounded-2xl shadow-lg active:scale-[0.98] transition-transform" onClick={onNext}>
-                            Tiếp theo
-                        </Button>
-                    </div>
-                </div>
                 )}
 
                 {/* MODE 2: QUIZ */}
                 {mode === 'quiz' && (
-                <div className="flex-1 flex flex-col h-full">
-                    <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-sm text-center mb-4 flex flex-col justify-center items-center p-6 min-h-[150px]">
-                        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">Định nghĩa</p>
-                        <div className="w-full overflow-y-auto max-h-full flex items-center justify-center">
-                           <h2 className="text-xl md:text-3xl font-bold leading-tight text-white px-2">
-                               "{currentWord.definition}"
-                           </h2>
-                        </div>
+                <div className="flex-1 flex flex-col justify-center">
+                    <div className="bg-zinc-900 border-2 rounded-3xl shadow-sm text-center mb-6 flex flex-col justify-center items-center p-8 flex-1 min-h-[250px]"
+                         style={{ borderColor: themeColor || '#3f3f46' }}
+                    >
+                        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4">Định nghĩa</p>
+                        <h2 className="text-xl md:text-3xl font-bold leading-tight text-white break-words">
+                            "{currentWord.definition}"
+                        </h2>
                     </div>
-                    <div className="shrink-0 grid grid-cols-1 gap-3 pb-2">
+                    <div className="grid grid-cols-1 gap-3">
                         {quizOptions.map((opt) => {
                             const isSelected = selectedAnswer === opt.id;
                             const isCorrect = opt.id === currentWord.id;
-                            let style = "border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300";
+                            let style = "border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300";
                             if (selectedAnswer) {
                                 if (isCorrect) style = "border-green-900 bg-green-950/40 text-green-400 font-bold ring-1 ring-green-900";
                                 else if (isSelected) style = "border-red-900 bg-red-950/40 text-red-400 opacity-80";
@@ -159,7 +177,7 @@ export function LearnModeView({
                             }
                             return (
                                 <button key={opt.id} 
-                                    className={cn("h-14 px-4 rounded-xl text-base font-medium transition-all shadow-sm flex items-center justify-center text-center active:scale-[0.98]", style)}
+                                    className={cn("h-16 px-4 rounded-2xl border text-base font-medium transition-all shadow-sm flex items-center justify-center text-center active:scale-[0.98]", style)}
                                     onClick={() => handleQuizAnswer(opt.id)} disabled={!!selectedAnswer}>
                                     <span className="truncate w-full">{opt.english}</span>
                                 </button>
@@ -171,19 +189,19 @@ export function LearnModeView({
 
                 {/* MODE 3: TYPING */}
                 {mode === 'typing' && (
-                <div className="flex-1 flex flex-col h-full">
-                    <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-sm text-center mb-4 flex flex-col justify-center items-center p-6 min-h-[150px]">
-                        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-2">Gõ từ tiếng Anh</p>
-                        <div className="w-full overflow-y-auto max-h-full flex items-center justify-center mb-3">
-                           <h2 className="text-xl md:text-3xl font-bold leading-tight text-white">"{currentWord.definition}"</h2>
-                        </div>
+                <div className="flex-1 flex flex-col justify-center">
+                    <div className="bg-zinc-900 border-2 rounded-3xl shadow-sm text-center mb-6 flex flex-col justify-center items-center p-8 flex-1 min-h-[250px]"
+                         style={{ borderColor: themeColor || '#3f3f46' }}
+                    >
+                        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4">Gõ từ tiếng Anh</p>
+                        <h2 className="text-xl md:text-3xl font-bold leading-tight text-white mb-4 break-words">"{currentWord.definition}"</h2>
                         {currentWord.type.length > 0 && (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
                                 {currentWord.type.join(', ')}
                             </span>
                         )}
                     </div>
-                    <div className="shrink-0 pb-2">
+                    <div>
                         <form onSubmit={handleTypingSubmit} className="relative w-full mb-3">
                             <Input autoFocus placeholder="Nhập từ..." 
                                 className={cn("h-16 text-xl text-center rounded-2xl border-2 bg-black text-white placeholder:text-zinc-700 shadow-sm transition-all pr-12 focus:border-zinc-600 border-zinc-800 focus-visible:ring-0",
@@ -207,7 +225,6 @@ export function LearnModeView({
                                     <span className="text-xs text-red-400/70 shrink-0">Đáp án:</span>
                                     <span className="text-lg font-bold text-red-400 truncate">{currentWord.english}</span>
                                 </div>
-                                <Button variant="secondary" size="sm" onClick={onNext} className="h-9 px-4 rounded-lg ml-2 font-medium bg-red-900/50 text-red-200 hover:bg-red-800 border border-red-800">Tiếp</Button>
                             </div>
                         )}
                     </div>
@@ -221,11 +238,24 @@ export function LearnModeView({
                     <span className="text-5xl">🎉</span>
                 </div>
                 <h3 className="text-2xl font-bold mb-2 text-white">Hoàn thành!</h3>
-                <p className="text-zinc-500 mb-8 text-center max-w-xs">Bạn đã học hết các từ trong danh sách này.</p>
                 <Button onClick={onReset} size="lg" className="rounded-full px-10 h-12 text-base font-bold shadow-lg bg-white text-black hover:bg-zinc-200">Học lại từ đầu</Button>
             </div>
             )}
         </div>
+
+        {/* 3. NÚT CHUYỂN TỪ (DÀI HẾT CỠ, NẰM DƯỚI) */}
+        {currentWord && (
+            <div className="shrink-0 mt-4 pt-2 border-t border-zinc-900/50">
+                <Button 
+                    onClick={handleNext}
+                    className="w-full h-16 rounded-2xl text-xl font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90"
+                    style={{ backgroundColor: themeColor || '#2563eb', color: 'white' }}
+                >
+                    Tiếp theo <span className="ml-2 text-white/50 text-sm font-normal">(Enter)</span> <ChevronRight className="ml-1 w-6 h-6"/>
+                </Button>
+            </div>
+        )}
+
       </div>
     </div>
   );
