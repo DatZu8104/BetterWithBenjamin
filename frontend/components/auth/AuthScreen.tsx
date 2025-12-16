@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { User, Lock, Loader2, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { api, setApiToken } from '../../lib/api'; // Nhớ import setApiToken
+import { Loader2, User, Lock, ArrowRight, BookOpen } from 'lucide-react';
 
 interface AuthScreenProps {
   onLoginSuccess: (token: string, user: string, role: string) => void;
@@ -12,124 +13,126 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
-    setLoading(true);
-
-    const endpoint = isLogin ? '/login' : '/register';
+    setIsLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || 'Có lỗi xảy ra');
-
+      let data;
       if (isLogin) {
-        onLoginSuccess(data.token, data.username, data.role || 'user');
+        data = await api.login(username, password);
       } else {
-        setSuccess('Đăng ký thành công! Vui lòng đăng nhập.');
-        setIsLogin(true);
-        setPassword(''); 
+        data = await api.register(username, password);
       }
+
+      if (data.error) throw new Error(data.error);
+
+      // ✅ 1. LƯU TOKEN VÀO API
+      setApiToken(data.token);
+
+      // ✅ 2. LƯU THÔNG TIN VÀO SESSION STORAGE (ĐỂ F5 KHÔNG MẤT)
+      if (typeof window !== 'undefined') {
+          sessionStorage.setItem('current_user', data.username);
+          sessionStorage.setItem('user_role', data.role || 'user');
+      }
+
+      // ✅ 3. CHUYỂN VÀO TRANG CHÍNH
+      if (isLogin) {
+        onLoginSuccess(data.token, data.username, data.role);
+      } else {
+        alert('Registration successful! Please login.');
+        setIsLogin(true);
+        setPassword('');
+      }
+
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'An error occurred');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    // ✅ ĐỔI MÀU NỀN SANG MÀU ĐEN (bg-black)
-    <div className="min-h-screen w-full flex items-center justify-center bg-black p-4">
-      {/* KHUNG FORM MÀU TỐI (bg-zinc-900) */}
-      <div className="w-full max-w-md bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden border border-zinc-800">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl p-8 relative overflow-hidden">
         
-        {/* Header */}
-        <div className="bg-zinc-950 p-8 text-center border-b border-zinc-800">
-          <h2 className="text-3xl font-bold text-white mb-2">
-            {isLogin ? 'Better With Benjamin' : 'Tạo tài khoản'}
-          </h2>
-          <p className="text-zinc-400 text-sm">
-            {isLogin ? 'Đăng nhập để đồng bộ tiến độ học' : 'Tham gia cùng chúng tôi ngay hôm nay'}
-          </p>
+        {/* Decorative Background */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+        <div className="text-center mb-8 relative z-10">
+            <div className="inline-flex p-3 bg-zinc-800 rounded-2xl mb-4 shadow-inner">
+                <BookOpen className="w-8 h-8 text-blue-500" />
+            </div>
+            <h1 className="text-3xl font-black text-white tracking-tight mb-2">
+                Better With <span className="text-blue-500">Ben</span>
+            </h1>
+            <p className="text-zinc-500 text-sm">
+                {isLogin ? 'Welcome back! Ready to learn?' : 'Create an account to start learning'}
+            </p>
         </div>
 
-        {/* Form Body */}
-        <div className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Tên đăng nhập</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  // Input màu tối
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-800 bg-black text-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-all placeholder:text-zinc-600"
-                  placeholder="Nhập username..."
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+            <div className="space-y-1.5">
+                <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Username</label>
+                <div className="relative">
+                    <User className="absolute left-4 top-3.5 w-5 h-5 text-zinc-500" />
+                    <input 
+                        type="text" 
+                        required 
+                        className="w-full pl-12 pr-4 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none"
+                        placeholder="Enter username"
+                        value={username}
+                        onChange={e => setUsername(e.target.value)}
+                    />
+                </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Mật khẩu</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-800 bg-black text-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-all placeholder:text-zinc-600"
-                  placeholder="••••••••"
-                />
-              </div>
+            <div className="space-y-1.5">
+                <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Password</label>
+                <div className="relative">
+                    <Lock className="absolute left-4 top-3.5 w-5 h-5 text-zinc-500" />
+                    <input 
+                        type="password" 
+                        required 
+                        className="w-full pl-12 pr-4 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                    />
+                </div>
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-red-400 bg-red-950/30 p-3 rounded-lg text-sm font-medium border border-red-900/50">
-                <AlertCircle className="h-4 w-4 shrink-0" /> {error}
-              </div>
-            )}
-            
-            {success && (
-              <div className="flex items-center gap-2 text-green-400 bg-green-950/30 p-3 rounded-lg text-sm font-medium border border-green-900/50">
-                <CheckCircle2 className="h-4 w-4 shrink-0" /> {success}
-              </div>
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 animate-in fade-in">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></div>
+                    <p className="text-sm text-red-400 font-medium">{error}</p>
+                </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-900/20 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+            <button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-900/30 active:scale-95 transition-all flex items-center justify-center gap-2 mt-2"
             >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (isLogin ? 'Đăng Nhập' : 'Đăng Ký')} <ArrowRight className="h-5 w-5" />
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : (
+                    <>
+                        {isLogin ? 'Login' : 'Sign Up'} 
+                        <ArrowRight className="w-5 h-5" />
+                    </>
+                )}
             </button>
-          </form>
+        </form>
 
-          <div className="mt-8 text-center">
-            <button
-              type="button"
-              onClick={() => { setIsLogin(!isLogin); setError(''); setSuccess(''); }}
-              className="text-sm text-zinc-500 hover:text-white transition-colors hover:underline"
+        <div className="mt-8 text-center relative z-10">
+            <button 
+                onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                className="text-sm text-zinc-500 hover:text-white transition-colors underline underline-offset-4"
             >
-              {isLogin ? 'Chưa có tài khoản? Đăng ký ngay' : 'Đã có tài khoản? Đăng nhập'}
+                {isLogin ? "Don't have an account? Sign up" : "Already have an account? Login"}
             </button>
-          </div>
         </div>
       </div>
     </div>

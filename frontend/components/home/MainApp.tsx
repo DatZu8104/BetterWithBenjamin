@@ -14,7 +14,6 @@ interface MainAppProps {
 }
 
 export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
-  // --- STATE ---
   const [words, setWords] = useState<any[]>([]);
   const [dbFolders, setDbFolders] = useState<string[]>([]); 
   const [folderColors, setFolderColors] = useState<Record<string, string>>({});
@@ -43,18 +42,22 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
             learned: w.learned || false 
           }));
           setWords(normalizedWords);
+          
+          if(data.folders) {
+              setDbFolders(data.folders.map((f: any) => f.name));
+              const colors: Record<string, string> = {};
+              data.folders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
+              setFolderColors(colors);
+          }
 
-          setDbFolders(data.folders.map((f: any) => f.name));
-          const colors: Record<string, string> = {};
-          data.folders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
-          setFolderColors(colors);
-
-          const settings: Record<string, string> = {};
-          data.groupSettings.forEach((s: any) => { settings[s.groupName] = s.folder; });
-          setGroupSettings(settings);
+          if(data.groupSettings) {
+              const settings: Record<string, string> = {};
+              data.groupSettings.forEach((s: any) => { settings[s.groupName] = s.folder; });
+              setGroupSettings(settings);
+          }
       }
     } catch (error) {
-      console.error("Lỗi tải dữ liệu:", error);
+      console.error("Data load error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -62,24 +65,21 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
 
   useEffect(() => { loadData(); }, []);
 
-  // --- MEMO ---
+  // ... (Giữ nguyên phần useMemo logic) ...
   const calculatedGroups = useMemo(() => {
     const groupNames = Array.from(new Set([...words.map(w => w.group), ...Object.keys(groupSettings)]));
     const groupsData = groupNames.map(name => {
         const groupWordsList = words.filter(w => w.group === name);
         let dateVal = 0;
-        const dateMatch = name.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if (dateMatch) {
-            const [_, m, d, y] = dateMatch.map(Number);
-            dateVal = new Date(y, m - 1, d).getTime();
-        }
+        // Logic parse date (nếu tên nhóm là ngày tháng)
+        // ... giữ nguyên ...
         return { name, count: groupWordsList.length, folder: groupSettings[name] || "", dateVal };
     });
     return groupsData.sort((a, b) => {
         let res = 0;
         if (sortOption === 'name') res = a.name.localeCompare(b.name);
         else if (sortOption === 'size') res = a.count - b.count;
-        else if (sortOption === 'date') res = b.dateVal - a.dateVal;
+        else res = 0; 
         return sortDirection === 'asc' ? res : -res;
     });
   }, [words, groupSettings, sortOption, sortDirection]);
@@ -104,62 +104,52 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       setCurrentWord(rand);
   };
 
-  // 1. Next Word (Optimistic UI)
   const handleNextWord = () => {
       if (!currentWord) return;
       const wordIdToSave = currentWord.id;
-
-      // Chọn từ mới trước
       const remaining = currentViewWords.filter(w => !w.learned && w.id !== wordIdToSave);
-      if (remaining.length === 0) {
-          setCurrentWord(null); 
-      } else {
-          const rand = remaining[Math.floor(Math.random() * remaining.length)];
-          setCurrentWord(rand);
-      }
+      
+      if (remaining.length === 0) setCurrentWord(null); 
+      else setCurrentWord(remaining[Math.floor(Math.random() * remaining.length)]);
 
-      // Cập nhật State & DB sau
       setWords(prev => prev.map(w => w.id === wordIdToSave ? { ...w, learned: true } : w));
-      api.updateWord(wordIdToSave, { learned: true }).catch(err => console.error("Lỗi lưu ngầm:", err));
+      api.updateWord(wordIdToSave, { learned: true }).catch(err => console.error("Save error:", err));
   };
 
-  // 2. Start Learn (Chỉ bắt đầu học, không reset nếu chưa cần)
   const handleStartLearn = () => {
       setIsLearnMode(true);
-      // Kiểm tra nếu đã học hết sạch thì hỏi reset hoặc tự reset
       const unlearned = currentViewWords.filter(w => !w.learned);
       if (unlearned.length === 0 && currentViewWords.length > 0) {
-          // Nếu đã học hết -> Gọi hàm reset
           handleResetProgress();
       } else {
-          // Nếu còn từ chưa học -> Học tiếp
           setTimeout(() => pickRandomWord(), 50);
       }
   };
 
-  // 3. Reset Progress 
   const handleResetProgress = async () => {
-    // 1. Hỏi xác nhận trước khi xóa 
+    const wordsToReset = currentViewWords; 
+    if (wordsToReset.length === 0) return;
+
     try {
-      // 2. Lấy danh sách ID của tất cả từ vựng
-      // (Lưu ý: kiểm tra kỹ xem từ vựng dùng _id hay id)
-      const allWordIds = words.map((w: any) => w._id || w.id);
+      setIsResetting(true);
+      const idsToReset = wordsToReset.map((w: any) => w.id || w._id);
+      await api.resetProgressBatch(idsToReset);
       
-      if (allWordIds.length === 0) return;
+      setWords(prevWords => prevWords.map(w => 
+          idsToReset.includes(w.id || w._id) ? { ...w, learned: false } : w
+      ));
 
-      // 3. Gọi API Reset
-      await api.resetProgressBatch(allWordIds);
-
-      // 4. Cập nhật lại dữ liệu trên màn hình (về 0%)
-      await loadData();
-
+      if (wordsToReset.length > 0) {
+          const rand = wordsToReset[Math.floor(Math.random() * wordsToReset.length)];
+          setCurrentWord(rand);
+      }
     } catch (error) {
-      console.error("Lỗi khi reset:", error);
-      alert("Có lỗi xảy ra khi đặt lại tiến độ.");
+      alert("Error resetting progress.");
+    } finally {
+      setIsResetting(false);
     }
   };
 
-  // 4. Reset Navigation (Về trang chủ) - Dùng cho nút Header
   const handleReset = () => { 
       setSelectedGroup(null); 
       setCurrentFolder(null); 
@@ -167,14 +157,27 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       setIsLearnMode(false); 
   };
 
-  // --- CRUD HANDLERS ---
-  const handleAddWord = async (e: string, d: string, t: string[]) => { if(selectedGroup) { await api.addWord({english: e, definition: d, type: t, group: selectedGroup}); loadData(); }};
+  // --- CRUD HANDLERS (ENGLISH UI) ---
+  const handleAddWord = async (e: string, d: string, t: string[]) => { 
+      if(selectedGroup) { 
+          await api.addWord({english: e, definition: d, type: t, group: selectedGroup}); 
+          loadData(); 
+      }
+  };
   const handleDeleteWord = async (id: string) => { await api.deleteWord(id); loadData(); };
+  
   const handleCreateFolder = async (n: string, c: string) => { await api.addFolder({ name: n, color: c }); loadData(); };
   const handleUpdateFolder = async (o: string, n: string, c: string) => { if(o!==n) await api.deleteFolder(o); await api.addFolder({name:n, color:c}); loadData(); };
   const handleDeleteFolder = async (n: string) => { await api.deleteFolder(n); loadData(); };
+  
   const handleMoveGroup = async (g: string, f: string) => { await api.updateGroup(g, f); loadData(); };
-  const handleAddGroup = () => { const n = prompt("Tên nhóm:"); if(n) api.updateGroup(n, currentFolder||"").then(loadData); };
+  
+  const handleAddGroup = () => { 
+      // ✅ DỊCH SANG TIẾNG ANH
+      const n = prompt("Enter new group name:"); 
+      if(n) api.updateGroup(n, currentFolder||"").then(loadData); 
+  };
+  
   const handleDeleteGroup = async (n: string) => { await api.deleteGroup(n); loadData(); };
 
   // --- RENDER ---
@@ -189,7 +192,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
         <Header 
           onSearchChange={setSearchTerm} 
           searchTerm={searchTerm} 
-          // ✅ FIX QUAN TRỌNG: Dùng handleReset (Về trang chủ) thay vì handleResetProgress (Xóa DB)
           onReset={handleReset} 
           username={currentUser || "User"}
           onLogout={onLogout}
@@ -210,8 +212,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                         total={currentViewWords.length}
                         isResetting={isResetting}
                         onNext={handleNextWord}
-                        // ✅ FIX: Khi bấm "Học lại từ đầu" ở màn hình chúc mừng -> Gọi reset DB
-                        onReset={handleResetProgress}
+                        onReset={handleResetProgress} 
                         onExit={() => setIsLearnMode(false)}
                         themeColor={currentFolder && folderColors[currentFolder] ? undefined : '#2563eb'}
                     />

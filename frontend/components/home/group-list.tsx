@@ -16,7 +16,6 @@ const COLORS = [
   { id: 'cyan', name: 'Cyan', bg: 'bg-cyan-600', style: { bg: "bg-cyan-950/20", border: "border-cyan-900/50", iconBox: "bg-cyan-900/50 text-cyan-300", title: "text-cyan-300", progressTrack: "bg-cyan-950", progressFill: "bg-cyan-600", button: "bg-cyan-700 hover:bg-cyan-600 text-white", resetBtn: "text-cyan-400 hover:bg-cyan-950/50", cardBorder: "border-cyan-800", cardBg: "bg-cyan-950/10", folderText: "text-cyan-400", cardHover: "hover:border-cyan-600" }}
 ];
 
-// ✅ ĐÂY LÀ CHỖ SỬA LỖI GẠCH ĐỎ: Thêm onUpdate và words vào
 interface GroupListProps {
   groups: any[]; 
   searchResults: any[];
@@ -44,7 +43,6 @@ interface GroupListProps {
   onStartLearn: () => void;
   onResetLearn: () => void;
 
-  // 👇 THÊM 2 DÒNG NÀY LÀ HẾT LỖI 👇
   onUpdate?: () => void; 
   words?: any[];
 }
@@ -56,7 +54,7 @@ export function GroupListView({
   folders, currentFolder, onSelectFolder, onMoveGroup, onCreateFolder, onUpdateFolder, onDeleteFolder,
   totalWords, learnedCount, onStartLearn, onResetLearn,
   folderColors, 
-  onUpdate // Có thể nhận để gọi khi xóa
+  onUpdate 
 }: GroupListProps) {
   
   const [groupToMove, setGroupToMove] = useState<string | null>(null);
@@ -116,7 +114,7 @@ export function GroupListView({
                 
                 <div className="flex items-center gap-3">
                     <h2 className={cn("text-2xl md:text-3xl font-bold transition-colors", currentTheme.title)}>
-                    {currentFolder ? currentFolder : "Kho từ vựng tổng hợp"}
+                    {currentFolder ? currentFolder : "Master Library"}
                     </h2>
                     
                     {currentFolder && (
@@ -128,13 +126,13 @@ export function GroupListView({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="bg-zinc-900 border border-zinc-800 text-white p-1 shadow-xl z-50">
                                 <DropdownMenuItem onClick={openEditModal} className="focus:bg-zinc-800 focus:text-white cursor-pointer py-2 px-3 rounded-md">
-                                    <Pencil className="w-4 h-4 mr-2 text-zinc-400" /> Chỉnh sửa
+                                    <Pencil className="w-4 h-4 mr-2 text-zinc-400" /> Edit Folder
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator className="bg-zinc-800"/>
                                 <DropdownMenuItem onClick={() => {
-                                    if(confirm(`Bạn có chắc muốn xóa thư mục "${currentFolder}"?`)) onDeleteFolder(currentFolder);
+                                    if(confirm(`Are you sure you want to delete folder "${currentFolder}"?`)) onDeleteFolder(currentFolder);
                                 }} className="focus:bg-red-950/30 text-red-500 focus:text-red-400 cursor-pointer py-2 px-3 rounded-md">
-                                    <Trash2 className="w-4 h-4 mr-2" /> Xóa thư mục
+                                    <Trash2 className="w-4 h-4 mr-2" /> Delete Folder
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
@@ -143,21 +141,21 @@ export function GroupListView({
               </div>
               <p className="text-zinc-400 mb-6 text-base max-w-xl">
                 {currentFolder 
-                    ? (totalWords > 0 ? `Thư mục này gồm ${displayGroups.length} nhóm. Tổng cộng ${totalWords} từ vựng.` : "Thư mục này đang trống.")
-                    : `Tổng hợp toàn bộ ${totalWords} từ vựng.`
+                    ? (totalWords > 0 ? `This folder contains ${displayGroups.length} groups. Total ${totalWords} words.` : "This folder is empty.")
+                    : `Your complete collection of ${totalWords} words.`
                 }
               </p>
               
               {totalWords > 0 && (
                 <div className="space-y-2 max-w-md">
                     <div className="flex justify-between text-sm font-semibold">
-                    <span className="text-zinc-500">Tiến độ ghi nhớ</span>
+                    <span className="text-zinc-500">Retention Rate</span>
                     <span className="text-white">{progressPercent}%</span>
                     </div>
                     <div className={cn("h-3 w-full rounded-full overflow-hidden border border-white/5", currentTheme.progressTrack)}>
                     <div className={cn("h-full transition-all duration-1000 ease-out rounded-full", currentTheme.progressFill)} style={{ width: `${progressPercent}%` }} />
                     </div>
-                    <p className="text-xs text-zinc-500 pt-1">Đã thuộc {learnedCount} / {totalWords} từ</p>
+                    <p className="text-xs text-zinc-500 pt-1">Learned {learnedCount} / {totalWords} words</p>
                 </div>
               )}
             </div>
@@ -165,20 +163,20 @@ export function GroupListView({
             {totalWords > 0 && (
                 <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto z-10">
                 <Button size="lg" onClick={onStartLearn} className={cn("w-full md:w-64 h-14 text-lg font-bold shadow-lg transition-all hover:scale-105 rounded-2xl border-none", currentTheme.button)}>
-                    <PlayCircle className="w-6 h-6 mr-2 fill-current" /> {learnedCount > 0 && learnedCount < totalWords ? "Tiếp tục học" : "Bắt đầu học"}
+                    <PlayCircle className="w-6 h-6 mr-2 fill-current" /> {learnedCount > 0 && learnedCount < totalWords ? "Continue Learning" : "Start Learning"}
                 </Button>
                 {learnedCount > 0 && (
                     <Button 
                         variant="ghost" 
                         size="sm" 
                         onClick={() => { 
-                            if(confirm("Bạn có chắc muốn xóa toàn bộ tiến độ của nhóm này không?")) {
-                                onResetLearn(); // ✅ Gọi hàm này -> MainApp sẽ chạy handleStartLearn (hoặc hàm reset riêng)
+                            if(confirm("Are you sure you want to reset all progress for this section?")) {
+                                onResetLearn(); 
                             }
                         }} 
                         className={cn("w-full transition-colors", currentTheme.resetBtn)}
                     >
-                    <RotateCcw className="w-4 h-4 mr-2" /> Đặt lại tiến độ
+                    <RotateCcw className="w-4 h-4 mr-2" /> Reset Progress
                     </Button>
                 )}
                 </div>
@@ -190,7 +188,7 @@ export function GroupListView({
         {searchTerm && (
              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
              <h2 className="text-xl font-bold flex items-center gap-2 pb-4 border-b border-zinc-800 text-white">
-               🔍 Kết quả tìm kiếm ({searchResults.length})
+               🔍 Search Results ({searchResults.length})
              </h2>
              <div className="grid gap-3">
                {searchResults.map((word: any) => (
@@ -221,9 +219,9 @@ export function GroupListView({
                             {currentFolder ? <FolderOpen className="w-5 h-5" /> : <Folder className="w-5 h-5" />}
                         </div>
                         <div className="text-left">
-                            <p className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Thư mục</p>
+                            <p className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Folders</p>
                             <div className="flex items-center gap-2">
-                                <span className={cn("text-base font-bold max-w-[150px] truncate", currentFolder ? "text-white" : "text-white")}>{currentFolder || "Tất cả nhóm"}</span>
+                                <span className={cn("text-base font-bold max-w-[150px] truncate", currentFolder ? "text-white" : "text-white")}>{currentFolder || "All Groups"}</span>
                                 <ChevronDown className="w-4 h-4 text-zinc-500" />
                             </div>
                         </div>
@@ -231,7 +229,7 @@ export function GroupListView({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-64 p-2 bg-neutral-900 border border-zinc-800 text-zinc-300 shadow-2xl z-50">
                     <DropdownMenuItem onClick={() => onSelectFolder(null)} className="cursor-pointer py-2.5 px-3 rounded-lg focus:bg-zinc-800 focus:text-white">
-                      <Folder className="w-4 h-4 mr-3 text-zinc-500" /> <span className="font-medium">Tất cả nhóm</span> {!currentFolder && <Check className="w-4 h-4 ml-auto text-white"/>}
+                      <Folder className="w-4 h-4 mr-3 text-zinc-500" /> <span className="font-medium">All Groups</span> {!currentFolder && <Check className="w-4 h-4 ml-auto text-white"/>}
                     </DropdownMenuItem>
                     <div className="h-px bg-zinc-800 my-1" />
                     {folders.map(f => (
@@ -242,7 +240,7 @@ export function GroupListView({
                     ))}
                     <div className="h-px bg-zinc-800 my-1" />
                     <DropdownMenuItem onClick={openCreateModal} className="cursor-pointer py-2.5 px-3 rounded-lg text-white focus:bg-zinc-800 font-bold">
-                      <Plus className="w-4 h-4 mr-3" /> <span className="font-bold">Tạo thư mục mới</span>
+                      <Plus className="w-4 h-4 mr-3" /> <span className="font-bold">New Folder</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -254,7 +252,7 @@ export function GroupListView({
                   <Button variant="ghost" size="sm" className="h-8 px-3 rounded text-zinc-400 hover:text-white hover:bg-zinc-800" onClick={() => onSort('size')}>Size</Button>
                   <Button variant="ghost" size="sm" className="h-8 px-3 rounded text-zinc-400 hover:text-white hover:bg-zinc-800" onClick={() => onSort('name')}>Name</Button>
                 </div>
-                <Button onClick={onAddGroup} className="shrink-0 h-10 px-4 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> Nhóm mới</Button>
+                <Button onClick={onAddGroup} className="shrink-0 h-10 px-4 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> New Group</Button>
               </div>
             </div>
 
@@ -287,14 +285,14 @@ export function GroupListView({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 bg-neutral-900 border border-zinc-800 text-zinc-300 shadow-2xl p-1 z-50">
-                                <DropdownMenuLabel className="text-xs text-zinc-500 uppercase tracking-widest pl-2 py-2">Thao tác</DropdownMenuLabel>
+                                <DropdownMenuLabel className="text-xs text-zinc-500 uppercase tracking-widest pl-2 py-2">Actions</DropdownMenuLabel>
                                 <DropdownMenuSeparator className="bg-zinc-800" />
                                 <DropdownMenuItem onSelect={() => setGroupToMove(g.name)} className="rounded-md focus:bg-zinc-800 focus:text-white py-2 px-2 cursor-pointer text-zinc-300">
-                                    <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Di chuyển sang...</span>
+                                    <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Move to...</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator className="bg-zinc-800" />
                                 <DropdownMenuItem onSelect={() => { onDeleteGroup(g.name); if(onUpdate) onUpdate(); }} className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer">
-                                    <Trash2 className="w-4 h-4 mr-2" /> Xóa nhóm này
+                                    <Trash2 className="w-4 h-4 mr-2" /> Delete Group
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                             </DropdownMenu>
@@ -303,7 +301,7 @@ export function GroupListView({
                     <h3 className={cn("text-lg font-bold w-full transition-colors line-clamp-2", cardFolder && cardTheme ? "text-white" : "text-white group-hover:text-zinc-300")} title={g.name}>{g.name}</h3>
                   </div>
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
-                      <span className={cn("text-xs font-semibold shrink-0", cardFolder && cardTheme ? cardTheme.folderText : "text-zinc-500")}>{g.count} từ</span>
+                      <span className={cn("text-xs font-semibold shrink-0", cardFolder && cardTheme ? cardTheme.folderText : "text-zinc-500")}>{g.count} words</span>
                       {!currentFolder && g.folder && (
                         <span className={cn("text-[10px] px-2 py-1 rounded border font-medium max-w-[60%] truncate flex items-center gap-1 ml-2", cardFolder && cardTheme ? `bg-black/20 border-white/10 ${cardTheme.folderText}` : "bg-zinc-950 border-zinc-800 text-zinc-400")}>
                           <Folder className="w-3 h-3 shrink-0"/> <span className="truncate">{g.folder}</span>
@@ -315,7 +313,7 @@ export function GroupListView({
               
               <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700" onClick={onAddGroup}>
                  <Plus className="w-8 h-8 mb-2 opacity-50" />
-                 <span className="font-bold text-sm">Thêm nhóm</span>
+                 <span className="font-bold text-sm">Add Group</span>
               </div>
             </div>
           </>
@@ -326,14 +324,14 @@ export function GroupListView({
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setGroupToMove(null)}>
                 <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-between items-center p-4 border-b border-zinc-800 bg-zinc-900">
-                        <h3 className="font-bold text-white text-lg">Di chuyển "{groupToMove}"</h3>
+                        <h3 className="font-bold text-white text-lg">Move "{groupToMove}"</h3>
                         <Button variant="ghost" size="icon" onClick={() => setGroupToMove(null)} className="text-zinc-500 hover:text-white"><X className="w-5 h-5"/></Button>
                     </div>
                     <div className="p-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                        <p className="text-xs text-zinc-500 font-bold uppercase px-3 py-2 tracking-wider">Chọn nơi đến</p>
+                        <p className="text-xs text-zinc-500 font-bold uppercase px-3 py-2 tracking-wider">Select Destination</p>
                         <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800 transition-colors text-left group" onClick={() => { onMoveGroup(groupToMove, ""); setGroupToMove(null); }}>
                             <div className="p-2 bg-zinc-800 rounded-lg text-zinc-400 group-hover:text-white group-hover:bg-zinc-700 transition-colors"><Folder className="w-5 h-5"/></div>
-                            <span className="font-medium text-zinc-300 group-hover:text-white">Ngoài cùng (Không có thư mục)</span>
+                            <span className="font-medium text-zinc-300 group-hover:text-white">Unsorted (No Folder)</span>
                         </button>
                         <div className="h-px bg-zinc-800 my-2 mx-3"></div>
                         <div className="space-y-1">
@@ -356,14 +354,14 @@ export function GroupListView({
         {isModalOpen && (
             <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsModalOpen(false)}>
                 <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-                    <h3 className="text-xl font-bold text-white mb-4">{modalMode === 'create' ? "Tạo thư mục mới" : "Chỉnh sửa thư mục"}</h3>
+                    <h3 className="text-xl font-bold text-white mb-4">{modalMode === 'create' ? "Create New Folder" : "Edit Folder"}</h3>
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Tên thư mục</label>
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Folder Name</label>
                             <input 
                                 autoFocus
                                 type="text" 
-                                placeholder="Ví dụ: Luyện thi TOEIC" 
+                                placeholder="e.g. TOEIC Preparation" 
                                 className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-600 transition-colors"
                                 value={folderNameInput}
                                 onChange={(e) => setFolderNameInput(e.target.value)}
@@ -371,7 +369,7 @@ export function GroupListView({
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Chọn màu sắc</label>
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Select Color</label>
                             <div className="flex flex-wrap gap-3">
                                 {COLORS.map((color) => (
                                     <button
@@ -388,9 +386,9 @@ export function GroupListView({
                             </div>
                         </div>
                         <div className="pt-4 flex gap-3">
-                            <Button className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white h-12 rounded-xl" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+                            <Button className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white h-12 rounded-xl" onClick={() => setIsModalOpen(false)}>Cancel</Button>
                             <Button className="flex-1 bg-white hover:bg-zinc-200 text-black h-12 rounded-xl font-bold" onClick={handleModalSubmit}>
-                                {modalMode === 'create' ? (groupToMove ? "Tạo & Di chuyển" : "Tạo mới") : "Lưu thay đổi"}
+                                {modalMode === 'create' ? (groupToMove ? "Create & Move" : "Create") : "Save Changes"}
                             </Button>
                         </div>
                     </div>

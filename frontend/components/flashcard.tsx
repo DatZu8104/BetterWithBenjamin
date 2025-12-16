@@ -13,16 +13,48 @@ interface FlashcardProps {
 export function Flashcard({ word, className, color }: FlashcardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
 
-  // Reset trạng thái lật khi đổi từ
-  useEffect(() => {
-    setIsFlipped(false);
-  }, [word]);
+  // --- 1. HÀM ĐỌC (Đã tối ưu tốc độ) ---
+  const speakText = (text: string) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
-  const handleSpeak = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const utterance = new SpeechSynthesisUtterance(word.english);
+    // ⛔ QUAN TRỌNG: Hủy ngay lập tức các câu đang đọc dở (nếu có)
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
+    utterance.rate = 1.0; // Tốc độ chuẩn
+    utterance.pitch = 1.0;
+
+    // Chọn giọng đọc tốt nhất
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => 
+        v.lang === 'en-US' && (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Premium'))
+    );
+    if (preferredVoice) utterance.voice = preferredVoice;
+
     window.speechSynthesis.speak(utterance);
+  };
+
+  // --- 2. TỰ ĐỘNG ĐỌC NGAY KHI ĐỔI THẺ (Zero Delay) ---
+  useEffect(() => {
+    // Reset mặt thẻ
+    setIsFlipped(false);
+    
+    // Đọc NGAY LẬP TỨC, không chờ đợi (Bỏ setTimeout)
+    if (word && word.english) {
+        speakText(word.english);
+    }
+    
+    // Dọn dẹp khi component bị hủy (để chắc chắn không bị lỗi bộ nhớ)
+    return () => {
+        window.speechSynthesis.cancel();
+    };
+  }, [word]); // Chạy lại ngay khi biến 'word' thay đổi
+
+  // --- 3. XỬ LÝ KHI BẤM NÚT LOA ---
+  const handleSpeakClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    speakText(word.english);
   };
 
   return (
@@ -35,30 +67,29 @@ export function Flashcard({ word, className, color }: FlashcardProps) {
           "relative w-full h-full transition-all duration-500 ease-in-out",
           isFlipped ? "rotate-y-180" : ""
         )}
-        style={{ transformStyle: 'preserve-3d' }} // ✅ Quan trọng: Giữ không gian 3D
+        style={{ transformStyle: 'preserve-3d' }} 
       >
         
         {/* --- MẶT TRƯỚC (TIẾNG ANH) --- */}
         <div 
             className="absolute inset-0 w-full h-full rounded-3xl border-2 shadow-2xl flex flex-col items-center justify-center p-6 text-center bg-zinc-900 border-zinc-800"
-            style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }} // ✅ Quan trọng: Ẩn mặt sau khi lật
+            style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
         >
            <div className="flex flex-col items-center gap-4 w-full">
-              {/* Từ vựng */}
               <h2 className="text-4xl sm:text-5xl font-bold text-white break-words w-full px-2 leading-tight">
                 {word.english}
               </h2>
               
-              {/* Loa & Loại từ */}
               <div className="flex items-center gap-3 mt-2">
                   <button 
-                    onClick={handleSpeak}
-                    className="p-3 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors active:scale-95 shadow-lg border border-zinc-700"
+                    onClick={handleSpeakClick}
+                    className="p-3 sm:p-4 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors active:scale-95 shadow-lg border border-zinc-700 touch-manipulation"
+                    title="Nghe lại"
                   >
-                    <Volume2 className="w-5 h-5" />
+                    <Volume2 className="w-6 h-6 sm:w-7 sm:h-7" />
                   </button>
 
-                  {word.type && word.type.length > 0 && (
+                  {word.type && (
                      <div className="flex gap-2">
                         {(Array.isArray(word.type) ? word.type : [word.type]).map((t: string, i: number) => (
                             <span key={i} className="px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs font-bold uppercase tracking-wider shadow-lg shadow-blue-900/40 border border-blue-500/50">
@@ -81,7 +112,7 @@ export function Flashcard({ word, className, color }: FlashcardProps) {
                 transform: 'rotateY(180deg)', 
                 backfaceVisibility: 'hidden', 
                 WebkitBackfaceVisibility: 'hidden' 
-            }} // ✅ Quan trọng: Xoay sẵn 180 độ
+            }}
         >
            <div className="w-full overflow-y-auto max-h-full custom-scrollbar">
              <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">Định nghĩa</p>

@@ -69,11 +69,28 @@ router.post('/groups', verifyToken, async (req, res) => {
     );
     res.json({ success: true });
 });
-router.delete('/groups', verifyToken, async (req, res) => {
-    await GroupSetting.findOneAndDelete({ userId: req.userId, groupName: req.body.groupName });
-    res.json({ success: true });
-});
+// ✅ API XÓA NHÓM MỚI (Khớp với Frontend)
+router.delete('/groups/:groupName', verifyToken, async (req, res) => {
+    try {
+        const groupName = req.params.groupName; // Lấy tên nhóm từ URL
+        const userId = req.userId;
 
+        // 1. Xóa cài đặt nhóm (nếu có)
+        await GroupSetting.findOneAndDelete({ userId: userId, groupName: groupName });
+
+        // 2. Xóa tất cả từ vựng trong nhóm này
+        // QUAN TRỌNG: Dùng 'Vocabulary' thay vì 'Word' để khớp với khai báo ở đầu file của bạn
+        const result = await Vocabulary.deleteMany({ userId: userId, group: groupName });
+
+        res.json({ 
+            success: true, 
+            message: `Đã xóa nhóm '${groupName}' và ${result.deletedCount} từ vựng.` 
+        });
+    } catch (e) { 
+        console.error("Lỗi xóa nhóm:", e);
+        res.status(500).json({ error: "Lỗi Server" }); 
+    }
+});
 // Import Data
 router.post('/import', verifyToken, async (req, res) => {
     try {

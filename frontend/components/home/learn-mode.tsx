@@ -254,7 +254,7 @@ export function LearnModeView({
                     className="w-full h-16 rounded-2xl text-xl font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90"
                     style={{ backgroundColor: themeColor || '#2563eb', color: 'white' }}
                 >
-                    Tiếp theo <span className="ml-2 text-white/50 text-sm font-normal">(Enter)</span> <ChevronRight className="ml-1 w-6 h-6"/>
+                    Next word <span className="ml-2 text-white/50 text-sm font-normal">(Enter)</span> <ChevronRight className="ml-1 w-6 h-6"/>
                 </Button>
             </div>
         )}

@@ -1,61 +1,83 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-// --- 1. BIẾN LƯU TOKEN TRÊN RAM (Sẽ mất khi F5) ---
-let memoryToken = '';
+// --- SỬA ĐỔI QUAN TRỌNG: Dùng sessionStorage ---
 
-// --- 2. HÀM SET TOKEN (Dùng khi đăng nhập thành công) ---
 export const setApiToken = (token: string) => {
-  memoryToken = token;
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem('auth_token', token);
+  }
 };
 
-// --- 3. HÀM LẤY HEADERS (Dùng biến RAM thay vì localStorage) ---
+export const clearApiToken = () => {
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem('auth_token');
+  }
+};
+
+// Hàm lấy token từ Storage mỗi khi gọi API
 const getHeaders = () => {
+  let token = '';
+  if (typeof window !== 'undefined') {
+    token = sessionStorage.getItem('auth_token') || '';
+  }
   return {
     'Content-Type': 'application/json',
-    'Authorization': memoryToken || '' 
+    'Authorization': token
   };
 };
 
 export const api = {
-  // --- ADMIN API ---
-  getUsers: async () => {
-    const res = await fetch(`${API_URL}/admin/users`, { headers: getHeaders() });
-    if (!res.ok) throw new Error("Không có quyền Admin");
+  // --- AUTH ---
+  register: async (username: string, password: string) => {
+    const res = await fetch(`${API_URL}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
     return res.json();
   },
 
-  deleteUser: async (userId: string) => {
-    await fetch(`${API_URL}/admin/users/${userId}`, {
-      method: 'DELETE',
-      headers: getHeaders()
+  login: async (username: string, password: string) => {
+    const res = await fetch(`${API_URL}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
     });
-  },
-
-  getUserWords: async (userId: string) => {
-    const res = await fetch(`${API_URL}/admin/users/${userId}/words`, { headers: getHeaders() });
     return res.json();
   },
 
-  adminDeleteWord: async (wordId: string) => {
-    await fetch(`${API_URL}/admin/words/${wordId}`, {
-      method: 'DELETE',
-      headers: getHeaders()
+  changePassword: async (oldPass: string, newPass: string) => {
+    const res = await fetch(`${API_URL}/change-password`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ oldPassword: oldPass, newPassword: newPass })
     });
+    return res.json();
   },
 
   // --- DATA SYNC ---
   syncData: async () => {
-    // Kiểm tra nếu chưa có token trong RAM thì không gọi API
-    if (!memoryToken) return null;
-    
+    // Kiểm tra token từ sessionStorage
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('auth_token') : null;
+    if (!token) return null;
+
     try {
         const res = await fetch(`${API_URL}/sync`, { headers: getHeaders() });
         if (!res.ok) return null;
         return await res.json();
     } catch (error) {
-        console.error("API Error:", error);
         return null;
     }
+  },
+
+  importData: async (jsonData: any) => {
+    const res = await fetch(`${API_URL}/import`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(jsonData)
+    });
+    if (!res.ok) throw new Error("Import failed");
+    return res.json();
   },
 
   // --- WORDS ---
@@ -65,84 +87,78 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
+    if (!res.ok) throw new Error("Failed to save word");
     return res.json();
   },
 
   deleteWord: async (id: string) => {
-    await fetch(`${API_URL}/words/${id}`, {
-      method: 'DELETE',
-      headers: getHeaders()
-    });
+    await fetch(`${API_URL}/words/${id}`, { method: 'DELETE', headers: getHeaders() });
   },
 
   updateWord: async (id: string, data: any) => {
-    const res = await fetch(`${API_URL}/words/${id}`, {
-      method: 'PATCH',
-      headers: getHeaders(),
-      body: JSON.stringify(data)
-    });
+    const res = await fetch(`${API_URL}/words/${id}`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify(data) });
     return res.json();
   },
 
-  // --- BATCH ACTION ---
   resetProgressBatch: async (ids: string[]) => {
-    const res = await fetch(`${API_URL}/words/reset-batch`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ ids })
-    });
+    const res = await fetch(`${API_URL}/words/reset-batch`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ ids }) });
     return res.json();
   },
-
-  // --- FOLDERS ---
+  adminImportUser: async (userId: string, jsonData: any) => {
+      const res = await fetch(`${API_URL}/admin/users/${userId}/import`, {
+        method: 'POST',
+        headers: getHeaders(), // Hàm getHeaders() phải lấy token từ sessionStorage như bài trước
+        body: JSON.stringify(jsonData)
+      });
+      if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Lỗi nhập dữ liệu");
+      }
+      return res.json();
+    },
+  // --- FOLDERS & GROUPS ---
   addFolder: async (data: any) => {
-    await fetch(`${API_URL}/folders`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(data)
-    });
+    await fetch(`${API_URL}/folders`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
   },
-
   deleteFolder: async (name: string) => {
-    await fetch(`${API_URL}/folders/${name}`, {
-      method: 'DELETE',
-      headers: getHeaders()
-    });
+    await fetch(`${API_URL}/folders/${name}`, { method: 'DELETE', headers: getHeaders() });
   },
-
-  // --- GROUPS ---
   updateGroup: async (groupName: string, folder: string) => {
-    await fetch(`${API_URL}/groups`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ groupName, folder })
+    await fetch(`${API_URL}/groups`, { 
+      method: 'POST', 
+      headers: getHeaders(), 
+      body: JSON.stringify({ groupName, folder }) 
     });
   },
+  // Trong frontend/lib/api.ts
 
   deleteGroup: async (groupName: string) => {
-    await fetch(`${API_URL}/groups`, {
-      method: 'DELETE',
-      headers: getHeaders(),
-      body: JSON.stringify({ groupName })
+    const res = await fetch(`${API_URL}/groups/${encodeURIComponent(groupName)}`, { 
+      method: 'DELETE', 
+      headers: getHeaders()
     });
+    
+    // ✅ THÊM ĐOẠN NÀY ĐỂ BẮT LỖI
+    if (!res.ok) {
+        console.error("Lỗi xóa nhóm:", res.status, res.statusText);
+        throw new Error("Không thể xóa nhóm (Lỗi Server hoặc sai đường dẫn)");
+    }
   },
 
-  // --- IMPORT / EXPORT / USER ---
-  importData: async (jsonData: any) => {
-    const res = await fetch(`${API_URL}/import`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(jsonData)
-    });
+  // --- ADMIN ---
+  getUsers: async () => {
+    const res = await fetch(`${API_URL}/admin/users`, { headers: getHeaders() });
+    if (!res.ok) throw new Error("Unauthorized");
     return res.json();
   },
-    
-  changePassword: async (oldPass: string, newPass: string) => {
-    const res = await fetch(`${API_URL}/change-password`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ oldPassword: oldPass, newPassword: newPass })
-    });
+  deleteUser: async (userId: string) => {
+    await fetch(`${API_URL}/admin/users/${userId}`, { method: 'DELETE', headers: getHeaders() });
+  },
+  getUserWords: async (userId: string) => {
+    const res = await fetch(`${API_URL}/admin/users/${userId}/words`, { headers: getHeaders() });
     return res.json();
-  }
+  },
+  adminDeleteWord: async (wordId: string) => {
+    await fetch(`${API_URL}/admin/words/${wordId}`, { method: 'DELETE', headers: getHeaders() });
+  },
 };
