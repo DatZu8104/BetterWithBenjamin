@@ -291,66 +291,69 @@ app.patch('/api/words/:id', verifyToken, async (req, res) => {
     }
 });
 
+// ... (code cũ)
 
-// --- API IMPORT DATA (NHẬP DỮ LIỆU) ---
+// --- API IMPORT DATA (CẤU TRÚC MỚI) ---
 app.post('/api/import', verifyToken, async (req, res) => {
     try {
-        const { words, folders, groupSettings } = req.body;
+        // Lấy dữ liệu theo cấu trúc file JSON của bạn
+        const { words, learned, groups } = req.body; 
         const userId = req.userId;
 
-        // 1. Nhập từ vựng (Nếu từ đã có thì bỏ qua, chưa có thì thêm mới)
-        if (words && Array.isArray(words)) {
-            const operations = words.map(word => ({
+        if (!words || !Array.isArray(words)) {
+            return res.status(400).json({ error: "File không hợp lệ: Thiếu danh sách words" });
+        }
+
+        // 1. Tạo bộ lọc ID các từ đã học (để tra cứu cho nhanh)
+        // File JSON của bạn để ID đã học trong mảng "learned": ["id1", "id2"...]
+        const learnedSet = new Set(learned || []);
+
+        // 2. Chuẩn bị dữ liệu để ghi vào MongoDB
+        const operations = words.map(word => {
+            // Kiểm tra: Từ này có nằm trong danh sách đã học không?
+            // Hoặc bản thân từ đó có trường learned=true không?
+            const isLearned = learnedSet.has(word.id) || word.learned === true;
+
+            return {
                 updateOne: {
+                    // Tìm từ theo Tiếng Anh + User (để tránh trùng lặp)
                     filter: { userId: userId, english: word.english },
+                    
                     update: { 
+                        $set: {
+                            definition: word.definition,
+                            type: Array.isArray(word.type) ? word.type : [word.type], // Đảm bảo type luôn là mảng
+                            group: word.group || "Chưa phân loại",
+                            learned: isLearned, // ✅ Cập nhật trạng thái học đúng
+                            updatedAt: new Date()
+                        },
                         $setOnInsert: { 
                             userId: userId,
-                            english: word.english,
-                            definition: word.definition,
-                            type: word.type,
-                            example: word.example,
-                            group: word.group,
-                            learned: word.learned || false,
                             createdAt: new Date()
                         }
                     },
-                    upsert: true // Nếu chưa có thì tạo mới
+                    upsert: true // Nếu chưa có thì tạo mới, có rồi thì cập nhật
                 }
-            }));
-            if (operations.length > 0) {
-                await Vocabulary.bulkWrite(operations);
-            }
+            };
+        });
+
+        // 3. Thực thi ghi vào Database
+        if (operations.length > 0) {
+            await Vocabulary.bulkWrite(operations);
         }
 
-        // 2. Nhập thư mục (Folders)
-        if (folders && Array.isArray(folders)) {
-            for (const f of folders) {
-                // Chỉ tạo nếu chưa tồn tại
-                const exists = await Folder.findOne({ userId, name: f.name });
-                if (!exists) {
-                    await Folder.create({ userId, name: f.name, color: f.color });
-                }
-            }
-        }
+        // 4. (Tùy chọn) Xử lý Groups nếu cần thiết
+        // Vì ứng dụng tự động nhóm theo tên group của từ, nên bước này không bắt buộc 
+        // trừ khi bạn muốn lưu màu sắc folder.
 
-        // 3. Nhập cài đặt nhóm (Group Settings)
-        if (groupSettings && Array.isArray(groupSettings)) {
-            for (const g of groupSettings) {
-                await GroupSetting.findOneAndUpdate(
-                    { userId, groupName: g.groupName },
-                    { userId, groupName: g.groupName, folder: g.folder },
-                    { upsert: true }
-                );
-            }
-        }
+        res.json({ success: true, message: `Đã nhập thành công ${operations.length} từ!` });
 
-        res.json({ success: true, message: "Nhập dữ liệu thành công!" });
     } catch (error) {
         console.error("Import error:", error);
-        res.status(500).json({ error: "Lỗi khi nhập dữ liệu" });
+        res.status(500).json({ error: "Lỗi Server khi nhập dữ liệu" });
     }
 });
+
 
 // CHẠY SERVER
 const PORT = process.env.PORT || 5000;
