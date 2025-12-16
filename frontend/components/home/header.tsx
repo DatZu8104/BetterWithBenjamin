@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
-import { Upload, Download, LogOut, ChevronDown, Search, BookOpen, ShieldCheck, Loader2 } from 'lucide-react';
+import { Upload, Download, LogOut, ChevronDown, Search, BookOpen, ShieldCheck, Loader2, KeyRound, X } from 'lucide-react';
 
 interface HeaderProps {
   onSearchChange: (term: string) => void;
@@ -26,9 +26,37 @@ export function Header({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   
+  // --- STATE CHO ĐỔI MẬT KHẨU ---
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [oldPass, setOldPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [passError, setPassError] = useState('');
+  
   const percentage = totalWords > 0 ? Math.round((learnedCount / totalWords) * 100) : 0;
 
-  // --- XỬ LÝ EXPORT (XUẤT FILE CHUẨN CẤU TRÚC CỦA BẠN) ---
+  // --- XỬ LÝ ĐỔI MẬT KHẨU ---
+  const handleChangePassword = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setPassError('');
+      setIsProcessing(true);
+
+      try {
+          const res = await api.changePassword(oldPass, newPass);
+          
+          if (res.error) {
+              setPassError(res.error);
+          } else {
+              alert("✅ Đổi mật khẩu thành công! Vui lòng đăng nhập lại.");
+              onLogout(); // Đăng xuất để user đăng nhập lại với pass mới
+          }
+      } catch (err) {
+          setPassError("Lỗi kết nối Server");
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
+  // --- XỬ LÝ EXPORT ---
   const handleExportClick = async () => {
     try {
         setIsProcessing(true);
@@ -36,15 +64,9 @@ export function Header({
         if (!data) return alert("Không lấy được dữ liệu!");
 
         const allWords = data.words || [];
-
-        // ✅ TẠO CẤU TRÚC JSON GIỐNG HỆT FILE BẠN GỬI
         const exportData = {
             exportedAt: new Date().toISOString(),
-            
-            // Danh sách tên các nhóm
             groups: Array.from(new Set(allWords.map((w: any) => w.group))),
-            
-            // Danh sách từ vựng (bỏ trường learned đi để giống file mẫu)
             words: allWords.map((w: any) => ({
                 id: w.id || w._id,
                 english: w.english,
@@ -52,12 +74,9 @@ export function Header({
                 type: w.type,
                 group: w.group
             })),
-
-            // Mảng chứa ID các từ đã học
             learned: allWords.filter((w: any) => w.learned).map((w: any) => w.id || w._id)
         };
 
-        // Tải xuống
         const jsonString = JSON.stringify(exportData, null, 2);
         const blob = new Blob([jsonString], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -67,23 +86,19 @@ export function Header({
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
         setIsMenuOpen(false);
     } catch (error) {
         alert("Lỗi khi xuất dữ liệu");
-        console.error(error);
     } finally {
         setIsProcessing(false);
     }
   };
 
-  // --- XỬ LÝ IMPORT (GIỮ NGUYÊN) ---
+  // --- XỬ LÝ IMPORT ---
   const triggerImport = () => fileInputRef.current?.click();
-
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
-
       try {
           setIsProcessing(true);
           const reader = new FileReader();
@@ -91,15 +106,11 @@ export function Header({
               try {
                   const content = e.target?.result as string;
                   const jsonData = JSON.parse(content);
-                  
-                  // Gọi API import (Server đã sửa để hiểu cấu trúc này)
                   await api.importData(jsonData);
-                  
                   alert("Nhập dữ liệu thành công! Trang sẽ tải lại.");
                   window.location.reload();
               } catch (err) {
                   alert("File lỗi hoặc Server không phản hồi!");
-                  console.error(err);
               }
           };
           reader.readAsText(file);
@@ -113,7 +124,8 @@ export function Header({
   };
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-black sticky top-0 z-50 text-white shadow-sm">
+    <>
+    <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-black sticky top-0 z-40 text-white shadow-sm">
       <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
 
       <div className="flex items-center gap-2 shrink-0 cursor-pointer hover:opacity-80 transition-opacity group" onClick={onReset}>
@@ -170,11 +182,17 @@ export function Header({
                             <ShieldCheck className="w-4 h-4"/> Quản lý hệ thống
                         </button>
                     )}
+                    
+                    {/* ✅ NÚT ĐỔI MẬT KHẨU */}
+                    <button onClick={() => { setShowPassModal(true); setIsMenuOpen(false); }} className="w-full text-left px-3 py-2.5 text-sm hover:bg-zinc-800 rounded-lg flex gap-3 items-center transition-colors text-zinc-300">
+                        <KeyRound className="w-4 h-4 text-zinc-500"/> Đổi mật khẩu
+                    </button>
+
                     <button onClick={triggerImport} disabled={isProcessing} className="w-full text-left px-3 py-2.5 text-sm hover:bg-zinc-800 rounded-lg flex gap-3 items-center transition-colors text-zinc-300 disabled:opacity-50">
-                        <Upload className="w-4 h-4 text-zinc-500"/> {isProcessing ? "Đang xử lý..." : "Import dữ liệu"}
+                        <Upload className="w-4 h-4 text-zinc-500"/> Import dữ liệu
                     </button>
                     <button onClick={handleExportClick} disabled={isProcessing} className="w-full text-left px-3 py-2.5 text-sm hover:bg-zinc-800 rounded-lg flex gap-3 items-center transition-colors text-zinc-300 disabled:opacity-50">
-                        <Download className="w-4 h-4 text-zinc-500"/> {isProcessing ? "Đang tải xuống..." : "Export dữ liệu"}
+                        <Download className="w-4 h-4 text-zinc-500"/> Export dữ liệu
                     </button>
                 </div>
                 
@@ -188,8 +206,78 @@ export function Header({
             </div>
         )}
         
-        {isMenuOpen && <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsMenuOpen(false)}></div>}
+        {isMenuOpen && <div className="fixed inset-0 z-30 bg-transparent" onClick={() => setIsMenuOpen(false)}></div>}
       </div>
     </header>
+
+    {/* MODAL ĐỔI MẬT KHẨU */}
+    {showPassModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 relative">
+                <button 
+                    onClick={() => { setShowPassModal(false); setPassError(''); setOldPass(''); setNewPass(''); }}
+                    className="absolute top-4 right-4 text-zinc-500 hover:text-white"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+                
+                <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                    <KeyRound className="w-5 h-5 text-blue-500"/> Đổi mật khẩu
+                </h2>
+                <p className="text-sm text-zinc-400 mb-6">Nhập mật khẩu cũ để xác thực.</p>
+
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Mật khẩu cũ</label>
+                        <input 
+                            type="password" 
+                            required 
+                            className="w-full mt-1 px-4 py-2.5 rounded-xl bg-black border border-zinc-800 text-white focus:border-blue-500 focus:outline-none"
+                            placeholder="••••••••"
+                            value={oldPass}
+                            onChange={e => setOldPass(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Mật khẩu mới</label>
+                        <input 
+                            type="password" 
+                            required 
+                            className="w-full mt-1 px-4 py-2.5 rounded-xl bg-black border border-zinc-800 text-white focus:border-blue-500 focus:outline-none"
+                            placeholder="••••••••"
+                            value={newPass}
+                            onChange={e => setNewPass(e.target.value)}
+                        />
+                    </div>
+
+                    {passError && (
+                        <div className="text-red-400 text-sm bg-red-950/30 p-3 rounded-lg border border-red-900/50 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                            {passError}
+                        </div>
+                    )}
+
+                    <div className="pt-2 flex gap-3">
+                        <button 
+                            type="button"
+                            onClick={() => { setShowPassModal(false); setPassError(''); }}
+                            className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition-colors"
+                        >
+                            Hủy bỏ
+                        </button>
+                        <button 
+                            type="submit"
+                            disabled={isProcessing}
+                            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {isProcessing && <Loader2 className="w-4 h-4 animate-spin"/>}
+                            Xác nhận
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    )}
+    </>
   );
 }

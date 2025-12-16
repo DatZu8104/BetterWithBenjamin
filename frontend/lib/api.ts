@@ -109,6 +109,15 @@ export const api = {
       return res.json();
     },
     
+  changePassword: async (oldPass: string, newPass: string) => {
+    const res = await fetch(`${API_URL}/change-password`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ oldPassword: oldPass, newPassword: newPass })
+    });
+    return res.json();
+  },
+
   deleteGroup: async (groupName: string) => {
     await fetch(`${API_URL}/groups`, {
       method: 'DELETE',

@@ -293,6 +293,38 @@ app.patch('/api/words/:id', verifyToken, async (req, res) => {
 
 // ... (code cũ)
 
+// --- API ĐỔI MẬT KHẨU ---
+app.post('/api/change-password', verifyToken, async (req, res) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+        const userId = req.userId;
+
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({ error: "Vui lòng nhập đủ thông tin" });
+        }
+
+        // 1. Tìm user trong DB
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ error: "Tài khoản không tồn tại" });
+
+        // 2. Kiểm tra mật khẩu cũ
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ error: "Mật khẩu cũ không chính xác" });
+        }
+
+        // 3. Mã hóa mật khẩu mới và lưu lại
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        res.json({ success: true, message: "Đổi mật khẩu thành công!" });
+    } catch (error) {
+        console.error("Change pass error:", error);
+        res.status(500).json({ error: "Lỗi Server" });
+    }
+});
+
 // --- API IMPORT DATA (CẤU TRÚC MỚI) ---
 app.post('/api/import', verifyToken, async (req, res) => {
     try {
