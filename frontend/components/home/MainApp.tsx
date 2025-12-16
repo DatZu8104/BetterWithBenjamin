@@ -137,29 +137,26 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       }
   };
 
-  // 3. Reset Progress (Xóa DB & Học lại từ đầu)
+  // 3. Reset Progress 
   const handleResetProgress = async () => {
-      const idsToReset = currentViewWords.map(w => w.id);
-      if (idsToReset.length === 0) return;
-
-      setIsResetting(true); // Hiển thị loading nếu cần
+    // 1. Hỏi xác nhận trước khi xóa 
+    try {
+      // 2. Lấy danh sách ID của tất cả từ vựng
+      // (Lưu ý: kiểm tra kỹ xem từ vựng dùng _id hay id)
+      const allWordIds = words.map((w: any) => w._id || w.id);
       
-      // Update UI
-      setWords(prevWords => prevWords.map(w => idsToReset.includes(w.id) ? { ...w, learned: false } : w));
+      if (allWordIds.length === 0) return;
 
-      // Update DB
-      try {
-          await api.resetProgressBatch(idsToReset);
-          console.log("✅ Đã reset database siêu tốc");
-      } catch (error) {
-          console.error("❌ Lỗi reset:", error);
-      } finally {
-          setIsResetting(false);
-      }
+      // 3. Gọi API Reset
+      await api.resetProgressBatch(allWordIds);
 
-      // Start
-      setIsLearnMode(true); 
-      setTimeout(() => pickRandomWord(), 100);
+      // 4. Cập nhật lại dữ liệu trên màn hình (về 0%)
+      await loadData();
+
+    } catch (error) {
+      console.error("Lỗi khi reset:", error);
+      alert("Có lỗi xảy ra khi đặt lại tiến độ.");
+    }
   };
 
   // 4. Reset Navigation (Về trang chủ) - Dùng cho nút Header

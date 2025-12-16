@@ -3,8 +3,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
-const mongoSanitize = require('express-mongo-sanitize');
-
 // Import Routes & Middleware
 const { globalLimiter } = require('./middleware');
 const authRoutes = require('./routes/auth');
@@ -25,9 +23,6 @@ app.use(cors({
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.use(express.json({ limit: '10mb' }));
-
-
-app.use(mongoSanitize()); 
 
 app.use('/api', globalLimiter); 
 
