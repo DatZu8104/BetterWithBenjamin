@@ -37,13 +37,6 @@ export default function Home() {
     setToken(newToken);
     setCurrentUser(user);
     setRole(userRole);
-    
-    // ✅ THÊM: Nếu là Admin thì hỏi có muốn vào trang quản trị không
-    if (userRole === 'admin') {
-        if(confirm("Xin chào Admin! Bạn có muốn vào trang quản trị không?")) {
-            router.push('/admin'); // Chuyển sang trang /admin mới
-        }
-    }
   };
 
   const handleLogout = () => {
