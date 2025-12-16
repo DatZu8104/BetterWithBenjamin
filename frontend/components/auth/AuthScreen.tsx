@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { User, Lock, Loader2, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface AuthScreenProps {
-  // ✅ Cập nhật: Thêm tham số role
   onLoginSuccess: (token: string, user: string, role: string) => void;
 }
 
@@ -16,7 +15,6 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // ✅ Đã làm sạch dòng này theo ý bạn
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,11 +36,8 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
       if (!res.ok) throw new Error(data.error || 'Có lỗi xảy ra');
 
       if (isLogin) {
-        // ✅ Đăng nhập thành công -> Truyền thêm role ra ngoài
-        // Nếu server chưa trả về role thì mặc định là 'user' để không bị lỗi
         onLoginSuccess(data.token, data.username, data.role || 'user');
       } else {
-        // Đăng ký thành công
         setSuccess('Đăng ký thành công! Vui lòng đăng nhập.');
         setIsLogin(true);
         setPassword(''); 
@@ -55,113 +50,87 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-zinc-900 to-black p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-zinc-800">
+    // ✅ ĐỔI MÀU NỀN SANG MÀU ĐEN (bg-black)
+    <div className="min-h-screen w-full flex items-center justify-center bg-black p-4">
+      {/* KHUNG FORM MÀU TỐI (bg-zinc-900) */}
+      <div className="w-full max-w-md bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden border border-zinc-800">
         
         {/* Header */}
-        <div className="bg-black p-8 text-center border-b border-zinc-800">
+        <div className="bg-zinc-950 p-8 text-center border-b border-zinc-800">
           <h2 className="text-3xl font-bold text-white mb-2">
-            {isLogin ? 'Chào mừng trở lại' : 'Tạo tài khoản mới'}
+            {isLogin ? 'Flashcards App' : 'Tạo tài khoản'}
           </h2>
           <p className="text-zinc-400 text-sm">
-            {isLogin ? 'Đăng nhập để tiếp tục học từ vựng' : 'Bắt đầu hành trình học tập của bạn'}
+            {isLogin ? 'Đăng nhập để đồng bộ tiến độ học' : 'Tham gia cùng chúng tôi ngay hôm nay'}
           </p>
         </div>
 
         {/* Form Body */}
-        <div className="p-8 bg-white">
+        <div className="p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             
-            {/* Username Input */}
             <div className="space-y-2">
-              <label className="text-sm font-bold text-zinc-700 ml-1">Tên đăng nhập</label>
+              <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Tên đăng nhập</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
                 <input
                   type="text"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-zinc-50 text-zinc-900 placeholder:text-zinc-400 font-medium"
+                  // Input màu tối
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-800 bg-black text-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-all placeholder:text-zinc-600"
                   placeholder="Nhập username..."
                 />
               </div>
             </div>
 
-            {/* Password Input */}
             <div className="space-y-2">
-              <label className="text-sm font-bold text-zinc-700 ml-1">Mật khẩu</label>
+              <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Mật khẩu</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-zinc-50 text-zinc-900 placeholder:text-zinc-400 font-medium"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-800 bg-black text-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 outline-none transition-all placeholder:text-zinc-600"
                   placeholder="••••••••"
                 />
               </div>
             </div>
 
-            {/* Thông báo lỗi / thành công */}
             {error && (
-              <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg text-sm font-bold animate-in fade-in slide-in-from-top-1 border border-red-100">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
+              <div className="flex items-center gap-2 text-red-400 bg-red-950/30 p-3 rounded-lg text-sm font-medium border border-red-900/50">
+                <AlertCircle className="h-4 w-4 shrink-0" /> {error}
               </div>
             )}
             
             {success && (
-              <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg text-sm font-bold animate-in fade-in slide-in-from-top-1 border border-green-100">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                {success}
+              <div className="flex items-center gap-2 text-green-400 bg-green-950/30 p-3 rounded-lg text-sm font-medium border border-green-900/50">
+                <CheckCircle2 className="h-4 w-4 shrink-0" /> {success}
               </div>
             )}
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-900/20 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Đang xử lý...
-                </>
-              ) : (
-                <>
-                  {isLogin ? 'Đăng Nhập' : 'Đăng Ký Ngay'}
-                  <ArrowRight className="h-5 w-5" />
-                </>
-              )}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (isLogin ? 'Đăng Nhập' : 'Đăng Ký')} <ArrowRight className="h-5 w-5" />
             </button>
           </form>
 
-          {/* Footer Toggle */}
           <div className="mt-8 text-center">
-            <p className="text-sm text-zinc-500 font-medium">
-              {isLogin ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setError('');
-                  setSuccess('');
-                }}
-                className="ml-2 font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors focus:outline-none"
-              >
-                {isLogin ? 'Đăng ký miễn phí' : 'Đăng nhập ngay'}
-              </button>
-            </p>
+            <button
+              type="button"
+              onClick={() => { setIsLogin(!isLogin); setError(''); setSuccess(''); }}
+              className="text-sm text-zinc-500 hover:text-white transition-colors hover:underline"
+            >
+              {isLogin ? 'Chưa có tài khoản? Đăng ký ngay' : 'Đã có tài khoản? Đăng nhập'}
+            </button>
           </div>
         </div>
-      </div>
-      
-      {/* Footer bản quyền nhỏ */}
-      <div className="fixed bottom-4 text-xs text-zinc-500 font-mono">
-        © 2025 English Flashcard App
       </div>
     </div>
   );

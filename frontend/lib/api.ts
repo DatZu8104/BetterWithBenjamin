@@ -100,7 +100,15 @@ export const api = {
       body: JSON.stringify({ groupName, folder })
     });
   },
-
+  importData: async (jsonData: any) => {
+      const res = await fetch(`${API_URL}/import`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(jsonData)
+      });
+      return res.json();
+    },
+    
   deleteGroup: async (groupName: string) => {
     await fetch(`${API_URL}/groups`, {
       method: 'DELETE',

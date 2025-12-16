@@ -143,14 +143,17 @@ export function LearnModeView({
                 
                 {/* MODE 1: FLASHCARD - Dùng Flex Grow để thẻ tự giãn */}
                 {mode === 'flashcard' && (
-                    <div className="flex-1 flex flex-col justify-center min-h-0">
-                       <div className="w-full h-full flex flex-col">
-                           {/* Dùng min-h thay vì h cố định để giãn nếu chữ dài */}
-                           <Flashcard 
-                              word={currentWord} 
-                              className="text-white min-h-[300px] flex-1"
-                           />
-                       </div>
+                    <div className="flex-1 flex flex-col justify-center items-center min-h-0 w-full">
+                        <div className="w-full h-full flex flex-col justify-center px-2 sm:px-0">
+                            {/* ✅ Flashcard đã tự xử lý chiều rộng (w-full max-w-3xl) 
+                                ✅ min-h-0 giúp nó không bị đẩy chiều cao lên quá mức
+                            */}
+                            <Flashcard 
+                                word={currentWord} 
+                                className="text-white"
+                                color={themeColor} 
+                            />
+                        </div>
                     </div>
                 )}
 
