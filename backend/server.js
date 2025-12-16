@@ -22,14 +22,12 @@ app.use(cors({
     credentials: true
 }));
 
-// ✅ 1. Thêm dòng này để đọc dữ liệu Form (Bắt buộc)
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ✅ 2. Dòng này để đọc JSON
 app.use(express.json({ limit: '10mb' }));
 
-// ❌ 3. TẠM THỜI TẮT DÒNG NÀY (Thêm // ở đầu)
-// app.use(mongoSanitize()); 
+
+app.use(mongoSanitize()); 
 
 app.use('/api', globalLimiter); 
 
