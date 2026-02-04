@@ -60,7 +60,6 @@ export function GroupListView({
   totalWords, learnedCount, onStartLearn, onResetLearn,
   folderColors, 
   onUpdate,
-  // ✅ Mặc định là true
   allowAdd = true
 }: GroupListProps) {
   
@@ -250,7 +249,7 @@ export function GroupListView({
                       </DropdownMenuItem>
                     ))}
                     <div className="h-px bg-zinc-800 my-1" />
-                    {/* ✅ Ẩn nút New Folder nếu không có quyền */}
+                    {}
                     {allowAdd && (
                         <DropdownMenuItem onClick={openCreateModal} className="cursor-pointer py-2.5 px-3 rounded-lg text-white focus:bg-zinc-800 font-bold">
                         <Plus className="w-4 h-4 mr-3" /> <span className="font-bold">New Folder</span>
