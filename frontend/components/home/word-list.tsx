@@ -254,7 +254,7 @@ export function WordListView({
                             )}
                             {word.learned && <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">Learned</span>}
                           </div>
-                          <p className="text-sm text-zinc-400 truncate group-hover:text-zinc-300">{word.definition}</p>
+                          <p className="text-sm text-zinc-400 truncate group-hover:text-zinc-300">{word.definition || word.meaning_vi || word.meaning_en || word.definition}</p>
                         </div>
                         <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all transform sm:translate-x-2 group-hover:translate-x-0">
                           <button onClick={() => startEdit(word)} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-700 rounded-lg transition-colors" title="Edit"><Pencil className="w-4 h-4"/></button>

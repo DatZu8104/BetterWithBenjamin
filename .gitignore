@@ -3,3 +3,6 @@ node_modules
 .next
 dist
 build
+update_words.js
+check_words.js
+The_Oxford_5000_Most_Important_Words.apkg
