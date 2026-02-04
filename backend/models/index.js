@@ -15,6 +15,7 @@ const vocabSchema = new mongoose.Schema({
     definition: { type: String, required: true },
     type: [String],
     example: String,
+    ipa: { type: String },
     group: { type: String, default: 'Uncategorized' },
     learned: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }
