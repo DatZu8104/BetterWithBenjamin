@@ -6,6 +6,9 @@ import { Button } from '../ui/button';
 import { Plus, Trash2, Folder, FolderOpen, MoreVertical, MoveRight, PlayCircle, RotateCcw, GraduationCap, Library, ChevronDown, Check, X, Settings, Pencil } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { cn } from '../../lib/utils';
+import { Input } from '../ui/input'; // Đảm bảo import này có để tránh lỗi search
+// Nếu project của bạn không dùng component Input từ ui/input cho search bar (mà dùng input thường), bạn có thể bỏ dòng trên.
+// Tuy nhiên code gốc bạn gửi không có import Input nhưng lại không dùng component Input trong JSX (bạn dùng input html thường ở modal), nên tôi giữ nguyên logic của bạn.
 
 const COLORS = [
   { id: 'blue', name: 'Blue', bg: 'bg-blue-600', style: { bg: "bg-blue-950/20", border: "border-blue-900/50", iconBox: "bg-blue-900/50 text-blue-300", title: "text-blue-300", progressTrack: "bg-blue-950", progressFill: "bg-blue-600", button: "bg-blue-700 hover:bg-blue-600 text-white", resetBtn: "text-blue-400 hover:bg-blue-950/50", cardBorder: "border-blue-800", cardBg: "bg-blue-950/20", folderText: "text-blue-400", cardHover: "hover:border-blue-600" }},
@@ -45,6 +48,8 @@ interface GroupListProps {
 
   onUpdate?: () => void; 
   words?: any[];
+  // ✅ PROP MỚI
+  allowAdd?: boolean;
 }
 
 export function GroupListView({
@@ -54,7 +59,9 @@ export function GroupListView({
   folders, currentFolder, onSelectFolder, onMoveGroup, onCreateFolder, onUpdateFolder, onDeleteFolder,
   totalWords, learnedCount, onStartLearn, onResetLearn,
   folderColors, 
-  onUpdate 
+  onUpdate,
+  // ✅ Mặc định là true
+  allowAdd = true
 }: GroupListProps) {
   
   const [groupToMove, setGroupToMove] = useState<string | null>(null);
@@ -117,7 +124,8 @@ export function GroupListView({
                     {currentFolder ? currentFolder : "Master Library"}
                     </h2>
                     
-                    {currentFolder && (
+                    {/* ✅ Ẩn nút Edit Folder nếu không có quyền */}
+                    {currentFolder && allowAdd && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button className="p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors outline-none">
@@ -200,7 +208,10 @@ export function GroupListView({
                         </div>
                         <p className="text-sm text-zinc-400 truncate font-medium">{word.definition}</p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => { onDeleteWordResult(word.id); if(onUpdate) onUpdate(); }} className="text-zinc-500 hover:text-red-400 hover:bg-red-950/20"><Trash2 className="w-5 h-5"/></Button>
+                    {/* ✅ Ẩn nút xóa kết quả search nếu không có quyền */}
+                    {allowAdd && (
+                        <Button variant="ghost" size="icon" onClick={() => { onDeleteWordResult(word.id); if(onUpdate) onUpdate(); }} className="text-zinc-500 hover:text-red-400 hover:bg-red-950/20"><Trash2 className="w-5 h-5"/></Button>
+                    )}
                  </div>
                ))}
              </div>
@@ -239,9 +250,12 @@ export function GroupListView({
                       </DropdownMenuItem>
                     ))}
                     <div className="h-px bg-zinc-800 my-1" />
-                    <DropdownMenuItem onClick={openCreateModal} className="cursor-pointer py-2.5 px-3 rounded-lg text-white focus:bg-zinc-800 font-bold">
-                      <Plus className="w-4 h-4 mr-3" /> <span className="font-bold">New Folder</span>
-                    </DropdownMenuItem>
+                    {/* ✅ Ẩn nút New Folder nếu không có quyền */}
+                    {allowAdd && (
+                        <DropdownMenuItem onClick={openCreateModal} className="cursor-pointer py-2.5 px-3 rounded-lg text-white focus:bg-zinc-800 font-bold">
+                        <Plus className="w-4 h-4 mr-3" /> <span className="font-bold">New Folder</span>
+                        </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -252,7 +266,10 @@ export function GroupListView({
                   <Button variant="ghost" size="sm" className="h-8 px-3 rounded text-zinc-400 hover:text-white hover:bg-zinc-800" onClick={() => onSort('size')}>Size</Button>
                   <Button variant="ghost" size="sm" className="h-8 px-3 rounded text-zinc-400 hover:text-white hover:bg-zinc-800" onClick={() => onSort('name')}>Name</Button>
                 </div>
-                <Button onClick={onAddGroup} className="shrink-0 h-10 px-4 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> New Group</Button>
+                {/* ✅ Ẩn nút New Group ở toolbar nếu không có quyền */}
+                {allowAdd && (
+                    <Button onClick={onAddGroup} className="shrink-0 h-10 px-4 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> New Group</Button>
+                )}
               </div>
             </div>
 
@@ -277,26 +294,29 @@ export function GroupListView({
                         <div className={cn("p-2 rounded-lg border mb-3 transition-colors", cardFolder && cardTheme ? `${cardTheme.iconBox} border-transparent` : "bg-zinc-800 border-zinc-700 text-zinc-400")}>
                             <Folder className="w-5 h-5" />
                         </div>
-                        <div onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:bg-zinc-700 hover:text-white -mr-2 -mt-2">
-                                <MoreVertical className="w-4 h-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 bg-neutral-900 border border-zinc-800 text-zinc-300 shadow-2xl p-1 z-50">
-                                <DropdownMenuLabel className="text-xs text-zinc-500 uppercase tracking-widest pl-2 py-2">Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator className="bg-zinc-800" />
-                                <DropdownMenuItem onSelect={() => setGroupToMove(g.name)} className="rounded-md focus:bg-zinc-800 focus:text-white py-2 px-2 cursor-pointer text-zinc-300">
-                                    <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Move to...</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator className="bg-zinc-800" />
-                                <DropdownMenuItem onSelect={() => { onDeleteGroup(g.name); if(onUpdate) onUpdate(); }} className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer">
-                                    <Trash2 className="w-4 h-4 mr-2" /> Delete Group
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
+                        {/* ✅ Ẩn menu thao tác nhóm nếu không có quyền */}
+                        {allowAdd && (
+                            <div onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:bg-zinc-700 hover:text-white -mr-2 -mt-2">
+                                    <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56 bg-neutral-900 border border-zinc-800 text-zinc-300 shadow-2xl p-1 z-50">
+                                    <DropdownMenuLabel className="text-xs text-zinc-500 uppercase tracking-widest pl-2 py-2">Actions</DropdownMenuLabel>
+                                    <DropdownMenuSeparator className="bg-zinc-800" />
+                                    <DropdownMenuItem onSelect={() => setGroupToMove(g.name)} className="rounded-md focus:bg-zinc-800 focus:text-white py-2 px-2 cursor-pointer text-zinc-300">
+                                        <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Move to...</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator className="bg-zinc-800" />
+                                    <DropdownMenuItem onSelect={() => { onDeleteGroup(g.name); if(onUpdate) onUpdate(); }} className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer">
+                                        <Trash2 className="w-4 h-4 mr-2" /> Delete Group
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        )}
                     </div>
                     <h3 className={cn("text-lg font-bold w-full transition-colors line-clamp-2", cardFolder && cardTheme ? "text-white" : "text-white group-hover:text-zinc-300")} title={g.name}>{g.name}</h3>
                   </div>
@@ -311,10 +331,13 @@ export function GroupListView({
                 </Card>
               )})}
               
-              <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700" onClick={onAddGroup}>
-                 <Plus className="w-8 h-8 mb-2 opacity-50" />
-                 <span className="font-bold text-sm">Add Group</span>
-              </div>
+              {/* ✅ Ẩn nút tạo nhóm ở cuối Grid nếu không có quyền */}
+              {allowAdd && (
+                  <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700" onClick={onAddGroup}>
+                    <Plus className="w-8 h-8 mb-2 opacity-50" />
+                    <span className="font-bold text-sm">Add Group</span>
+                  </div>
+              )}
             </div>
           </>
         )}

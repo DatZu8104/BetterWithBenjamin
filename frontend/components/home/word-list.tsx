@@ -13,6 +13,7 @@ interface WordListViewProps {
   onEditWord?: (id: string, eng: string, def: string, type: string[]) => void;
   onDeleteWord: (id: string) => void;
   onLearn: () => void;
+  allowEdit?: boolean;
   onUpdate: () => void;
 }
 

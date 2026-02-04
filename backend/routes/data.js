@@ -1,66 +1,131 @@
 const express = require('express');
 const router = express.Router();
-const { Vocabulary, Folder, GroupSetting } = require('../models');
+const { Vocabulary, Folder, GroupSetting, User } = require('../models');
 const { verifyToken } = require('../middleware');
 
-// Sync Data (Lấy hết dữ liệu)
+// --- HELPER: Kiểm tra quyền Admin ---
+const checkAdmin = async (userId) => {
+    const user = await User.findById(userId);
+    return user && user.role === 'admin';
+};
+
+// 1. Sync Data (Lấy dữ liệu cho cả Personal và System)
 router.get('/sync', verifyToken, async (req, res) => {
     try {
-        const words = await Vocabulary.find({ userId: req.userId }).sort({ createdAt: -1 });
+        const words = await Vocabulary.find({
+            $or: [
+                { userId: req.userId }, // Từ cá nhân
+                { isGlobal: true }      // Từ hệ thống
+            ]
+        }).sort({ createdAt: -1 });
+
         const folders = await Folder.find({ userId: req.userId });
         const groupSettings = await GroupSetting.find({ userId: req.userId });
+        
         res.json({ words, folders, groupSettings });
     } catch (e) { res.status(500).json({ error: "Lỗi lấy dữ liệu" }); }
 });
 
-// Thêm từ
+// 2. Thêm từ
 router.post('/words', verifyToken, async (req, res) => {
     try {
-        const newWord = new Vocabulary({ ...req.body, userId: req.userId });
+        let { english, definition, type, group, example, isGlobal } = req.body;
+        
+        // Nếu user yêu cầu tạo từ Global, phải check quyền Admin
+        if (isGlobal) {
+            const isAdmin = await checkAdmin(req.userId);
+            if (!isAdmin) isGlobal = false; // User thường -> Ép về từ cá nhân
+        } else {
+            isGlobal = false;
+        }
+
+        const newWord = new Vocabulary({
+            userId: req.userId,
+            english, definition, type, group, example, isGlobal
+        });
         await newWord.save();
         res.json(newWord);
     } catch (e) { res.status(500).json(e); }
 });
 
-// Xóa từ
+// 3. Xóa từ (Bảo mật: User không được xóa từ Global)
 router.delete('/words/:id', verifyToken, async (req, res) => {
-    await Vocabulary.findOneAndDelete({ _id: req.params.id, userId: req.userId });
-    res.json({ success: true });
+    try {
+        const word = await Vocabulary.findById(req.params.id);
+        if (!word) return res.status(404).json({ error: "Không tìm thấy" });
+
+        const isAdmin = await checkAdmin(req.userId);
+
+        // Từ hệ thống: Chỉ Admin được xóa
+        if (word.isGlobal && !isAdmin) {
+            return res.status(403).json({ error: "Chỉ Admin mới được xóa từ hệ thống" });
+        }
+        // Từ cá nhân: Chỉ chủ sở hữu được xóa
+        if (!word.isGlobal && word.userId.toString() !== req.userId) {
+            return res.status(403).json({ error: "Không có quyền" });
+        }
+
+        await Vocabulary.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json(e); }
 });
 
-// Sửa từ
+// 4. Sửa từ (Logic tương tự Xóa)
 router.patch('/words/:id', verifyToken, async (req, res) => {
-    const updated = await Vocabulary.findOneAndUpdate(
-        { _id: req.params.id, userId: req.userId },
-        req.body, { new: true }
-    );
-    res.json(updated);
+    try {
+        const word = await Vocabulary.findById(req.params.id);
+        if (!word) return res.status(404).json({ error: "Không tìm thấy từ" });
+
+        const isAdmin = await checkAdmin(req.userId);
+
+        // Chặn sửa nếu không đủ quyền
+        if (word.isGlobal && !isAdmin) {
+            return res.status(403).json({ error: "Chỉ Admin được sửa từ hệ thống" });
+        }
+        if (!word.isGlobal && word.userId.toString() !== req.userId) {
+            return res.status(403).json({ error: "Không chính chủ" });
+        }
+
+        const updated = await Vocabulary.findByIdAndUpdate(
+            req.params.id,
+            req.body, 
+            { new: true }
+        );
+        res.json(updated);
+    } catch (e) { res.status(500).json(e); }
 });
 
-// Reset hàng loạt
+// 5. Reset hàng loạt
 router.post('/words/reset-batch', verifyToken, async (req, res) => {
     try {
         const { ids } = req.body;
         if (!ids || !Array.isArray(ids)) return res.status(400).json({ error: "Thiếu danh sách ID" });
+        
+        // Reset progress cho phép trên cả từ global (vì learned là trạng thái cá nhân? 
+        // ⚠️ Lưu ý: Nếu 'learned' lưu trực tiếp trên Word Global thì tất cả user sẽ thấy nó learned.
+        // Để giải quyết triệt để vấn đề "User học từ Global", cần bảng riêng "UserWordProgress".
+        // Tuy nhiên với kiến trúc hiện tại, ta tạm thời cho phép reset nếu là chủ sở hữu.
+        
         await Vocabulary.updateMany(
-            { _id: { $in: ids }, userId: req.userId },
+            { _id: { $in: ids }, userId: req.userId }, // Chỉ reset từ của mình
             { $set: { learned: false } }
         );
         res.json({ success: true });
     } catch (e) { res.status(500).json(e); }
 });
 
-// Folder APIs
+// --- Folder & Group APIs (Giữ nguyên logic nhưng thêm check quyền nếu cần) ---
+
 router.post('/folders', verifyToken, async (req, res) => {
     await Folder.create({ ...req.body, userId: req.userId });
     res.json({ success: true });
 });
+
 router.delete('/folders/:name', verifyToken, async (req, res) => {
     await Folder.findOneAndDelete({ name: req.params.name, userId: req.userId });
     res.json({ success: true });
 });
 
-// Group APIs
 router.post('/groups', verifyToken, async (req, res) => {
     await GroupSetting.findOneAndUpdate(
         { userId: req.userId, groupName: req.body.groupName },
@@ -69,28 +134,32 @@ router.post('/groups', verifyToken, async (req, res) => {
     );
     res.json({ success: true });
 });
-// ✅ API XÓA NHÓM MỚI (Khớp với Frontend)
+
 router.delete('/groups/:groupName', verifyToken, async (req, res) => {
     try {
-        const groupName = req.params.groupName; // Lấy tên nhóm từ URL
+        const groupName = req.params.groupName;
         const userId = req.userId;
 
-        // 1. Xóa cài đặt nhóm (nếu có)
+        // Xóa cài đặt nhóm
         await GroupSetting.findOneAndDelete({ userId: userId, groupName: groupName });
 
-        // 2. Xóa tất cả từ vựng trong nhóm này
-        // QUAN TRỌNG: Dùng 'Vocabulary' thay vì 'Word' để khớp với khai báo ở đầu file của bạn
-        const result = await Vocabulary.deleteMany({ userId: userId, group: groupName });
+        // Xóa từ vựng: Chỉ xóa từ của user, KHÔNG xóa từ Global trong nhóm đó (để an toàn)
+        const result = await Vocabulary.deleteMany({ 
+            userId: userId, 
+            group: groupName,
+            isGlobal: false // ✅ An toàn: Chỉ xóa từ cá nhân
+        });
 
         res.json({ 
             success: true, 
-            message: `Đã xóa nhóm '${groupName}' và ${result.deletedCount} từ vựng.` 
+            message: `Đã xóa nhóm cá nhân và ${result.deletedCount} từ vựng.` 
         });
     } catch (e) { 
         console.error("Lỗi xóa nhóm:", e);
         res.status(500).json({ error: "Lỗi Server" }); 
     }
 });
+
 // Import Data
 router.post('/import', verifyToken, async (req, res) => {
     try {
@@ -108,6 +177,7 @@ router.post('/import', verifyToken, async (req, res) => {
                         type: Array.isArray(word.type) ? word.type : [word.type],
                         group: word.group || "Chưa phân loại",
                         learned: learnedSet.has(word.id) || word.learned === true,
+                        isGlobal: false, // Import mặc định là cá nhân
                         updatedAt: new Date()
                     },
                     $setOnInsert: { userId: userId, createdAt: new Date() }

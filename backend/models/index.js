@@ -17,6 +17,7 @@ const vocabSchema = new mongoose.Schema({
     example: String,
     group: { type: String, default: 'Uncategorized' },
     learned: { type: Boolean, default: false },
+    isGlobal: { type: Boolean, default: false }, 
     createdAt: { type: Date, default: Date.now }
 });
 
