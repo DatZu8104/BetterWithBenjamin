@@ -123,15 +123,20 @@ export const api = {
   deleteFolder: async (name: string) => {
     await fetch(`${API_URL}/folders/${name}`, { method: 'DELETE', headers: getHeaders() });
   },
-  updateGroup: async (groupName: string, folder: string) => {
-    await fetch(`${API_URL}/groups`, { 
-      method: 'POST', 
-      headers: getHeaders(), 
-      body: JSON.stringify({ groupName, folder }) 
+  
+  updateGroup: async (groupName: string, folder: string, isGlobal: boolean = false) => {
+    const res = await fetch(`${API_URL}/groups`, { 
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ groupName, folder, isGlobal })
     });
+    
+    if (!res.ok) {
+        throw new Error("Lỗi cập nhật nhóm");
+    }
+    return res.json();
   },
-  // Trong frontend/lib/api.ts
-
+  
   deleteGroup: async (groupName: string) => {
     const res = await fetch(`${API_URL}/groups/${encodeURIComponent(groupName)}`, { 
       method: 'DELETE', 

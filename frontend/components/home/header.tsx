@@ -3,7 +3,10 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
-import { Upload, Download, LogOut, ChevronDown, Search, BookOpen, ShieldCheck, Loader2, KeyRound, X } from 'lucide-react';
+// ✅ Import thêm icon cho Menu
+import { Upload, Download, LogOut, ChevronDown, Search, BookOpen, ShieldCheck, Loader2, KeyRound, X, Menu, Library, User } from 'lucide-react';
+// ✅ Import Sheet components (Sidebar)
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 
 interface HeaderProps {
   onSearchChange: (term: string) => void;
@@ -14,17 +17,22 @@ interface HeaderProps {
   onLogout: () => void;
   totalWords?: number;
   learnedCount?: number;
+  // ✅ Props mới để xử lý chế độ xem
+  currentMode: 'personal' | 'global';
+  onModeChange: (mode: 'personal' | 'global') => void;
 }
 
 export function Header({ 
   onSearchChange, searchTerm, onReset, username, role, onLogout, 
-  totalWords = 0, learnedCount = 0 
+  totalWords = 0, learnedCount = 0,
+  currentMode, onModeChange 
 }: HeaderProps) {
   
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false); // State cho Sidebar
   
   // --- STATE CHO ĐỔI MẬT KHẨU ---
   const [showPassModal, setShowPassModal] = useState(false);
@@ -47,7 +55,7 @@ export function Header({
               setPassError(res.error);
           } else {
               alert("✅ Đổi mật khẩu thành công! Vui lòng đăng nhập lại.");
-              onLogout(); // Đăng xuất để user đăng nhập lại với pass mới
+              onLogout(); 
           }
       } catch (err) {
           setPassError("Lỗi kết nối Server");
@@ -128,24 +136,88 @@ export function Header({
     <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-black sticky top-0 z-40 text-white shadow-sm">
       <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
 
-      <div className="flex items-center gap-2 shrink-0 cursor-pointer hover:opacity-80 transition-opacity group" onClick={onReset}>
-        <div className="bg-white/10 p-2 rounded-lg group-hover:bg-white/20 transition-colors">
-           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <div className="flex items-center gap-3">
+        {/* ✅ HAMBURGER MENU (SIDEBAR) */}
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+            <SheetTrigger asChild>
+                <button className="p-2 -ml-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors outline-none">
+                    <Menu className="w-6 h-6" />
+                </button>
+            </SheetTrigger>
+            <SheetContent side="left" className="bg-zinc-950 border-r border-zinc-800 text-white w-[300px] z-[60]">
+                <SheetHeader className="mb-6 text-left">
+                    <SheetTitle className="text-white text-xl font-bold flex items-center gap-2">
+                        Menu Học Tập
+                    </SheetTitle>
+                    <SheetDescription className="text-zinc-500">
+                        Chọn nguồn từ vựng bạn muốn học.
+                    </SheetDescription>
+                </SheetHeader>
+
+                <div className="space-y-2">
+                    <button 
+                        onClick={() => { onModeChange('personal'); setIsSheetOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${currentMode === 'personal' ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}
+                    >
+                        <User className="w-5 h-5 shrink-0" />
+                        <div className="text-left">
+                            <div className="text-sm font-bold">Từ vựng cá nhân</div>
+                            <div className="text-[10px] font-normal opacity-70">Của {username}</div>
+                        </div>
+                    </button>
+
+                    <button 
+                        onClick={() => { onModeChange('global'); setIsSheetOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${currentMode === 'global' ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}
+                    >
+                        <Library className="w-5 h-5 shrink-0" />
+                        <div className="text-left">
+                            <div className="text-sm font-bold">Oxford 3000</div>
+                            <div className="text-[10px] font-normal opacity-70">Từ vựng hệ thống</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div className="absolute bottom-6 left-6 right-6">
+                    <div className="p-4 bg-zinc-900/80 rounded-xl border border-zinc-800">
+                        <p className="text-[10px] text-zinc-500 mb-2 font-bold uppercase tracking-wider">Trạng thái hiện tại</p>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-zinc-400">Chế độ:</span>
+                            <span className={`font-bold ${currentMode === 'global' ? 'text-purple-400' : 'text-blue-400'}`}>
+                                {currentMode === 'global' ? 'Thư viện' : 'Cá nhân'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </SheetContent>
+        </Sheet>
+
+        {/* LOGO & RESET */}
+        <div className="flex items-center gap-2 shrink-0 cursor-pointer hover:opacity-80 transition-opacity group" onClick={onReset}>
+           <div className={`p-2 rounded-lg transition-colors ${currentMode === 'global' ? 'bg-purple-500/10 text-purple-500' : 'bg-white/10 text-white'}`}>
+                {currentMode === 'global' ? <Library size={24} /> : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                )}
+           </div>
+           <h1 className="text-xl font-bold tracking-tight hidden md:block select-none">
+               {currentMode === 'global' ? 'Oxford Library' : 'Better With Benjamin'}
+           </h1>
         </div>
-        <h1 className="text-xl font-bold tracking-tight hidden md:block select-none">Better With Benjamin</h1>
       </div>
       
+      {/* SEARCH BAR */}
       <div className="flex-1 max-w-xl mx-4 relative hidden md:block">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
         <input 
             type="text"
-            placeholder="Tìm kiếm từ vựng..."
+            placeholder={currentMode === 'global' ? "Tìm trong Oxford 3000..." : "Tìm kiếm từ vựng..."}
             className="w-full pl-9 pr-4 py-2 rounded-full border border-zinc-800 bg-zinc-900 focus:bg-zinc-800 focus:outline-none focus:border-blue-500 transition-all text-sm text-white"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
 
+      {/* USER DROPDOWN */}
       <div className="relative shrink-0">
         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center gap-2 hover:bg-zinc-800 p-1.5 pl-2 pr-2 rounded-full transition-colors outline-none border border-transparent hover:border-zinc-700">
             <span className="text-sm font-bold hidden sm:block text-zinc-300">{username}</span>
@@ -183,7 +255,6 @@ export function Header({
                         </button>
                     )}
                     
-                    {/* ✅ NÚT ĐỔI MẬT KHẨU */}
                     <button onClick={() => { setShowPassModal(true); setIsMenuOpen(false); }} className="w-full text-left px-3 py-2.5 text-sm hover:bg-zinc-800 rounded-lg flex gap-3 items-center transition-colors text-zinc-300">
                         <KeyRound className="w-4 h-4 text-zinc-500"/> Đổi mật khẩu
                     </button>

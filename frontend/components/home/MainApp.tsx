@@ -15,6 +15,7 @@ interface MainAppProps {
 
 export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const [words, setWords] = useState<any[]>([]);
+  const [rawGroupSettings, setRawGroupSettings] = useState<any[]>([]); 
   const [dbFolders, setDbFolders] = useState<string[]>([]); 
   const [folderColors, setFolderColors] = useState<Record<string, string>>({});
   const [groupSettings, setGroupSettings] = useState<Record<string, string>>({});
@@ -31,6 +32,12 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const [currentWord, setCurrentWord] = useState<any | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
+  // View Mode: 'personal' hoặc 'global'
+  const [viewMode, setViewMode] = useState<'personal' | 'global'>('personal');
+
+  // ✅ LOGIC QUYỀN HẠN
+  const canEdit = viewMode === 'personal' || role === 'admin';
+
   // --- LOAD DATA ---
   const loadData = async () => {
     try {
@@ -39,7 +46,8 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
           const normalizedWords = data.words.map((w: any) => ({
             ...w,
             id: w.id || w._id,
-            learned: w.learned || false 
+            learned: w.learned || false,
+            isGlobal: w.isGlobal || false
           }));
           setWords(normalizedWords);
           
@@ -49,8 +57,8 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
               data.folders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
               setFolderColors(colors);
           }
-
           if(data.groupSettings) {
+              setRawGroupSettings(data.groupSettings);
               const settings: Record<string, string> = {};
               data.groupSettings.forEach((s: any) => { settings[s.groupName] = s.folder; });
               setGroupSettings(settings);
@@ -65,38 +73,67 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
 
   useEffect(() => { loadData(); }, []);
 
-  // ... (Giữ nguyên phần useMemo logic) ...
+  // Filter Words
+  const wordsByMode = useMemo(() => {
+    if (viewMode === 'global') return words.filter(w => w.isGlobal === true);
+    return words.filter(w => !w.isGlobal);
+  }, [words, viewMode]);
+
+  // Calculate Groups
   const calculatedGroups = useMemo(() => {
-    const groupNames = Array.from(new Set([...words.map(w => w.group), ...Object.keys(groupSettings)]));
-    const groupsData = groupNames.map(name => {
-        const groupWordsList = words.filter(w => w.group === name);
-        let dateVal = 0;
-        // Logic parse date (nếu tên nhóm là ngày tháng)
-        // ... giữ nguyên ...
-        return { name, count: groupWordsList.length, folder: groupSettings[name] || "", dateVal };
+    const relevantSettings = rawGroupSettings.filter(s => {
+        const isGlobalGroup = !!s.isGlobal; 
+        if (viewMode === 'global') return isGlobalGroup === true;
+        return isGlobalGroup === false;
     });
+
+    const relevantSettingNames = new Set(relevantSettings.map(s => s.groupName));
+    const wordGroupNames = new Set(wordsByMode.map(w => w.group));
+    const allGroupNames = Array.from(new Set([...relevantSettingNames, ...wordGroupNames]));
+    
+    const groupsData = allGroupNames.map(name => {
+        const groupWordsList = wordsByMode.filter(w => w.group === name);
+        let dateVal = 0;
+        const parts = name.split(/[-/]/);
+        if (parts.length === 3) {
+            const y = parseInt(parts[0]); const m = parseInt(parts[1]); const d = parseInt(parts[2]);
+            if (!isNaN(y) && !isNaN(m) && !isNaN(d)) dateVal = new Date(y, m - 1, d).getTime();
+        }
+        return { 
+            name, count: groupWordsList.length, folder: groupSettings[name] || "", dateVal 
+        };
+    }).filter(g => {
+        if (g.count > 0) return true;
+        if (canEdit && relevantSettingNames.has(g.name)) return true;
+        return false;
+    });
+
     return groupsData.sort((a, b) => {
         let res = 0;
         if (sortOption === 'name') res = a.name.localeCompare(b.name);
         else if (sortOption === 'size') res = a.count - b.count;
-        else res = 0; 
+        else res = a.dateVal - b.dateVal; 
         return sortDirection === 'asc' ? res : -res;
     });
-  }, [words, groupSettings, sortOption, sortDirection]);
+  }, [wordsByMode, rawGroupSettings, groupSettings, sortOption, sortDirection, viewMode, canEdit]);
 
+  // Search
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return [];
     const lower = searchTerm.toLowerCase();
-    return words.filter(w => w.english.toLowerCase().includes(lower) || w.definition.toLowerCase().includes(lower));
-  }, [words, searchTerm]);
+    return wordsByMode.filter(w => w.english.toLowerCase().includes(lower) || w.definition.toLowerCase().includes(lower));
+  }, [wordsByMode, searchTerm]);
 
+  // Current View Words
   const currentViewWords = useMemo(() => {
-      if (selectedGroup) return words.filter(w => w.group === selectedGroup);
-      if (currentFolder) return words.filter(w => groupSettings[w.group] === currentFolder);
-      return words;
-  }, [words, selectedGroup, currentFolder, groupSettings]);
+      if (selectedGroup) return wordsByMode.filter(w => w.group === selectedGroup);
+      if (currentFolder) return wordsByMode.filter(w => groupSettings[w.group] === currentFolder);
+      return wordsByMode;
+  }, [wordsByMode, selectedGroup, currentFolder, groupSettings]);
 
-  // --- LOGIC ---
+  // --- ACTIONS ---
+  
+  // ✅ HÀM CHỌN TỪ NGẪU NHIÊN
   const pickRandomWord = (list: any[] = currentViewWords) => {
       const unlearned = list.filter(w => !w.learned);
       if (unlearned.length === 0) { setCurrentWord(null); return; }
@@ -113,15 +150,21 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       else setCurrentWord(remaining[Math.floor(Math.random() * remaining.length)]);
 
       setWords(prev => prev.map(w => w.id === wordIdToSave ? { ...w, learned: true } : w));
+      // Gửi request patch để update learned (Backend đã xử lý lưu vào UserProgress nếu là từ System)
       api.updateWord(wordIdToSave, { learned: true }).catch(err => console.error("Save error:", err));
   };
 
+  // ✅ SỰ KIỆN BẮT ĐẦU HỌC
   const handleStartLearn = () => {
+      console.log("Start Learning Clicked!"); // Debug log
       setIsLearnMode(true);
       const unlearned = currentViewWords.filter(w => !w.learned);
+      
+      // Nếu đã học hết -> Reset
       if (unlearned.length === 0 && currentViewWords.length > 0) {
           handleResetProgress();
       } else {
+          // Nếu còn từ chưa học -> Chọn ngẫu nhiên
           setTimeout(() => pickRandomWord(), 50);
       }
   };
@@ -133,7 +176,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
     try {
       setIsResetting(true);
       const idsToReset = wordsToReset.map((w: any) => w.id || w._id);
-      await api.resetProgressBatch(idsToReset);
+      await api.resetProgressBatch(idsToReset); // Backend đã xử lý reset cả UserProgress
       
       setWords(prevWords => prevWords.map(w => 
           idsToReset.includes(w.id || w._id) ? { ...w, learned: false } : w
@@ -157,32 +200,42 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       setIsLearnMode(false); 
   };
 
-  // --- CRUD HANDLERS (ENGLISH UI) ---
-  const handleAddWord = async (e: string, d: string, t: string[]) => { 
+  const handleModeChange = (mode: 'personal' | 'global') => {
+      setViewMode(mode);
+      setSelectedGroup(null);
+      setCurrentFolder(null);
+      setSearchTerm('');
+      setIsLearnMode(false);
+  };
+
+  // HANDLERS CÓ PHÂN QUYỀN
+  const handleAddWord = !canEdit ? async () => {} : async (e: string, d: string, t: string[]) => { 
       if(selectedGroup) { 
-          await api.addWord({english: e, definition: d, type: t, group: selectedGroup}); 
+          await api.addWord({
+              english: e, definition: d, type: t, group: selectedGroup,
+              // @ts-ignore
+              isGlobal: viewMode === 'global'
+          }); 
           loadData(); 
       }
   };
-  const handleDeleteWord = async (id: string) => { await api.deleteWord(id); loadData(); };
+  const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => { await api.deleteWord(id); loadData(); };
   
-  const handleCreateFolder = async (n: string, c: string) => { await api.addFolder({ name: n, color: c }); loadData(); };
-  const handleUpdateFolder = async (o: string, n: string, c: string) => { if(o!==n) await api.deleteFolder(o); await api.addFolder({name:n, color:c}); loadData(); };
-  const handleDeleteFolder = async (n: string) => { await api.deleteFolder(n); loadData(); };
+  const handleCreateFolder = async (n: string, c: string) => { if(canEdit) { await api.addFolder({ name: n, color: c }); loadData(); } };
+  const handleUpdateFolder = async (o: string, n: string, c: string) => { if(canEdit) { if(o!==n) await api.deleteFolder(o); await api.addFolder({name:n, color:c}); loadData(); } };
+  const handleDeleteFolder = async (n: string) => { if(canEdit) { await api.deleteFolder(n); loadData(); } };
   
-  const handleMoveGroup = async (g: string, f: string) => { await api.updateGroup(g, f); loadData(); };
+  const handleMoveGroup = async (g: string, f: string) => { if(canEdit) { await api.updateGroup(g, f); loadData(); } };
   
-  const handleAddGroup = () => { 
-      // ✅ DỊCH SANG TIẾNG ANH
-      const n = prompt("Enter new group name:"); 
-      if(n) api.updateGroup(n, currentFolder||"").then(loadData); 
+  const handleAddGroup = !canEdit ? () => {} : () => { 
+      const n = prompt("Nhập tên nhóm mới:"); 
+      if(n) {
+          // @ts-ignore
+          api.updateGroup(n, currentFolder||"", viewMode === 'global').then(loadData); 
+      }
   };
   
-  const handleDeleteGroup = async (n: string) => { await api.deleteGroup(n); loadData(); };
-
-  // --- RENDER ---
-  const totalSystemWords = words.length;
-  const totalLearnedWords = words.filter(w => w.learned).length;
+  const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => { await api.deleteGroup(n); loadData(); };
 
   if (isLoading) return <div className="h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
 
@@ -190,14 +243,10 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
     <div className="flex flex-col h-screen bg-black text-white">
       {!isLearnMode && (
         <Header 
-          onSearchChange={setSearchTerm} 
-          searchTerm={searchTerm} 
-          onReset={handleReset} 
-          username={currentUser || "User"}
-          onLogout={onLogout}
-          role={role}
-          totalWords={totalSystemWords}
-          learnedCount={totalLearnedWords}
+          onSearchChange={setSearchTerm} searchTerm={searchTerm} onReset={handleReset} 
+          username={currentUser || "User"} onLogout={onLogout} role={role}
+          totalWords={wordsByMode.length} learnedCount={wordsByMode.filter(w => w.learned).length}
+          currentMode={viewMode} onModeChange={handleModeChange}
         />
       )}
 
@@ -214,7 +263,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                         onNext={handleNextWord}
                         onReset={handleResetProgress} 
                         onExit={() => setIsLearnMode(false)}
-                        themeColor={currentFolder && folderColors[currentFolder] ? undefined : '#2563eb'}
+                        themeColor={viewMode === 'global' ? '#9333ea' : (currentFolder && folderColors[currentFolder] ? undefined : '#2563eb')}
                     />
                 </div>
             ) : selectedGroup ? (
@@ -226,6 +275,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                     onAddWord={handleAddWord}
                     onDeleteWord={handleDeleteWord}
                     onLearn={handleStartLearn}
+                    allowEdit={canEdit}
                 />
             ) : (
                 <GroupListView 
@@ -241,6 +291,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                     onClearSearch={() => setSearchTerm('')}
                     onSelectGroup={setSelectedGroup}
                     onSelectFolder={setCurrentFolder}
+                    allowAdd={canEdit}
                     onAddGroup={handleAddGroup}
                     onDeleteGroup={handleDeleteGroup}
                     onDeleteWordResult={handleDeleteWord}
@@ -251,10 +302,10 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                     onSort={(opt) => setSortOption(opt)}
                     sortOption={sortOption}
                     sortDirection={sortDirection}
-                    onStartLearn={handleStartLearn}
+                    // ✅ QUAN TRỌNG: Đảm bảo prop này được truyền
+                    onStartLearn={handleStartLearn} 
                     onResetLearn={handleResetProgress}
                     onUpdate={loadData}
-                    words={words}
                 />
             )}
         </div>

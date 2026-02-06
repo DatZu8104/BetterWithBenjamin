@@ -79,7 +79,7 @@ export function Flashcard({ word, className, color }: FlashcardProps) {
               <h2 className="text-4xl sm:text-5xl font-bold text-white break-words w-full px-2 leading-tight">
                 {word.english}
               </h2>
-              
+                  
               <div className="flex items-center gap-3 mt-2">
                   <button 
                     onClick={handleSpeakClick}
