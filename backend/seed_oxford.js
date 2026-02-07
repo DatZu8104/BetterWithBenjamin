@@ -33,7 +33,7 @@ const importData = async () => {
             const val = item.value;
             const definition = val.definition || `(${val.type}) See Dictionary`; 
             const example = (val.examples && val.examples.length > 0) ? val.examples[0] : "";
-            const levelGroup = val.level ? `Oxford Level ${val.level}` : "Oxford Others";
+            const levelGroup = val.level ? val.level.toUpperCase() : "Others";
 
             return {
                 // ❌ KHÔNG CẦN userId nữa (vì đây là SystemVocabulary)

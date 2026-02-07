@@ -26,33 +26,47 @@ export function LearnModeView({
 }: LearnModeProps) {
   
   const [mode, setMode] = useState<Mode>('flashcard');
-  
-  // State quản lý hàng chờ và từ hiện tại
   const [studyQueue, setStudyQueue] = useState<any[]>([]);
   const [localCurrentWord, setLocalCurrentWord] = useState<any | null>(null);
-  
-  // State cho Animation chuyển động mượt
   const [isAnimating, setIsAnimating] = useState(false);
-
-  // State quản lý độ rộng khung hình (Lưu trong LocalStorage)
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState<string>('500px'); // Mặc định 500px
-
-  // State cho Quiz/Typing
+  const [containerWidth, setContainerWidth] = useState<string>('80vw');
+  
+  // Quiz & Typing State
   const [quizOptions, setQuizOptions] = useState<any[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [typingInput, setTypingInput] = useState('');
   const [typingStatus, setTypingStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
+  
+  const hasInitialized = useRef(false);
 
-  // --- 0. KHÔI PHỤC KÍCH THƯỚC KHUNG ---
+  // --- 🔊 HÀM ĐỌC TỪ VỰNG (MỚI) ---
+  const speakWord = (text: string) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    
+    // Hủy các âm thanh đang đọc dở để đọc từ mới ngay
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 1.0;
+
+    // Cố gắng lấy giọng đọc tự nhiên nhất
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => 
+        v.lang === 'en-US' && (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Premium'))
+    );
+    if (preferredVoice) utterance.voice = preferredVoice;
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Restore width setting
   useEffect(() => {
     const savedWidth = localStorage.getItem('learnModeWidth');
-    if (savedWidth) {
-        setContainerWidth(savedWidth);
-    }
+    if (savedWidth) setContainerWidth(savedWidth);
   }, []);
 
-  // Lưu kích thước khi người dùng thay đổi (sử dụng ResizeObserver hoặc đơn giản là sự kiện mouseup)
   const handleMouseUp = () => {
       if (containerRef.current) {
           const newWidth = `${containerRef.current.offsetWidth}px`;
@@ -61,88 +75,56 @@ export function LearnModeView({
       }
   };
 
-  // Thêm useRef ở đầu component cùng với các hooks khác
-  const hasInitialized = useRef(false);
-
-  // --- 1. KHỞI TẠO DANH SÁCH (SỬA LỖI DOUBLE CLICK) ---
+  // Init Data
   useEffect(() => {
-      // Nếu đã init rồi và không phải đang reset thì bỏ qua để tránh xáo trộn lại
       if (hasInitialized.current && !isResetting) return;
-
       const unlearned = allWords.filter(w => !w.learned);
-      
       if (unlearned.length > 0) {
-          // TRƯỜNG HỢP 1: Có dữ liệu từ vựng (Load lần đầu hoặc sau khi Reset xong)
           const shuffled = unlearned.sort(() => Math.random() - 0.5);
           setStudyQueue(shuffled);
           setLocalCurrentWord(shuffled[0]);
-          
-          // QUAN TRỌNG: Chỉ khóa (hasInitialized = true) khi ĐÃ CÓ dữ liệu
           hasInitialized.current = true;
       } else if (isResetting) {
-          // TRƯỜNG HỢP 2: Đang trong quá trình Reset (Dữ liệu chưa về kịp)
-          // Chỉ xóa tạm màn hình, nhưng KHÔNG KHÓA hasInitialized (= false)
-          // Để lát nữa khi dữ liệu về, code sẽ tự động chạy lại vào TRƯỜNG HỢP 1
           setStudyQueue([]);
           setLocalCurrentWord(null);
       }
   }, [allWords, isResetting]);
 
-  // Reset cờ initialized khi thoát hoặc unmount để lần sau vào lại học mới
-  useEffect(() => {
-      return () => { hasInitialized.current = false; }
-  }, []);
+  useEffect(() => { return () => { hasInitialized.current = false; } }, []);
 
-  // --- HÀM CHUYỂN TỪ (CÓ ANIMATION) ---
+  // --- LOGIC CHUYỂN TỪ ---
   const switchWord = (newWord: any | null) => {
-    setIsAnimating(true); // Bắt đầu mờ đi
-    
-    // Đợi 300ms (khớp với duration css) rồi mới đổi dữ liệu
+    setIsAnimating(true); 
     setTimeout(() => {
         setLocalCurrentWord(newWord);
         resetModeState();
-        setIsAnimating(false); // Hiện lại
+        setIsAnimating(false);
     }, 70);
   };
-  // --- HÀM XỬ LÝ KHI BẤM "HỌC LẠI TỪ ĐẦU" ---
+
   const handleRestart = () => {
-      // Quan trọng: Đặt lại cờ này thành false để cho phép nạp dữ liệu mới
       hasInitialized.current = false; 
-      
-      // Xóa sạch trạng thái hiện tại
       setLocalCurrentWord(null);
       setStudyQueue([]);
-      
-      // Gọi hàm reset của cha (để reset DB)
       onReset();
   };
-  // --- 2. XỬ LÝ: ĐÃ THUỘC (Nút Xanh) ---
+
   const handleKnown = useCallback(() => {
       if (!localCurrentWord) return;
-
-      onNext(); // Báo cho parent update DB
-
+      onNext(); 
       const newQueue = studyQueue.filter(w => w.id !== localCurrentWord.id);
       setStudyQueue(newQueue);
-
       const nextWord = newQueue.length > 0 ? newQueue[0] : null;
       switchWord(nextWord);
-
   }, [localCurrentWord, studyQueue, onNext]);
 
-  // --- 3. XỬ LÝ: CHƯA THUỘC (Nút Đỏ) ---
   const handleUnknown = useCallback(() => {
       if (!localCurrentWord) return;
-
-      // Đẩy xuống cuối hàng chờ
       const remaining = studyQueue.filter(w => w.id !== localCurrentWord.id);
       const newQueue = [...remaining, localCurrentWord];
-      
       setStudyQueue(newQueue);
-
       const nextWord = newQueue.length > 0 ? newQueue[0] : null;
       switchWord(nextWord);
-      
   }, [localCurrentWord, studyQueue]);
 
   const resetModeState = () => {
@@ -151,12 +133,11 @@ export function LearnModeView({
       setTypingStatus('idle');
   }
 
-  // --- PHÍM TẮT ---
+  // Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (mode === 'typing' && typingStatus === 'idle') return;
-      if (isAnimating) return; // Không bắt phím khi đang chuyển động
-
+      if (isAnimating) return;
       if (e.key === 'Enter' || e.key === 'ArrowRight') {
         e.preventDefault();
         handleKnown(); 
@@ -169,7 +150,7 @@ export function LearnModeView({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKnown, handleUnknown, mode, typingStatus, isAnimating]);
 
-  // --- LOGIC QUIZ ---
+  // Quiz Logic
   useEffect(() => {
     if (mode === 'quiz' && localCurrentWord) {
       const correct = localCurrentWord;
@@ -183,6 +164,10 @@ export function LearnModeView({
 
   const handleQuizAnswer = (wordId: string) => {
     if (selectedAnswer) return;
+    
+    // ✅ 1. ĐỌC TỪ NGAY KHI CHỌN ĐÁP ÁN
+    speakWord(localCurrentWord.english);
+
     setSelectedAnswer(wordId);
     if (wordId === localCurrentWord.id) {
         setTimeout(() => handleKnown(), 800); 
@@ -191,10 +176,14 @@ export function LearnModeView({
     }
   };
 
-  // --- LOGIC TYPING ---
+  // Typing Logic
   const handleTypingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (typingStatus !== 'idle') return;
+
+    // ✅ 2. ĐỌC TỪ NGAY KHI BẤM CHECK
+    speakWord(localCurrentWord.english);
+
     if (typingInput.trim().toLowerCase() === localCurrentWord.english.trim().toLowerCase()) {
       setTypingStatus('correct');
       setTimeout(() => handleKnown(), 800);
@@ -203,33 +192,26 @@ export function LearnModeView({
     }
   };
 
-  // --- TÍNH TOÁN THỐNG KÊ ---
-  const totalCount = allWords.length; // Tổng số từ trong bộ
-  const remainingCount = studyQueue.length; // Số từ còn trong hàng chờ (chưa thuộc)
-  // Logic: Số đã thuộc = Tổng - Số còn lại trong hàng chờ (Lưu ý: Logic này đúng trong phiên học hiện tại)
-  // Nếu muốn chính xác tuyệt đối với DB thì cần dùng prop allWords lọc field learned
-  const learnedCountDB = allWords.filter(w => w.learned).length;
-  // Để hiển thị realtime khi user bấm "Đã thuộc" trong phiên này mà chưa sync DB kịp:
-  // Ta có thể dùng: Tổng - Remaining (nếu giả định studyQueue chứa tất cả unlearned)
+  const totalCount = allWords.length;
+  const remainingCount = studyQueue.length;
   const displayLearned = totalCount - remainingCount; 
   const displayUnlearned = remainingCount;
 
   return (
     <div className="h-[100dvh] w-full flex flex-col bg-black text-white overflow-hidden relative" onMouseUp={handleMouseUp}>
       
-      {/* 1. TOP BAR (Giữ nguyên) */}
+      {/* 1. TOP BAR */}
       <div className="shrink-0 h-14 flex justify-between items-center px-4 border-b border-zinc-800 bg-black z-20 gap-4">
          <Button variant="ghost" size="sm" onClick={onExit} className="h-9 -ml-2 text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors">
-           <ArrowLeft className="w-5 h-5 mr-2"/> <span className="font-medium">Thoát</span>
+           <ArrowLeft className="w-5 h-5 mr-2"/> <span className="font-medium">Exit</span>
          </Button>
 
-         {/* Mode Selector */}
          <div className="flex-1 flex justify-center max-w-xs">
             <div className="bg-zinc-900 p-1 rounded-lg flex w-full border border-zinc-800">
                 {[
-                    { id: 'flashcard', icon: Layers, label: 'Thẻ' },
+                    { id: 'flashcard', icon: Layers, label: 'Flashcard' },
                     { id: 'quiz', icon: HelpCircle, label: 'Quiz' },
-                    { id: 'typing', icon: Keyboard, label: 'Gõ' }
+                    { id: 'typing', icon: Keyboard, label: 'Typing' }
                 ].map((item) => (
                     <button 
                     key={item.id}
@@ -250,27 +232,23 @@ export function LearnModeView({
          <div className="w-[80px]"></div>
       </div>
 
-      {/* 2. BODY CHÍNH - ĐÃ SỬA CANH GIỮA DỌC */}
-      {/* Thay đổi: justify-start -> justify-center */}
+      {/* 2. BODY */}
       <div className="flex-1 w-full flex flex-col items-center justify-center p-4 min-h-0 overflow-y-auto no-scrollbar">
-        
-        {/* Wrapper cho nội dung chính để đảm bảo khi màn hình nhỏ vẫn scroll được */}
         <div className="flex flex-col items-center w-full my-auto">
 
-            {/* THANH THỐNG KÊ */}
+            {/* STATS */}
             <div className="w-full max-w-2xl flex justify-between items-center mb-6 px-4 py-2 bg-zinc-900/50 rounded-full border border-zinc-800/50 text-sm">
                 <div className="flex gap-1">
-                    <span className="text-zinc-500">Đã thuộc:</span>
+                    <span className="text-zinc-500">Known:</span>
                     <span className="font-bold text-green-500">{displayLearned}/{totalCount}</span>
                 </div>
                 <div className="w-px h-4 bg-zinc-800"></div>
                 <div className="flex gap-1">
-                    <span className="text-zinc-500">Chưa thuộc:</span>
+                    <span className="text-zinc-500">Learning:</span>
                     <span className="font-bold text-red-400">{displayUnlearned}/{totalCount}</span>
                 </div>
             </div>
 
-            {/* CONTAINER RESIZABLE */}
             <div 
                 ref={containerRef}
                 className="flex flex-col relative transition-all duration-0"
@@ -287,7 +265,7 @@ export function LearnModeView({
                 {isResetting ? (
                     <div className="h-[400px] flex flex-col items-center justify-center animate-pulse border border-zinc-800 rounded-3xl bg-zinc-900/30">
                         <RotateCcw className="w-10 h-10 animate-spin text-zinc-600 mb-3"/>
-                        <p className="text-base text-zinc-500 font-medium">Đang tải dữ liệu...</p>
+                        <p className="text-base text-zinc-500 font-medium">Loading data...</p>
                     </div>
                 ) : localCurrentWord ? (
                 <div className={cn(
@@ -300,7 +278,7 @@ export function LearnModeView({
                         <div className="w-full h-full flex flex-col justify-center">
                             <Flashcard 
                                 word={localCurrentWord} 
-                                className="text-white w-full shadow-2xl" // Thêm shadow cho đẹp
+                                className="text-white w-full shadow-2xl"
                                 color={themeColor} 
                             />
                         </div>
@@ -309,14 +287,21 @@ export function LearnModeView({
                     {/* MODE 2: QUIZ */}
                     {mode === 'quiz' && (
                     <div className="flex flex-col justify-center w-full">
-                        <div className="bg-zinc-900 border-2 rounded-3xl shadow-sm text-center mb-6 flex flex-col justify-center items-center p-8 min-h-[250px]"
+                        {/* ✅ Fixed Height: h-[35vh] */}
+                        <div className="bg-zinc-900 border-2 rounded-3xl shadow-sm text-center mb-6 flex flex-col h-[35vh] min-h-[250px] relative overflow-hidden"
                              style={{ borderColor: themeColor || '#3f3f46' }}
                         >
-                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4">Định nghĩa</p>
-                            <h2 className="text-xl md:text-2xl font-normal leading-relaxed text-white break-words">
-                                "{localCurrentWord.definition}"
-                            </h2>
+                            <div className="w-full h-full overflow-y-auto custom-scrollbar p-6 flex flex-col">
+                                <div className="m-auto w-full flex flex-col items-center">
+                                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4 shrink-0">Definition</p>
+                                    <h2 className={cn("font-normal leading-relaxed text-white break-words", localCurrentWord.definition.length > 80 ? "text-xl" : "text-2xl")}>
+                                        "{localCurrentWord.definition}"
+                                    </h2>
+                                </div>
+                            </div>
                         </div>
+
+                        {/* Options */}
                         <div className="grid grid-cols-1 gap-3">
                             {quizOptions.map((opt) => {
                                 const isSelected = selectedAnswer === opt.id;
@@ -342,22 +327,30 @@ export function LearnModeView({
                     {/* MODE 3: TYPING */}
                     {mode === 'typing' && (
                     <div className="flex flex-col justify-center w-full">
-                        <div className="bg-zinc-900 border-2 rounded-3xl shadow-sm text-center mb-6 flex flex-col justify-center items-center p-8 min-h-[250px]"
+                        
+                        {/* 1. Definition Container */}
+                        <div className="bg-zinc-900 border-2 rounded-3xl shadow-sm text-center mb-6 flex flex-col h-[35vh] min-h-[250px] relative overflow-hidden"
                              style={{ borderColor: themeColor || '#3f3f46' }}
                         >
-                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4">Gõ từ tiếng Anh</p>
-                            <h2 className="text-xl md:text-2xl font-normal leading-relaxed text-white mb-4 break-words">
-                                "{localCurrentWord.definition}"
-                            </h2>
-                            {localCurrentWord.type && localCurrentWord.type.length > 0 && (
-                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
-                                    {Array.isArray(localCurrentWord.type) ? localCurrentWord.type.join(', ') : localCurrentWord.type}
-                                </span>
-                            )}
+                            <div className="w-full h-full overflow-y-auto custom-scrollbar p-6 flex flex-col">
+                                <div className="m-auto w-full flex flex-col items-center">
+                                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4 shrink-0">Type the English word</p>
+                                    <h2 className={cn("font-normal leading-relaxed text-white mb-4 break-words", localCurrentWord.definition.length > 80 ? "text-xl" : "text-2xl")}>
+                                        "{localCurrentWord.definition}"
+                                    </h2>
+                                    {localCurrentWord.type && localCurrentWord.type.length > 0 && (
+                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                            {Array.isArray(localCurrentWord.type) ? localCurrentWord.type.join(', ') : localCurrentWord.type}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <form onSubmit={handleTypingSubmit} className="relative w-full mb-3">
-                                <Input autoFocus placeholder="Nhập từ..." 
+                        
+                        {/* 2. Input & Buttons Container */}
+                        <div className="min-h-[140px] flex flex-col justify-end">
+                            <form onSubmit={handleTypingSubmit} className="relative w-full mb-3 shrink-0">
+                                <Input autoFocus placeholder="Enter word..." 
                                     className={cn("h-16 text-xl text-center rounded-2xl border-2 bg-black text-white placeholder:text-zinc-700 shadow-sm transition-all pr-12 focus:border-zinc-600 border-zinc-800 focus-visible:ring-0",
                                         typingStatus === 'correct' && "border-green-800 text-green-500 bg-green-950/20",
                                         typingStatus === 'wrong' && "border-red-800 text-red-500 bg-red-950/20"
@@ -370,33 +363,36 @@ export function LearnModeView({
                                     {typingStatus === 'wrong' && <XCircle className="text-red-500 w-6 h-6 animate-in zoom-in"/>}
                                 </div>
                             </form>
-                            {typingStatus === 'idle' && (
-                                <div className="grid grid-cols-2 gap-3">
-                                    <Button size="lg" onClick={handleUnknown} className="h-14 text-base font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-2xl">Bỏ qua</Button>
-                                    <Button size="lg" onClick={handleTypingSubmit} className="h-14 text-base font-bold bg-white text-black hover:bg-zinc-200 rounded-2xl">Kiểm tra</Button>
-                                </div>
-                            )}
-                            {typingStatus === 'wrong' && (
-                                <div className="h-14 flex items-center justify-between px-4 bg-red-950/20 rounded-2xl border border-red-900/50 animate-in slide-in-from-bottom-2 cursor-pointer hover:bg-red-950/30 transition-colors" onClick={handleUnknown}>
-                                    <div className="flex items-baseline gap-2 overflow-hidden">
-                                        <span className="text-xs text-red-400/70 shrink-0">Đáp án:</span>
-                                        <span className="text-lg font-bold text-red-400 truncate">{localCurrentWord.english}</span>
+
+                            <div className="shrink-0 h-14">
+                                {typingStatus === 'idle' && (
+                                    <div className="grid grid-cols-2 gap-3 h-full">
+                                        <Button size="lg" onClick={handleUnknown} className="h-full text-base font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-2xl">Skip</Button>
+                                        <Button size="lg" onClick={handleTypingSubmit} className="h-full text-base font-bold bg-white text-black hover:bg-zinc-200 rounded-2xl">Check</Button>
                                     </div>
-                                    <span className="text-xs text-red-400 font-bold bg-red-950/50 px-2 py-1 rounded">Tiếp tục</span>
-                                </div>
-                            )}
+                                )}
+                                {typingStatus === 'wrong' && (
+                                    <div className="h-full flex items-center justify-between px-4 bg-red-950/20 rounded-2xl border border-red-900/50 animate-in slide-in-from-bottom-2 cursor-pointer hover:bg-red-950/30 transition-colors" onClick={handleUnknown}>
+                                        <div className="flex items-baseline gap-2 overflow-hidden">
+                                            <span className="text-xs text-red-400/70 shrink-0">Answer:</span>
+                                            <span className="text-lg font-bold text-red-400 truncate">{localCurrentWord.english}</span>
+                                        </div>
+                                        <span className="text-xs text-red-400 font-bold bg-red-950/50 px-2 py-1 rounded">Continue</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                     )}
                     
-                    {/* 3. NÚT ĐIỀU KHIỂN */}
+                    {/* 3. CONTROL BUTTONS (BOTTOM) */}
                     <div className="shrink-0 mt-6 pt-2 border-t border-zinc-900/50 grid grid-cols-2 gap-3 w-full">
                         <Button 
                             onClick={handleUnknown}
                             className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
                             disabled={isAnimating}
                         >
-                            <X className="w-5 h-5 mr-2"/> Chưa thuộc
+                            <X className="w-5 h-5 mr-2"/> Unknown
                         </Button>
 
                         <Button 
@@ -405,7 +401,7 @@ export function LearnModeView({
                             style={{ backgroundColor: themeColor || '#2563eb' }}
                             disabled={isAnimating}
                         >
-                            Đã thuộc <Check className="ml-2 w-5 h-5"/>
+                            Known <Check className="ml-2 w-5 h-5"/>
                         </Button>
                     </div>
 
@@ -415,13 +411,13 @@ export function LearnModeView({
                     <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
                         <span className="text-5xl">🎉</span>
                     </div>
-                    <h3 className="text-2xl font-bold mb-2 text-white">Hoàn thành xuất sắc!</h3>
-                    <p className="text-zinc-500 mb-6 text-center max-w-xs">Bạn đã thuộc hết tất cả các từ trong nhóm này.</p>
-                    <Button onClick={handleRestart} size="lg" className="rounded-full px-10 h-12 text-base font-bold shadow-lg bg-white text-black hover:bg-zinc-200">Học lại từ đầu</Button>
+                    <h3 className="text-2xl font-bold mb-2 text-white">Excellent Work!</h3>
+                    <p className="text-zinc-500 mb-6 text-center max-w-xs">You have learned all words in this group.</p>
+                    <Button onClick={handleRestart} size="lg" className="rounded-full px-10 h-12 text-base font-bold shadow-lg bg-white text-black hover:bg-zinc-200">Start Over</Button>
                 </div>
                 )}
                 
-                {/* ICON KÉO GIÃN */}
+                {/* RESIZE HANDLE */}
                 <div className="absolute bottom-1 right-1 pointer-events-none opacity-50">
                    <div className="w-3 h-3 border-r-2 border-b-2 border-zinc-600 rounded-br-sm"></div>
                 </div>
