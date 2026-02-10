@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Flashcard } from '../flashcard'; 
-import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw, Check, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface LearnModeProps {
@@ -203,8 +203,33 @@ export function LearnModeView({
                         
                         {/* MODE 1: FLASHCARD */}
                         {mode === 'flashcard' && (
-                            <div className="w-full flex flex-col justify-center">
-                                <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" color={themeColor} />
+                            <div className="w-full flex items-center justify-between gap-2 md:gap-4">
+                                {/* NÚT TRÁI - CHƯA NHỚ (UNKNOWN) */}
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={handleUnknown} 
+                                    disabled={isAnimating}
+                                    className="h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-red-500 hover:bg-red-950/30 hover:text-red-400 hover:border-red-900/50 transition-all"
+                                >
+                                    <ChevronLeft className="w-8 h-8" />
+                                </Button>
+
+                                {/* FLASHCARD (Ở GIỮA) */}
+                                <div className="flex-1 min-w-0">
+                                    <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" color={themeColor} />
+                                </div>
+
+                                {/* NÚT PHẢI - ĐÃ NHỚ (KNOWN) */}
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={handleKnown} 
+                                    disabled={isAnimating}
+                                    className="h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-green-500 hover:bg-green-950/30 hover:text-green-400 hover:border-green-900/50 transition-all"
+                                >
+                                    <ChevronRight className="w-8 h-8" />
+                                </Button>
                             </div>
                         )}
 
@@ -277,10 +302,13 @@ export function LearnModeView({
                         </div>
                         )}
                         
-                        <div className="shrink-0 mt-6 pt-2 border-t border-zinc-900/50 grid grid-cols-2 gap-3 w-full">
-                            <Button onClick={handleUnknown} className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white" disabled={isAnimating}><X className="w-5 h-5 mr-2"/> Unknown</Button>
-                            <Button onClick={handleKnown} className="h-16 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white" style={{ backgroundColor: themeColor || '#2563eb' }} disabled={isAnimating}>Known <Check className="ml-2 w-5 h-5"/></Button>
-                        </div>
+                        {/* CHỈ HIỆN NÚT NÀY KHI Ở CHẾ ĐỘ FLASHCARD */}
+                        {mode === 'flashcard' && (
+                            <div className="shrink-0 mt-6 pt-2 border-t border-zinc-900/50 grid grid-cols-2 gap-3 w-full">
+                                <Button onClick={handleUnknown} className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white" disabled={isAnimating}><X className="w-5 h-5 mr-2"/> Unknown</Button>
+                                <Button onClick={handleKnown} className="h-16 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white" style={{ backgroundColor: themeColor || '#2563eb' }} disabled={isAnimating}>Known <Check className="ml-2 w-5 h-5"/></Button>
+                            </div>
+                        )}
                     </div>
                     ) : (
                     <div className="flex-1 flex flex-col items-center justify-center animate-in zoom-in-95 py-20">
@@ -291,6 +319,7 @@ export function LearnModeView({
                     </div>
                     )}
                 </div> 
+                
             </div>
         </div>
       </div>
