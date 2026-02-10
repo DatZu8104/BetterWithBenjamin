@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-// ✅ Import thêm UserProgress
 const { Vocabulary, SystemVocabulary, Folder, GroupSetting, User, UserProgress } = require('../models');
 const { verifyToken } = require('../middleware');
 
@@ -9,14 +8,14 @@ const checkAdmin = async (userId) => {
     return user && user.role === 'admin';
 };
 
-// 1. SYNC DATA (Đã nâng cấp logic ghép tiến độ học)
+// 1. SYNC DATA (UPDATE: Hỗ trợ cấu trúc mới & Folder hệ thống)
 router.get('/sync', verifyToken, async (req, res) => {
     try {
-        // A. Lấy từ cá nhân (Đã có sẵn trường learned)
+        // A. Lấy từ cá nhân
         const userWords = await Vocabulary.find({ userId: req.userId }).sort({ createdAt: -1 });
         const formattedUserWords = userWords.map(w => ({ ...w.toObject(), isGlobal: false }));
 
-        // B. Lấy từ hệ thống + Tiến độ học của User này
+        // B. Lấy từ hệ thống + Tiến độ học
         const systemWords = await SystemVocabulary.find({});
         const userProgress = await UserProgress.find({ userId: req.userId });
         
@@ -25,12 +24,22 @@ router.get('/sync', verifyToken, async (req, res) => {
 
         const formattedSystemWords = systemWords.map(w => ({
             _id: w._id,
-            english: w.english,
-            definition: w.definition,
+            
+            // ✅ MAPPING CẤU TRÚC MỚI
+            word: w.word,
+            definitions: w.definitions || [],
+            phonetics: w.phonetics || {},
+            audio: w.audio || {},
+            level: w.level || "",
+            href: w.href || "",
+            
+            // ✅ GIỮ TƯƠNG THÍCH NGƯỢC (cho code Frontend cũ không bị lỗi)
+            english: w.word, 
+            definition: w.definitions?.[0]?.definition || "",
+            example: w.definitions?.[0]?.examples?.[0] || "",
+            
             type: w.type,
-            example: w.example,
             group: w.group,
-            // ✅ Check xem từ này có trong danh sách đã học không
             learned: learnedSysIds.has(w._id.toString()), 
             isGlobal: true,
             createdAt: w._id.getTimestamp()
@@ -39,40 +48,73 @@ router.get('/sync', verifyToken, async (req, res) => {
         // C. Gộp lại
         const allWords = [...formattedUserWords, ...formattedSystemWords];
 
-        const folders = await Folder.find({ userId: req.userId });
-        // Lấy setting nhóm (chấp nhận cả nhóm cũ chưa có isGlobal)
+        // ✅ UPDATE: Lấy cả folder của mình VÀ folder hệ thống (isGlobal: true)
+        const folders = await Folder.find({
+            $or: [{ userId: req.userId }, { isGlobal: true }]
+        });
+
         const groupSettings = await GroupSetting.find({
             $or: [{ userId: req.userId }, { isGlobal: true }]
         });
         
         res.json({ words: allWords, folders, groupSettings });
-    } catch (e) { res.status(500).json({ error: "Lỗi sync data" }); }
+    } catch (e) { 
+        console.error(e);
+        res.status(500).json({ error: "Lỗi sync data" }); 
+    }
 });
 
-// ... (API POST /words giữ nguyên) ...
+// 2. ADD WORD (UPDATE: Sửa lại logic lưu SystemVocabulary theo schema mới)
 router.post('/words', verifyToken, async (req, res) => {
     try {
-        const { english, definition, type, group, example, isGlobal } = req.body;
+        // Nhận cả field cũ (english) và mới (word) để linh hoạt
+        const { english, word, definition, definitions, type, group, example, isGlobal } = req.body;
+        
+        const wordText = word || english;
+
         if (isGlobal) {
             const isAdmin = await checkAdmin(req.userId);
             if (!isAdmin) return res.status(403).json({ error: "Chỉ Admin được thêm từ hệ thống" });
-            const newSysWord = new SystemVocabulary({ english, definition, type, group, example });
+            
+            // Nếu gửi lên theo format cũ, tự convert sang format mới
+            const finalDefinitions = definitions || [{ 
+                order: 1, 
+                label: 'Meaning 1', 
+                definition: definition, 
+                examples: example ? [example] : [] 
+            }];
+
+            const newSysWord = new SystemVocabulary({ 
+                word: wordText, 
+                definitions: finalDefinitions, 
+                type, 
+                group 
+            });
             await newSysWord.save();
             return res.json({ ...newSysWord.toObject(), isGlobal: true });
         } else {
-            const newWord = new Vocabulary({ userId: req.userId, english, definition, type, group, example });
+            // Từ cá nhân vẫn dùng schema cũ
+            const newWord = new Vocabulary({ 
+                userId: req.userId, 
+                english: wordText, 
+                definition: definition || (definitions?.[0]?.definition), 
+                type, 
+                group, 
+                example 
+            });
             await newWord.save();
             return res.json({ ...newWord.toObject(), isGlobal: false });
         }
     } catch (e) { res.status(500).json(e); }
 });
 
-// ... (API DELETE /words giữ nguyên) ...
+// 3. DELETE WORD
 router.delete('/words/:id', verifyToken, async (req, res) => {
     try {
         const id = req.params.id;
         const userWord = await Vocabulary.findOneAndDelete({ _id: id, userId: req.userId });
         if (userWord) return res.json({ success: true, type: 'personal' });
+        
         const isAdmin = await checkAdmin(req.userId);
         if (isAdmin) {
             const sysWord = await SystemVocabulary.findByIdAndDelete(id);
@@ -82,13 +124,12 @@ router.delete('/words/:id', verifyToken, async (req, res) => {
     } catch (e) { res.status(500).json(e); }
 });
 
-// 4. UPDATE TỪ (Nâng cấp: Xử lý học từ hệ thống)
+// 4. UPDATE WORD
 router.patch('/words/:id', verifyToken, async (req, res) => {
     try {
         const id = req.params.id;
         const updateData = req.body;
 
-        // A. Thử sửa bảng cá nhân (Update bình thường)
         const userWord = await Vocabulary.findOneAndUpdate(
             { _id: id, userId: req.userId },
             updateData,
@@ -96,62 +137,50 @@ router.patch('/words/:id', verifyToken, async (req, res) => {
         );
         if (userWord) return res.json({ ...userWord.toObject(), isGlobal: false });
 
-        // B. Nếu không phải từ cá nhân -> Check từ hệ thống
         const sysWord = await SystemVocabulary.findById(id);
         if (sysWord) {
-            // ✅ Trường hợp 1: User đánh dấu "Đã thuộc" (hoặc bỏ thuộc)
             if (typeof updateData.learned === 'boolean') {
                  if (updateData.learned) {
-                     // Lưu vào bảng Progress
                      await UserProgress.findOneAndUpdate(
                          { userId: req.userId, wordId: id },
                          { learned: true, updatedAt: new Date() },
-                         { upsert: true } // Nếu chưa có thì tạo mới
+                         { upsert: true }
                      );
                  } else {
-                     // Xóa khỏi bảng Progress
                      await UserProgress.findOneAndDelete({ userId: req.userId, wordId: id });
                  }
-                 // Trả về object đã merge learned để frontend cập nhật
                  return res.json({ ...sysWord.toObject(), learned: updateData.learned, isGlobal: true });
             }
 
-            // ✅ Trường hợp 2: Admin sửa nội dung (English, Definition...)
             const isAdmin = await checkAdmin(req.userId);
             if (isAdmin) {
                  const updatedSys = await SystemVocabulary.findByIdAndUpdate(id, updateData, { new: true });
                  return res.json({ ...updatedSys.toObject(), isGlobal: true });
             }
         }
-
         return res.status(403).json({ error: "Không có quyền sửa từ này" });
     } catch (e) { res.status(500).json(e); }
 });
 
-// 5. RESET BATCH (Nâng cấp: Reset cả progress hệ thống)
+// 5. RESET BATCH
 router.post('/words/reset-batch', verifyToken, async (req, res) => {
     try {
         const { ids } = req.body;
-        // 1. Reset từ cá nhân
         await Vocabulary.updateMany(
             { _id: { $in: ids }, userId: req.userId },
             { $set: { learned: false } }
         );
-
-        // 2. Reset từ hệ thống (Xóa khỏi bảng Progress)
         await UserProgress.deleteMany({ 
             userId: req.userId, 
             wordId: { $in: ids } 
         });
-
         res.json({ success: true });
     } catch (e) { res.status(500).json(e); }
 });
 
-// ... (Các API Folder/Group/Import giữ nguyên như cũ) ...
-// (Đảm bảo copy lại phần Group API đã sửa ở bước trước)
-
+// FOLDERS
 router.post('/folders', verifyToken, async (req, res) => {
+    // Cho phép tạo folder global nếu là admin (tùy chọn)
     await Folder.create({ ...req.body, userId: req.userId });
     res.json({ success: true });
 });
@@ -159,6 +188,8 @@ router.delete('/folders/:name', verifyToken, async (req, res) => {
     await Folder.findOneAndDelete({ name: req.params.name, userId: req.userId });
     res.json({ success: true });
 });
+
+// GROUPS
 router.post('/groups', verifyToken, async (req, res) => {
     try {
         let { groupName, folder, isGlobal } = req.body;
@@ -166,6 +197,7 @@ router.post('/groups', verifyToken, async (req, res) => {
             const isAdmin = await checkAdmin(req.userId);
             if (!isAdmin) return res.status(403).json({ error: "Chỉ Admin tạo được nhóm hệ thống" });
         } else { isGlobal = false; }
+        
         const query = isGlobal ? { isGlobal: true, groupName } : { userId: req.userId, groupName, isGlobal: false };
         await GroupSetting.findOneAndUpdate(query, { userId: req.userId, groupName, folder, isGlobal }, { upsert: true, new: true });
         res.json({ success: true });
@@ -192,6 +224,8 @@ router.delete('/groups/:groupName', verifyToken, async (req, res) => {
         res.status(404).json({ error: "Không tìm thấy nhóm hoặc không có quyền" });
     } catch (e) { res.status(500).json(e); }
 });
+
+// IMPORT (Cá nhân)
 router.post('/import', verifyToken, async (req, res) => {
     try {
         const { words, learned } = req.body;

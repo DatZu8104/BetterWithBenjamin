@@ -1,7 +1,5 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-// --- SỬA ĐỔI QUAN TRỌNG: Dùng sessionStorage ---
-
 export const setApiToken = (token: string) => {
   if (typeof window !== 'undefined') {
     sessionStorage.setItem('auth_token', token);
@@ -14,7 +12,6 @@ export const clearApiToken = () => {
   }
 };
 
-// Hàm lấy token từ Storage mỗi khi gọi API
 const getHeaders = () => {
   let token = '';
   if (typeof window !== 'undefined') {
@@ -57,10 +54,8 @@ export const api = {
 
   // --- DATA SYNC ---
   syncData: async () => {
-    // Kiểm tra token từ sessionStorage
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('auth_token') : null;
     if (!token) return null;
-
     try {
         const res = await fetch(`${API_URL}/sync`, { headers: getHeaders() });
         if (!res.ok) return null;
@@ -68,16 +63,6 @@ export const api = {
     } catch (error) {
         return null;
     }
-  },
-
-  importData: async (jsonData: any) => {
-    const res = await fetch(`${API_URL}/import`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(jsonData)
-    });
-    if (!res.ok) throw new Error("Import failed");
-    return res.json();
   },
 
   // --- WORDS ---
@@ -104,18 +89,7 @@ export const api = {
     const res = await fetch(`${API_URL}/words/reset-batch`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ ids }) });
     return res.json();
   },
-  adminImportUser: async (userId: string, jsonData: any) => {
-      const res = await fetch(`${API_URL}/admin/users/${userId}/import`, {
-        method: 'POST',
-        headers: getHeaders(), // Hàm getHeaders() phải lấy token từ sessionStorage như bài trước
-        body: JSON.stringify(jsonData)
-      });
-      if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Lỗi nhập dữ liệu");
-      }
-      return res.json();
-    },
+
   // --- FOLDERS & GROUPS ---
   addFolder: async (data: any) => {
     await fetch(`${API_URL}/folders`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
@@ -130,10 +104,7 @@ export const api = {
         headers: getHeaders(),
         body: JSON.stringify({ groupName, folder, isGlobal })
     });
-    
-    if (!res.ok) {
-        throw new Error("Lỗi cập nhật nhóm");
-    }
+    if (!res.ok) throw new Error("Lỗi cập nhật nhóm");
     return res.json();
   },
   
@@ -142,12 +113,7 @@ export const api = {
       method: 'DELETE', 
       headers: getHeaders()
     });
-    
-    // ✅ THÊM ĐOẠN NÀY ĐỂ BẮT LỖI
-    if (!res.ok) {
-        console.error("Lỗi xóa nhóm:", res.status, res.statusText);
-        throw new Error("Không thể xóa nhóm (Lỗi Server hoặc sai đường dẫn)");
-    }
+    if (!res.ok) throw new Error("Lỗi xóa nhóm");
   },
 
   // --- ADMIN ---
@@ -166,4 +132,30 @@ export const api = {
   adminDeleteWord: async (wordId: string) => {
     await fetch(`${API_URL}/admin/words/${wordId}`, { method: 'DELETE', headers: getHeaders() });
   },
+  adminImportUser: async (userId: string, jsonData: any) => {
+    const res = await fetch(`${API_URL}/admin/users/${userId}/import`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(jsonData)
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Lỗi nhập dữ liệu");
+    }
+    return res.json();
+  },
+  // ✅ API MỚI: Import Oxford Toàn tập
+  adminImportOxford: async (jsonData: any) => {
+    const res = await fetch(`${API_URL}/admin/import-oxford-full`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(jsonData) // Gửi mảng JSON lớn lên
+    });
+
+    if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Lỗi khi import Oxford");
+    }
+    return res.json();
+  }
 };

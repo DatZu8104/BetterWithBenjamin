@@ -1,0 +1,11 @@
+Bước 1 (Backend): Cập nhật Schema Database (models/index.js) để lưu cấu trúc dữ liệu mới và hỗ trợ Folder hệ thống.
+backend/models/index.js
+
+Bước 2 (Backend): Cập nhật API Sync (routes/data.js) để người dùng thấy được Folder hệ thống.
+backend/routes/data.js
+
+Bước 3 (Backend): Viết API Import thông minh (routes/admin.js) để tự động chia nhóm theo Level (A1, A2...) vào Folder chung.
+
+Bước 4 (Frontend): Viết lại Component Flashcard để hiển thị 2 nút Audio, phonetics và danh sách định nghĩa.
+
+Bước 5 (Frontend): Cập nhật WordList và LearnMode để đọc được dữ liệu mới (mapping trường cũ/mới).

@@ -1,64 +1,132 @@
+// backend/seed_oxford.js
+
 const mongoose = require('mongoose');
+const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config(); 
+const { User, SystemVocabulary, Folder, GroupSetting } = require('./models'); // Đảm bảo đường dẫn đúng tới models
 
-// ✅ QUAN TRỌNG: Import SystemVocabulary thay vì Vocabulary
-const { SystemVocabulary } = require('./models'); 
+// Load biến môi trường
+dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI;
-
-if (!MONGO_URI) {
-    console.error("❌ Lỗi: Không tìm thấy MONGO_URI trong file .env");
-    process.exit(1);
-}
+// KẾT NỐI MONGODB
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => {
+        console.log("✅ Đã kết nối MongoDB. Bắt đầu import...");
+        importData();
+    })
+    .catch(err => {
+        console.error("❌ Lỗi kết nối MongoDB:", err);
+        process.exit(1);
+    });
 
 const importData = async () => {
     try {
-        await mongoose.connect(MONGO_URI);
-        console.log('✅ Connected to MongoDB');
+        // 1. Tìm User Admin để gán quyền sở hữu dữ liệu
+        // (Lấy admin đầu tiên tìm thấy)
+        const adminUser = await User.findOne({ role: 'admin' });
+        if (!adminUser) {
+            console.error("❌ Không tìm thấy user nào là Admin trong Database. Hãy tạo admin trước.");
+            process.exit(1);
+        }
+        const adminId = adminUser._id;
+        console.log(`👤 Dữ liệu sẽ thuộc về Admin: ${adminUser.username} (${adminId})`);
 
-        // 1. Đọc file JSON
-        const jsonPath = path.join(__dirname, 'full-word.json');
-        const rawData = fs.readFileSync(jsonPath, 'utf-8');
-        const wordsData = JSON.parse(rawData);
+        // 2. Đọc file JSON
+        const filePath = path.join(__dirname, 'oxford_5000_merged_final.json');
+        if (!fs.existsSync(filePath)) {
+            console.error(`❌ Không tìm thấy file tại: ${filePath}`);
+            console.error("👉 Hãy copy file 'oxford_5000_merged_final.json' vào cùng thư mục với file script này.");
+            process.exit(1);
+        }
+        
+        const rawData = fs.readFileSync(filePath, 'utf-8');
+        const jsonData = JSON.parse(rawData);
+        console.log(`📦 Đã đọc file JSON: ${jsonData.length} từ.`);
 
-        // 2. XÓA DỮ LIỆU CŨ TRONG BẢNG HỆ THỐNG
-        // ✅ Dùng SystemVocabulary
-        console.log("🗑 Đang xóa dữ liệu hệ thống cũ...");
-        await SystemVocabulary.deleteMany({}); 
+        // 3. Dọn dẹp dữ liệu cũ (Xóa sạch SystemVocabulary & Group Oxford cũ)
+        console.log("🧹 Đang dọn dẹp dữ liệu cũ...");
+        await SystemVocabulary.deleteMany({});
+        await GroupSetting.deleteMany({ isGlobal: true, groupName: { $regex: /^Oxford Level/ } });
+        
+        // 4. Tạo Folder hệ thống
+        const folderName = "Oxford 5000 Total";
+        let folder = await Folder.findOne({ name: folderName, isGlobal: true });
+        if (!folder) {
+            folder = await Folder.create({
+                userId: adminId,
+                name: folderName,
+                color: "#e11d48",
+                isGlobal: true
+            });
+            console.log("📁 Đã tạo Folder mới:", folderName);
+        } else {
+            console.log("📁 Sử dụng Folder có sẵn:", folderName);
+        }
 
-        // 3. Chuẩn bị dữ liệu mới
-        const vocabularyDocs = wordsData.map(item => {
-            const val = item.value;
-            const definition = val.definition || `(${val.type}) See Dictionary`; 
-            const example = (val.examples && val.examples.length > 0) ? val.examples[0] : "";
-            const levelGroup = val.level ? val.level.toUpperCase() : "Others";
+        // 5. Chuẩn bị dữ liệu để Insert
+        const levelGroups = new Set();
+        const wordsToInsert = jsonData.map(item => {
+            const lvl = item.level ? item.level.toUpperCase().trim() : "Others";
+            const groupName = `Oxford Level ${lvl}`;
+            levelGroups.add(groupName);
 
             return {
-                // ❌ KHÔNG CẦN userId nữa (vì đây là SystemVocabulary)
-                english: val.word,
-                definition: definition, 
-                type: val.type ? [val.type] : [],
-                example: example,
-                group: levelGroup,
-                // Không cần isGlobal hay learned ở đây
+                word: item.word,
+                type: item.type,
+                level: lvl,
+                phonetics: {
+                    us: item.phonetics?.us || "",
+                    uk: item.phonetics?.uk || ""
+                },
+                audio: {
+                    us: item.audio?.us || "",
+                    uk: item.audio?.uk || ""
+                },
+                // Mapping definitions
+                definitions: item.definitions.map(def => ({
+                    order: def.order,
+                    label: def.label,
+                    definition: def.definition,
+                    examples: def.examples || []
+                })),
+                href: item.href,
+                group: groupName, // Gán nhóm
                 createdAt: new Date()
             };
         });
 
-        // 4. Lưu vào DB
-        // ✅ Dùng SystemVocabulary
-        console.log(`⏳ Đang thêm ${vocabularyDocs.length} từ vào Bảng Hệ Thống...`);
-        await SystemVocabulary.insertMany(vocabularyDocs);
+        // 6. Tạo các Group Setting
+        console.log(`🔄 Đang tạo ${levelGroups.size} nhóm Level...`);
+        for (const groupName of levelGroups) {
+            await GroupSetting.findOneAndUpdate(
+                { groupName: groupName, isGlobal: true },
+                { 
+                    userId: adminId,
+                    groupName: groupName, 
+                    folder: folderName, 
+                    isGlobal: true 
+                },
+                { upsert: true, new: true }
+            );
+        }
 
-        console.log('🎉 Import thành công vào SystemVocabulary!');
-        process.exit();
+        // 7. Insert hàng loạt vào Database
+        console.log("🚀 Đang nạp từ vựng vào Database (Việc này mất khoảng 10-20 giây)...");
+        // ordered: false giúp chạy nhanh hơn và không dừng lại nếu 1 từ lỗi
+        await SystemVocabulary.insertMany(wordsToInsert, { ordered: false });
+
+        console.log("\n============================================");
+        console.log("✅ THÀNH CÔNG RỰC RỠ!");
+        console.log(`📊 Tổng số từ đã nạp: ${wordsToInsert.length}`);
+        console.log(`📂 Folder: ${folderName}`);
+        console.log(`📑 Các nhóm đã tạo: ${Array.from(levelGroups).join(", ")}`);
+        console.log("============================================");
+
+        process.exit(0);
 
     } catch (error) {
-        console.error('❌ Lỗi Import:', error);
+        console.error("❌ LỖI KHÔNG MONG MUỐN:", error);
         process.exit(1);
     }
 };
-
-importData();
