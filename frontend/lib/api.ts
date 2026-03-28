@@ -2,12 +2,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export const setApiToken = (token: string) => {
   if (typeof window !== 'undefined') {
+    localStorage.setItem('token', token);
     sessionStorage.setItem('auth_token', token);
   }
 };
 
 export const clearApiToken = () => {
   if (typeof window !== 'undefined') {
+    localStorage.removeItem('token');
     sessionStorage.removeItem('auth_token');
   }
 };
@@ -15,7 +17,10 @@ export const clearApiToken = () => {
 const getHeaders = () => {
   let token = '';
   if (typeof window !== 'undefined') {
-    token = sessionStorage.getItem('auth_token') || '';
+    // 🚀 FIX: Đồng bộ kho lưu trữ Token và làm sạch JWT
+    token = localStorage.getItem('token') || sessionStorage.getItem('auth_token') || '';
+    token = token.replace(/(^"|"$)/g, ""); // Xóa dấu nháy kép
+    token = token.replace(/^Bearer\s+/i, ""); // Gửi RAW JWT cho Backend
   }
   return {
     'Content-Type': 'application/json',
@@ -54,8 +59,6 @@ export const api = {
 
   // --- DATA SYNC ---
   syncData: async () => {
-    const token = typeof window !== 'undefined' ? sessionStorage.getItem('auth_token') : null;
-    if (!token) return null;
     try {
         const res = await fetch(`${API_URL}/sync`, { headers: getHeaders() });
         if (!res.ok) return null;
@@ -64,7 +67,26 @@ export const api = {
         return null;
     }
   },
+// Cập nhật trạng thái Đã thuộc / Chưa thuộc trong thư mục
+  updateMasterStatus: async (savedWordId: string, isMastered: boolean) => {
+    const res = await fetch(`${API_URL}/saved-words/${savedWordId}/master`, {
+      method: 'PUT',
+      headers: getHeaders(), // Lấy token chuẩn 100% từ hệ thống
+      body: JSON.stringify({ isMastered })
+    });
+    if (!res.ok) throw new Error("Lỗi cập nhật trạng thái");
+    return res.json();
+  },
 
+  // Reset tiến độ của thư mục
+  resetFolderProgress: async (folderId: string) => {
+    const res = await fetch(`${API_URL}/folders/${folderId}/reset`, {
+      method: 'PUT',
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error("Lỗi reset thư mục");
+    return res.json();
+  },
   // --- WORDS ---
   addWord: async (data: any) => {
     const res = await fetch(`${API_URL}/words`, {
@@ -90,7 +112,7 @@ export const api = {
     return res.json();
   },
 
-  // --- FOLDERS & GROUPS ---
+  // --- FOLDERS & GROUPS (CŨ) ---
   addFolder: async (data: any) => {
     await fetch(`${API_URL}/folders`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
   },
@@ -114,6 +136,53 @@ export const api = {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error("Lỗi xóa nhóm");
+  },
+
+  // ==========================================
+  // 🚀 TÍNH NĂNG MỚI DÀNH CHO MODAL GIỎ HÀNG
+  // ==========================================
+  getFoldersList: async () => {
+    const res = await fetch(`${API_URL}/folders`, { headers: getHeaders() });
+    if (!res.ok) throw new Error("Lỗi tải danh sách thư mục");
+    return res.json();
+  },
+
+  createFolderAndGetId: async (name: string, color?: string) => {
+    const res = await fetch(`${API_URL}/folders`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ name, color })
+    });
+    if (!res.ok) throw new Error("Lỗi tạo thư mục mới");
+    return res.json();
+  },
+
+  deleteFolderById: async (id: string) => {
+    const res = await fetch(`${API_URL}/folders/${id}`, { method: 'DELETE', headers: getHeaders() });
+    if (!res.ok) throw new Error("Lỗi xóa thư mục");
+    return res.json();
+  },
+
+  getFolderDetail: async (id: string) => {
+    const res = await fetch(`${API_URL}/folders/${id}`, { headers: getHeaders() });
+    if (!res.ok) throw new Error("Lỗi tải chi tiết thư mục");
+    return res.json();
+  },
+
+  addWordsToFolder: async (folderId: string, wordIds: string[]) => {
+    const res = await fetch(`${API_URL}/folders/${folderId}/add-words`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ wordIds })
+    });
+    if (!res.ok) throw new Error("Lỗi thêm từ vào thư mục");
+    return res.json();
+  },
+
+  getSavedWordIds: async () => {
+    const res = await fetch(`${API_URL}/saved-words/all-ids`, { headers: getHeaders() });
+    if (!res.ok) throw new Error("Lỗi lấy danh sách ID đã lưu");
+    return res.json();
   },
 
   // --- ADMIN ---
@@ -144,14 +213,12 @@ export const api = {
     }
     return res.json();
   },
-  // ✅ API MỚI: Import Oxford Toàn tập
   adminImportOxford: async (jsonData: any) => {
     const res = await fetch(`${API_URL}/admin/import-oxford-full`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(jsonData) // Gửi mảng JSON lớn lên
+      body: JSON.stringify(jsonData)
     });
-
     if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Lỗi khi import Oxford");

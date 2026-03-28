@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { Vocabulary, SystemVocabulary, Folder, GroupSetting, User, UserProgress } = require('../models');
+
+// 🚀 GỘP CHUNG 1 DÒNG IMPORT DUY NHẤT ĐỂ TRÁNH LỖI CRASH
+const { Vocabulary, SystemVocabulary, Folder, GroupSetting, User, UserProgress, SavedWord } = require('../models');
 const { verifyToken } = require('../middleware');
 
 const checkAdmin = async (userId) => {
@@ -8,36 +10,32 @@ const checkAdmin = async (userId) => {
     return user && user.role === 'admin';
 };
 
-// 1. SYNC DATA (UPDATE: Hỗ trợ cấu trúc mới & Folder hệ thống)
+// ==========================================
+// 🚀 QUẢN LÝ TỪ VỰNG VÀ SYNC
+// ==========================================
+
 router.get('/sync', verifyToken, async (req, res) => {
     try {
-        // A. Lấy từ cá nhân
         const userWords = await Vocabulary.find({ userId: req.userId }).sort({ createdAt: -1 });
         const formattedUserWords = userWords.map(w => ({ ...w.toObject(), isGlobal: false }));
 
-        // B. Lấy từ hệ thống + Tiến độ học
         const systemWords = await SystemVocabulary.find({});
         const userProgress = await UserProgress.find({ userId: req.userId });
-        
-        // Tạo Set chứa ID các từ hệ thống mà user đã học
         const learnedSysIds = new Set(userProgress.map(p => p.wordId.toString()));
+        
+        console.log("🔥 [GET /sync] Tổng số từ đã học (UserProgress):", learnedSysIds.size, "| Danh sách ID:", Array.from(learnedSysIds));
 
         const formattedSystemWords = systemWords.map(w => ({
             _id: w._id,
-            
-            // ✅ MAPPING CẤU TRÚC MỚI
             word: w.word,
             definitions: w.definitions || [],
             phonetics: w.phonetics || {},
             audio: w.audio || {},
             level: w.level || "",
             href: w.href || "",
-            
-            // ✅ GIỮ TƯƠNG THÍCH NGƯỢC (cho code Frontend cũ không bị lỗi)
             english: w.word, 
             definition: w.definitions?.[0]?.definition || "",
             example: w.definitions?.[0]?.examples?.[0] || "",
-            
             type: w.type,
             group: w.group,
             learned: learnedSysIds.has(w._id.toString()), 
@@ -45,10 +43,8 @@ router.get('/sync', verifyToken, async (req, res) => {
             createdAt: w._id.getTimestamp()
         }));
 
-        // C. Gộp lại
         const allWords = [...formattedUserWords, ...formattedSystemWords];
 
-        // ✅ UPDATE: Lấy cả folder của mình VÀ folder hệ thống (isGlobal: true)
         const folders = await Folder.find({
             $or: [{ userId: req.userId }, { isGlobal: true }]
         });
@@ -59,48 +55,30 @@ router.get('/sync', verifyToken, async (req, res) => {
         
         res.json({ words: allWords, folders, groupSettings });
     } catch (e) { 
-        console.error(e);
         res.status(500).json({ error: "Lỗi sync data" }); 
     }
 });
 
-// 2. ADD WORD (UPDATE: Sửa lại logic lưu SystemVocabulary theo schema mới)
 router.post('/words', verifyToken, async (req, res) => {
     try {
-        // Nhận cả field cũ (english) và mới (word) để linh hoạt
         const { english, word, definition, definitions, type, group, example, isGlobal } = req.body;
-        
         const wordText = word || english;
 
         if (isGlobal) {
             const isAdmin = await checkAdmin(req.userId);
             if (!isAdmin) return res.status(403).json({ error: "Chỉ Admin được thêm từ hệ thống" });
             
-            // Nếu gửi lên theo format cũ, tự convert sang format mới
             const finalDefinitions = definitions || [{ 
-                order: 1, 
-                label: 'Meaning 1', 
-                definition: definition, 
-                examples: example ? [example] : [] 
+                order: 1, label: 'Meaning 1', definition: definition, examples: example ? [example] : [] 
             }];
 
-            const newSysWord = new SystemVocabulary({ 
-                word: wordText, 
-                definitions: finalDefinitions, 
-                type, 
-                group 
-            });
+            const newSysWord = new SystemVocabulary({ word: wordText, definitions: finalDefinitions, type, group });
             await newSysWord.save();
             return res.json({ ...newSysWord.toObject(), isGlobal: true });
         } else {
-            // Từ cá nhân vẫn dùng schema cũ
             const newWord = new Vocabulary({ 
-                userId: req.userId, 
-                english: wordText, 
-                definition: definition || (definitions?.[0]?.definition), 
-                type, 
-                group, 
-                example 
+                userId: req.userId, english: wordText, definition: definition || (definitions?.[0]?.definition), 
+                type, group, example 
             });
             await newWord.save();
             return res.json({ ...newWord.toObject(), isGlobal: false });
@@ -108,7 +86,6 @@ router.post('/words', verifyToken, async (req, res) => {
     } catch (e) { res.status(500).json(e); }
 });
 
-// 3. DELETE WORD
 router.delete('/words/:id', verifyToken, async (req, res) => {
     try {
         const id = req.params.id;
@@ -124,16 +101,13 @@ router.delete('/words/:id', verifyToken, async (req, res) => {
     } catch (e) { res.status(500).json(e); }
 });
 
-// 4. UPDATE WORD
 router.patch('/words/:id', verifyToken, async (req, res) => {
     try {
         const id = req.params.id;
         const updateData = req.body;
 
         const userWord = await Vocabulary.findOneAndUpdate(
-            { _id: id, userId: req.userId },
-            updateData,
-            { new: true }
+            { _id: id, userId: req.userId }, updateData, { new: true }
         );
         if (userWord) return res.json({ ...userWord.toObject(), isGlobal: false });
 
@@ -162,34 +136,19 @@ router.patch('/words/:id', verifyToken, async (req, res) => {
     } catch (e) { res.status(500).json(e); }
 });
 
-// 5. RESET BATCH
 router.post('/words/reset-batch', verifyToken, async (req, res) => {
     try {
         const { ids } = req.body;
-        await Vocabulary.updateMany(
-            { _id: { $in: ids }, userId: req.userId },
-            { $set: { learned: false } }
-        );
-        await UserProgress.deleteMany({ 
-            userId: req.userId, 
-            wordId: { $in: ids } 
-        });
+        await Vocabulary.updateMany({ _id: { $in: ids }, userId: req.userId }, { $set: { learned: false } });
+        await UserProgress.deleteMany({ userId: req.userId, wordId: { $in: ids } });
         res.json({ success: true });
     } catch (e) { res.status(500).json(e); }
 });
 
-// FOLDERS
-router.post('/folders', verifyToken, async (req, res) => {
-    // Cho phép tạo folder global nếu là admin (tùy chọn)
-    await Folder.create({ ...req.body, userId: req.userId });
-    res.json({ success: true });
-});
-router.delete('/folders/:name', verifyToken, async (req, res) => {
-    await Folder.findOneAndDelete({ name: req.params.name, userId: req.userId });
-    res.json({ success: true });
-});
+// ==========================================
+// 🚀 QUẢN LÝ NHÓM CŨ VÀ IMPORT
+// ==========================================
 
-// GROUPS
 router.post('/groups', verifyToken, async (req, res) => {
     try {
         let { groupName, folder, isGlobal } = req.body;
@@ -203,6 +162,7 @@ router.post('/groups', verifyToken, async (req, res) => {
         res.json({ success: true });
     } catch (e) { res.status(500).json(e); }
 });
+
 router.delete('/groups/:groupName', verifyToken, async (req, res) => {
     try {
         const groupName = decodeURIComponent(req.params.groupName);
@@ -221,11 +181,10 @@ router.delete('/groups/:groupName', verifyToken, async (req, res) => {
                 return res.json({ success: true, type: 'system' });
             }
         }
-        res.status(404).json({ error: "Không tìm thấy nhóm hoặc không có quyền" });
+        res.status(404).json({ error: "Không tìm thấy nhóm" });
     } catch (e) { res.status(500).json(e); }
 });
 
-// IMPORT (Cá nhân)
 router.post('/import', verifyToken, async (req, res) => {
     try {
         const { words, learned } = req.body;
@@ -252,6 +211,152 @@ router.post('/import', verifyToken, async (req, res) => {
         if (operations.length > 0) await Vocabulary.bulkWrite(operations);
         res.json({ success: true, message: `Đã nhập ${operations.length} từ` });
     } catch (e) { res.status(500).json({ error: "Lỗi nhập liệu" }); }
+});
+
+// ==========================================
+// 🚀 TÍNH NĂNG MỚI: QUẢN LÝ THƯ MỤC & GIỎ HÀNG
+// ==========================================
+
+// 1. Lấy danh sách Folder
+router.get('/folders', verifyToken, async (req, res) => {
+    try {
+        const folders = await Folder.find({ userId: req.userId }).sort({ createdAt: -1 });
+        res.json(folders);
+    } catch (err) {
+        res.status(500).json({ error: 'Lỗi khi lấy danh sách thư mục' });
+    }
+});
+
+// 2. Tạo Folder Mới
+router.post('/folders', verifyToken, async (req, res) => {
+    try {
+        const { name, color } = req.body;
+        const newFolder = new Folder({
+            userId: req.userId,
+            name: name,
+            color: color || '#3b82f6' 
+        });
+        const savedFolder = await newFolder.save();
+        res.status(201).json(savedFolder); // 🚀 Trả về đối tượng đầy đủ có chứa _id
+    } catch (err) {
+        res.status(500).json({ error: 'Lỗi khi tạo thư mục mới' });
+    }
+});
+
+// 3. Xóa Folder
+router.delete('/folders/:id', verifyToken, async (req, res) => {
+    try {
+        const folderId = req.params.id;
+        await SavedWord.deleteMany({ folderId, userId: req.userId });
+        await Folder.findOneAndDelete({ _id: folderId, userId: req.userId });
+        res.json({ message: 'Đã xóa thư mục thành công' });
+    } catch (err) {
+        res.status(500).json({ error: 'Lỗi khi xóa thư mục' });
+    }
+});
+
+// 4. Xem chi tiết Folder
+router.get('/folders/:id', verifyToken, async (req, res) => {
+    try {
+        const folder = await Folder.findOne({ _id: req.params.id, userId: req.userId });
+        if (!folder) return res.status(404).json({ error: 'Không tìm thấy thư mục' });
+
+        const savedWords = await SavedWord.find({ folderId: folder._id, userId: req.userId })
+            .populate('wordId') 
+            .sort({ addedAt: 1 }); 
+
+        res.json({ folder, savedWords });
+    } catch (err) {
+        res.status(500).json({ error: 'Lỗi khi tải chi tiết thư mục' });
+    }
+});
+
+// 5. Reset tiến độ Folder
+router.put('/folders/:id/reset', verifyToken, async (req, res) => {
+    try {
+        // Lấy danh sách các từ trong folder này
+        const savedWords = await SavedWord.find({ folderId: req.params.id, userId: req.userId });
+        const wordIds = savedWords.map(sw => sw.wordId);
+
+        // 🚀 ĐỒNG BỘ: Rút các từ này khỏi tiến độ tổng (UserProgress)
+        await UserProgress.deleteMany({ userId: req.userId, wordId: { $in: wordIds } });
+
+        // Reset lại isMastered trong thư mục
+        await SavedWord.updateMany(
+            { folderId: req.params.id, userId: req.userId },
+            { isMastered: false }
+        );
+        res.json({ message: 'Đã reset tiến độ thư mục' });
+    } catch (err) {
+        res.status(500).json({ error: 'Lỗi khi reset tiến độ' });
+    }
+});
+
+// 6. Thêm từ vào Folder
+router.post('/folders/:id/add-words', verifyToken, async (req, res) => {
+    try {
+        const { wordIds } = req.body; 
+        const folderId = req.params.id;
+
+        const wordsToAdd = wordIds.map(wordId => ({
+            userId: req.userId,
+            folderId: folderId,
+            wordId: wordId
+        }));
+
+        await SavedWord.insertMany(wordsToAdd, { ordered: false });
+        res.json({ message: 'Thêm từ vựng thành công!' });
+    } catch (err) {
+        if (err.code === 11000) {
+             return res.json({ message: 'Đã thêm từ (bỏ qua trùng lặp)' });
+        }
+        res.status(500).json({ error: 'Lỗi khi thêm từ' });
+    }
+});
+
+// 7. Cập nhật isMastered (Đã thuộc hay chưa) - ĐÃ THÊM LOGIC ĐỒNG BỘ
+router.put('/saved-words/:id/master', verifyToken, async (req, res) => {
+    try {
+        const { isMastered } = req.body; 
+        const savedWord = await SavedWord.findOneAndUpdate(
+            { _id: req.params.id, userId: req.userId },
+            { isMastered: isMastered },
+            { new: true }
+        );
+
+        // 🚀 BƯỚC QUAN TRỌNG: Đồng bộ sang bảng UserProgress để Header nhảy số
+        if (savedWord && savedWord.wordId) {
+            if (isMastered) {
+                // Nếu thuộc -> Lưu vào UserProgress
+                await UserProgress.findOneAndUpdate(
+                    { userId: req.userId, wordId: savedWord.wordId },
+                    { learned: true, updatedAt: new Date() },
+                    { upsert: true }
+                );
+            } else {
+                // Nếu chưa nhớ -> Xóa khỏi UserProgress
+                await UserProgress.findOneAndDelete({ 
+                    userId: req.userId, 
+                    wordId: savedWord.wordId 
+                });
+            }
+        }
+
+        res.json(savedWord);
+    } catch (err) {
+        console.error("Lỗi sync tiến độ:", err);
+        res.status(500).json({ error: 'Lỗi cập nhật' });
+    }
+});
+
+// 8. Lấy toàn bộ ID từ đã chọn
+router.get('/saved-words/all-ids', verifyToken, async (req, res) => {
+    try {
+        const savedWords = await SavedWord.find({ userId: req.userId }).select('wordId folderId');
+        res.json(savedWords);
+    } catch (err) {
+        res.status(500).json({ error: 'Lỗi danh sách ID' });
+    }
 });
 
 module.exports = router;

@@ -1,5 +1,5 @@
 'use client';
-
+import { api } from '../../lib/api';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -8,12 +8,12 @@ import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateC
 import { cn } from '../../lib/utils';
 
 interface LearnModeProps {
-  currentWord: any; 
-  allWords: any[];
+  currentWord?: any; 
+  allWords: any[]; 
   progress: number;
   total: number;
   isResetting: boolean;
-  onNext: () => void;
+  onNext: (wordId: string, isKnown: boolean) => void;
   onReset: () => void;
   onExit: () => void;
   themeColor?: string;
@@ -39,8 +39,18 @@ export function LearnModeView({
   const hasInitialized = useRef(false);
 
   // Helper
-  const getWordText = (w: any) => w?.word || w?.english || "";
-  const getWordDef = (w: any) => w?.definition || w?.definitions?.[0]?.definition || "No definition";
+  const getActual = (w: any) => w?.wordId || w || {};
+  const getWordText = (w: any) => getActual(w).word || getActual(w).english || "";
+  const getWordDef = (w: any) => getActual(w).definition || getActual(w).definitions?.[0]?.definition || "No definition";
+  const getWordId = (w: any) => w?._id || w?.id || w?.savedWordId;
+
+  // 🚀 FIX: Lấy token RAW nguyên thủy cho Backend
+  const getAuthToken = () => {
+    let token = localStorage.getItem("token") || "";
+    token = token.replace(/(^"|"$)/g, ""); // Xóa dấu nháy kép nếu có (tránh lỗi giải mã JWT)
+    // Đảm bảo không có chữ "Bearer " nào được gửi đi, vì backend chỉ đọc JWT thô
+    return token.replace(/^Bearer\s+/i, "");
+  };
 
   // --- AUDIO ---
   const speakWord = (text: string) => {
@@ -54,12 +64,15 @@ export function LearnModeView({
     window.speechSynthesis.speak(utterance);
   };
 
-  // Init Data
+  // Init Data: 🚀 FIX LỖI MẢNG RỖNG VÀ LỌC TỪ
   useEffect(() => {
       if (hasInitialized.current && !isResetting) return;
-      const unlearned = allWords.filter(w => !w.learned);
+      
+      // Lọc ra từ chưa thuộc. Ép kiểu boolean để tránh lỗi undefined
+      const unlearned = allWords.filter(w => w.isMastered !== true && w.learned !== true);
+      
       if (unlearned.length > 0) {
-          const shuffled = unlearned.sort(() => Math.random() - 0.5);
+          const shuffled = [...unlearned].sort(() => Math.random() - 0.5);
           setStudyQueue(shuffled);
           setLocalCurrentWord(shuffled[0]);
           hasInitialized.current = true;
@@ -78,29 +91,68 @@ export function LearnModeView({
         setLocalCurrentWord(newWord);
         resetModeState();
         setIsAnimating(false);
-    }, 70);
+    }, 100); // Tăng chút thời gian cho mượt
   };
 
+  // 🚀 NÚT "HỌC LẠI TỪ ĐẦU"
   const handleRestart = () => {
-      hasInitialized.current = false; 
-      setLocalCurrentWord(null);
-      setStudyQueue([]);
-      onReset();
+    const folderId = allWords[0]?.folderId; 
+    if (folderId) {
+        try {
+            if (typeof api.resetFolderProgress !== 'function') {
+                alert("LỖI FRONTEND: Bạn chưa thêm hàm resetFolderProgress vào file api.ts!");
+            } else {
+                // Chạy ngầm
+                api.resetFolderProgress(folderId).catch(err => alert("LỖI BACKEND: " + err.message));
+            }
+        } catch (e) { console.error(e); }
+    }
+    
+    hasInitialized.current = false; 
+    setLocalCurrentWord(null);
+    setStudyQueue([]);
+    onReset(); 
   };
 
+  // 🚀 NÚT "ĐÃ NHỚ"
   const handleKnown = useCallback(() => {
       if (!localCurrentWord) return;
-      onNext(); 
-      const newQueue = studyQueue.filter(w => w.id !== localCurrentWord.id);
+      const currentId = getWordId(localCurrentWord);
+
+      // 1. GỌI API THEO ĐÚNG LUỒNG DỮ LIỆU
+      if (localCurrentWord.savedWordId) {
+          api.updateMasterStatus(localCurrentWord.savedWordId, true).catch(console.error);
+      } else {
+          api.updateWord(currentId, { learned: true }).catch(console.error);
+      }
+
+      // 2. BÁO CHO MAIN APP ĐỂ HEADER NHẢY SỐ
+      onNext(currentId, true); 
+      
+      const newQueue = studyQueue.filter(w => getWordId(w) !== currentId);
       setStudyQueue(newQueue);
       const nextWord = newQueue.length > 0 ? newQueue[0] : null;
       switchWord(nextWord);
   }, [localCurrentWord, studyQueue, onNext]);
 
+  // 🚀 NÚT "CHƯA NHỚ"
   const handleUnknown = useCallback(() => {
       if (!localCurrentWord) return;
-      const remaining = studyQueue.filter(w => w.id !== localCurrentWord.id);
+      const currentId = getWordId(localCurrentWord);
+
+      // 1. GỌI API THEO ĐÚNG LUỒNG DỮ LIỆU
+      if (localCurrentWord.savedWordId) {
+          api.updateMasterStatus(localCurrentWord.savedWordId, false).catch(console.error);
+      } else {
+          api.updateWord(currentId, { learned: false }).catch(console.error);
+      }
+
+      // 2. BÁO CHO MAIN APP
+      onNext(currentId, false);
+
+      const remaining = studyQueue.filter(w => getWordId(w) !== currentId);
       const newQueue = [...remaining, localCurrentWord];
+      
       setStudyQueue(newQueue);
       const nextWord = newQueue.length > 0 ? newQueue[0] : null;
       switchWord(nextWord);
@@ -116,7 +168,8 @@ export function LearnModeView({
   useEffect(() => {
     if (mode === 'quiz' && localCurrentWord) {
       const correct = localCurrentWord;
-      const others = allWords.filter(w => w.id !== correct.id);
+      const correctId = getWordId(correct);
+      const others = allWords.filter(w => getWordId(w) !== correctId);
       const distractors = others.sort(() => 0.5 - Math.random()).slice(0, 3);
       const options = [correct, ...distractors].sort(() => 0.5 - Math.random());
       setQuizOptions(options);
@@ -128,7 +181,7 @@ export function LearnModeView({
     if (selectedAnswer) return;
     speakWord(getWordText(localCurrentWord));
     setSelectedAnswer(wordId);
-    if (wordId === localCurrentWord.id) {
+    if (wordId === getWordId(localCurrentWord)) {
         setTimeout(() => handleKnown(), 800); 
     } else {
         setTimeout(() => handleUnknown(), 1500); 
@@ -191,7 +244,6 @@ export function LearnModeView({
                     <div className="flex gap-1"><span className="text-zinc-500">Learning:</span><span className="font-bold text-red-400">{displayUnlearned}/{totalCount}</span></div>
                 </div>
 
-                {/* ✅ FIXED 90% WIDTH CONTAINER - KHÔNG CHO RESIZE NỮA */}
                 <div className="flex flex-col relative w-[90%] mx-auto">
                     
                     {isResetting ? (
@@ -204,7 +256,6 @@ export function LearnModeView({
                         {/* MODE 1: FLASHCARD */}
                         {mode === 'flashcard' && (
                             <div className="w-full flex items-center justify-between gap-2 md:gap-4">
-                                {/* NÚT TRÁI - CHƯA NHỚ (UNKNOWN) */}
                                 <Button 
                                     variant="ghost" 
                                     size="icon" 
@@ -215,12 +266,10 @@ export function LearnModeView({
                                     <ChevronLeft className="w-8 h-8" />
                                 </Button>
 
-                                {/* FLASHCARD (Ở GIỮA) */}
                                 <div className="flex-1 min-w-0">
                                     <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" color={themeColor} />
                                 </div>
 
-                                {/* NÚT PHẢI - ĐÃ NHỚ (KNOWN) */}
                                 <Button 
                                     variant="ghost" 
                                     size="icon" 
@@ -244,8 +293,10 @@ export function LearnModeView({
                             </div>
                             <div className="grid grid-cols-1 gap-3">
                                 {quizOptions.map((opt) => {
-                                    const isSelected = selectedAnswer === opt.id;
-                                    const isCorrect = opt.id === localCurrentWord.id;
+                                    const optId = getWordId(opt);
+                                    const currentId = getWordId(localCurrentWord);
+                                    const isSelected = selectedAnswer === optId;
+                                    const isCorrect = optId === currentId;
                                     let style = "border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300";
                                     if (selectedAnswer) {
                                         if (isCorrect) style = "border-green-900 bg-green-950/40 text-green-400 font-bold ring-1 ring-green-900";
@@ -253,8 +304,8 @@ export function LearnModeView({
                                         else style = "opacity-30 grayscale border-transparent";
                                     }
                                     return (
-                                        <button key={opt.id} className={cn("h-14 px-4 rounded-2xl border text-base font-medium transition-all shadow-sm flex items-center justify-center text-center active:scale-[0.98]", style)}
-                                            onClick={() => handleQuizAnswer(opt.id)} disabled={!!selectedAnswer}>
+                                        <button key={optId} className={cn("h-14 px-4 rounded-2xl border text-base font-medium transition-all shadow-sm flex items-center justify-center text-center active:scale-[0.98]", style)}
+                                            onClick={() => handleQuizAnswer(optId)} disabled={!!selectedAnswer}>
                                             <span className="truncate w-full">{getWordText(opt)}</span>
                                         </button>
                                     )
@@ -302,20 +353,20 @@ export function LearnModeView({
                         </div>
                         )}
                         
-                        {/* CHỈ HIỆN NÚT NÀY KHI Ở CHẾ ĐỘ FLASHCARD */}
+                        {/* 2 NÚT BÊN DƯỚI (KNOWN / UNKNOWN) */}
                         {mode === 'flashcard' && (
                             <div className="shrink-0 mt-6 pt-2 border-t border-zinc-900/50 grid grid-cols-2 gap-3 w-full">
-                                <Button onClick={handleUnknown} className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white" disabled={isAnimating}><X className="w-5 h-5 mr-2"/> Unknown</Button>
-                                <Button onClick={handleKnown} className="h-16 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white" style={{ backgroundColor: themeColor || '#2563eb' }} disabled={isAnimating}>Known <Check className="ml-2 w-5 h-5"/></Button>
+                                <Button onClick={handleUnknown} className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white" disabled={isAnimating}><X className="w-5 h-5 mr-2"/> Chưa nhớ</Button>
+                                <Button onClick={handleKnown} className="h-16 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white" style={{ backgroundColor: themeColor || '#2563eb' }} disabled={isAnimating}>Đã thuộc <Check className="ml-2 w-5 h-5"/></Button>
                             </div>
                         )}
                     </div>
                     ) : (
                     <div className="flex-1 flex flex-col items-center justify-center animate-in zoom-in-95 py-20">
                         <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center mb-6 shadow-inner"><span className="text-5xl">🎉</span></div>
-                        <h3 className="text-2xl font-bold mb-2 text-white">Excellent Work!</h3>
-                        <p className="text-zinc-500 mb-6 text-center max-w-xs">You have learned all words in this group.</p>
-                        <Button onClick={handleRestart} size="lg" className="rounded-full px-10 h-12 text-base font-bold shadow-lg bg-white text-black hover:bg-zinc-200">Start Over</Button>
+                        <h3 className="text-2xl font-bold mb-2 text-white">Xuất sắc!</h3>
+                        <p className="text-zinc-500 mb-6 text-center max-w-xs">Bạn đã ôn tập xong thư mục này.</p>
+                        <Button onClick={handleRestart} size="lg" className="rounded-full px-10 h-12 text-base font-bold shadow-lg bg-white text-black hover:bg-zinc-200">Học lại từ đầu</Button>
                     </div>
                     )}
                 </div> 
