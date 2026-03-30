@@ -60,18 +60,23 @@ export const api = {
   // --- DATA SYNC ---
   syncData: async () => {
     try {
-        const res = await fetch(`${API_URL}/sync`, { headers: getHeaders() });
+        // 🚀 BỔ SUNG CHẶN CACHE ĐỂ HEADER LUÔN CẬP NHẬT ĐÚNG SỐ LƯỢNG MỚI NHẤT
+        const res = await fetch(`${API_URL}/sync?t=${new Date().getTime()}`, { 
+            headers: getHeaders(),
+            cache: 'no-store' 
+        });
         if (!res.ok) return null;
         return await res.json();
     } catch (error) {
         return null;
     }
   },
-// Cập nhật trạng thái Đã thuộc / Chưa thuộc trong thư mục
+
+  // Cập nhật trạng thái Đã thuộc / Chưa thuộc trong thư mục
   updateMasterStatus: async (savedWordId: string, isMastered: boolean) => {
     const res = await fetch(`${API_URL}/saved-words/${savedWordId}/master`, {
       method: 'PUT',
-      headers: getHeaders(), // Lấy token chuẩn 100% từ hệ thống
+      headers: getHeaders(),
       body: JSON.stringify({ isMastered })
     });
     if (!res.ok) throw new Error("Lỗi cập nhật trạng thái");
@@ -87,6 +92,7 @@ export const api = {
     if (!res.ok) throw new Error("Lỗi reset thư mục");
     return res.json();
   },
+
   // --- WORDS ---
   addWord: async (data: any) => {
     const res = await fetch(`${API_URL}/words`, {
@@ -184,6 +190,27 @@ export const api = {
     if (!res.ok) throw new Error("Lỗi lấy danh sách ID đã lưu");
     return res.json();
   },
+
+  // 🚀 HÀM MỚI: Đổi tên thư mục (Playlist)
+  renameFolder: async (folderId: string, newName: string) => {
+    const res = await fetch(`${API_URL}/folders/${folderId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ name: newName })
+    });
+    if (!res.ok) throw new Error("Lỗi đổi tên thư mục");
+    return res.json();
+  },
+
+// 🚀 HÀM MỚI SỬA LẠI: Rút một từ vựng khỏi thư mục
+  removeWordFromFolder: async (savedWordId: string) => {
+    const res = await fetch(`${API_URL}/saved-words/${savedWordId}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error("Lỗi rút từ khỏi thư mục");
+    return res.json();
+  },  
 
   // --- ADMIN ---
   getUsers: async () => {

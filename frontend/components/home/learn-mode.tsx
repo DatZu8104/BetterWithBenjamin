@@ -65,14 +65,21 @@ export function LearnModeView({
   };
 
   // Init Data: 🚀 FIX LỖI MẢNG RỖNG VÀ LỌC TỪ
+// Init Data: 🚀 CHẾ ĐỘ ÔN TẬP KHI ĐÃ THUỘC 100%
   useEffect(() => {
       if (hasInitialized.current && !isResetting) return;
       
-      // Lọc ra từ chưa thuộc. Ép kiểu boolean để tránh lỗi undefined
-      const unlearned = allWords.filter(w => w.isMastered !== true && w.learned !== true);
+      // 1. Lọc ra các từ chưa thuộc
+      let pendingWords = allWords.filter(w => w.isMastered !== true && w.learned !== true);
       
-      if (unlearned.length > 0) {
-          const shuffled = [...unlearned].sort(() => Math.random() - 0.5);
+      // 2. 🚀 LÔ-GIC MỚI: Nếu đã thuộc hết (pending rỗng), nạp lại toàn bộ danh sách để tạo luồng Ôn tập
+      if (pendingWords.length === 0 && allWords.length > 0) {
+          pendingWords = [...allWords];
+      }
+      
+      // 3. Khởi tạo hàng chờ
+      if (pendingWords.length > 0) {
+          const shuffled = [...pendingWords].sort(() => Math.random() - 0.5);
           setStudyQueue(shuffled);
           setLocalCurrentWord(shuffled[0]);
           hasInitialized.current = true;

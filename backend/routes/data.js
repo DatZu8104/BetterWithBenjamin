@@ -23,7 +23,6 @@ router.get('/sync', verifyToken, async (req, res) => {
         const userProgress = await UserProgress.find({ userId: req.userId });
         const learnedSysIds = new Set(userProgress.map(p => p.wordId.toString()));
         
-        console.log("🔥 [GET /sync] Tổng số từ đã học (UserProgress):", learnedSysIds.size, "| Danh sách ID:", Array.from(learnedSysIds));
 
         const formattedSystemWords = systemWords.map(w => ({
             _id: w._id,
@@ -214,7 +213,7 @@ router.post('/import', verifyToken, async (req, res) => {
 });
 
 // ==========================================
-// 🚀 TÍNH NĂNG MỚI: QUẢN LÝ THƯ MỤC & GIỎ HÀNG
+// 🚀 QUẢN LÝ THƯ MỤC & GIỎ HÀNG
 // ==========================================
 
 // 1. Lấy danh sách Folder
@@ -237,20 +236,36 @@ router.post('/folders', verifyToken, async (req, res) => {
             color: color || '#3b82f6' 
         });
         const savedFolder = await newFolder.save();
-        res.status(201).json(savedFolder); // 🚀 Trả về đối tượng đầy đủ có chứa _id
+        res.status(201).json(savedFolder);
     } catch (err) {
         res.status(500).json({ error: 'Lỗi khi tạo thư mục mới' });
     }
 });
 
-// 3. Xóa Folder
+// 3. Xóa Folder & Đồng bộ xóa tiến độ
 router.delete('/folders/:id', verifyToken, async (req, res) => {
     try {
         const folderId = req.params.id;
+
+        // BƯỚC 1: Tìm tất cả các từ đang nằm trong thư mục này
+        const savedWords = await SavedWord.find({ folderId, userId: req.userId });
+        const wordIds = savedWords.map(sw => sw.wordId);
+
+        // BƯỚC 2: Xóa sạch các từ này khỏi bảng "Tiến độ học" (UserProgress)
+        if (wordIds.length > 0) {
+            await UserProgress.deleteMany({ 
+                userId: req.userId, 
+                wordId: { $in: wordIds } 
+            });
+        }
+
+        // BƯỚC 3: Xóa dữ liệu của thư mục
         await SavedWord.deleteMany({ folderId, userId: req.userId });
         await Folder.findOneAndDelete({ _id: folderId, userId: req.userId });
-        res.json({ message: 'Đã xóa thư mục thành công' });
+
+        res.json({ message: 'Đã xóa thư mục và cập nhật tiến độ học tập' });
     } catch (err) {
+        console.error("Lỗi xóa thư mục:", err);
         res.status(500).json({ error: 'Lỗi khi xóa thư mục' });
     }
 });
@@ -274,14 +289,11 @@ router.get('/folders/:id', verifyToken, async (req, res) => {
 // 5. Reset tiến độ Folder
 router.put('/folders/:id/reset', verifyToken, async (req, res) => {
     try {
-        // Lấy danh sách các từ trong folder này
         const savedWords = await SavedWord.find({ folderId: req.params.id, userId: req.userId });
         const wordIds = savedWords.map(sw => sw.wordId);
 
-        // 🚀 ĐỒNG BỘ: Rút các từ này khỏi tiến độ tổng (UserProgress)
         await UserProgress.deleteMany({ userId: req.userId, wordId: { $in: wordIds } });
 
-        // Reset lại isMastered trong thư mục
         await SavedWord.updateMany(
             { folderId: req.params.id, userId: req.userId },
             { isMastered: false }
@@ -314,7 +326,7 @@ router.post('/folders/:id/add-words', verifyToken, async (req, res) => {
     }
 });
 
-// 7. Cập nhật isMastered (Đã thuộc hay chưa) - ĐÃ THÊM LOGIC ĐỒNG BỘ
+// 7. Cập nhật isMastered (Đã thuộc hay chưa)
 router.put('/saved-words/:id/master', verifyToken, async (req, res) => {
     try {
         const { isMastered } = req.body; 
@@ -324,17 +336,14 @@ router.put('/saved-words/:id/master', verifyToken, async (req, res) => {
             { new: true }
         );
 
-        // 🚀 BƯỚC QUAN TRỌNG: Đồng bộ sang bảng UserProgress để Header nhảy số
         if (savedWord && savedWord.wordId) {
             if (isMastered) {
-                // Nếu thuộc -> Lưu vào UserProgress
                 await UserProgress.findOneAndUpdate(
                     { userId: req.userId, wordId: savedWord.wordId },
                     { learned: true, updatedAt: new Date() },
                     { upsert: true }
                 );
             } else {
-                // Nếu chưa nhớ -> Xóa khỏi UserProgress
                 await UserProgress.findOneAndDelete({ 
                     userId: req.userId, 
                     wordId: savedWord.wordId 
@@ -356,6 +365,53 @@ router.get('/saved-words/all-ids', verifyToken, async (req, res) => {
         res.json(savedWords);
     } catch (err) {
         res.status(500).json({ error: 'Lỗi danh sách ID' });
+    }
+});
+
+// ==========================================
+// 🚀 API MỚI BỔ SUNG: CHỈNH SỬA & RÚT TỪ
+// ==========================================
+
+// 9. Đổi tên Folder
+router.put('/folders/:id', verifyToken, async (req, res) => {
+    try {
+        const { name } = req.body;
+        const updatedFolder = await Folder.findOneAndUpdate(
+            { _id: req.params.id, userId: req.userId },
+            { name: name },
+            { new: true }
+        );
+        if (!updatedFolder) return res.status(404).json({ error: 'Không tìm thấy thư mục' });
+        res.json(updatedFolder);
+    } catch (err) {
+        res.status(500).json({ error: 'Lỗi khi đổi tên thư mục' });
+    }
+});
+
+// 10. Rút từ vựng khỏi Folder & XÓA LUÔN TIẾN ĐỘ HỌC
+router.delete('/saved-words/:id', verifyToken, async (req, res) => {
+    try {
+        // Tìm chính xác bản ghi để lấy wordId gốc
+        const savedWord = await SavedWord.findOne({
+            _id: req.params.id,
+            userId: req.userId
+        });
+
+        if (savedWord) {
+            // Xóa trạng thái Đã học của từ này
+            await UserProgress.findOneAndDelete({
+                userId: req.userId,
+                wordId: savedWord.wordId
+            });
+            
+            // Xóa từ khỏi thư mục
+            await SavedWord.findByIdAndDelete(req.params.id);
+        }
+        
+        res.json({ success: true, message: 'Đã rút từ và cập nhật tiến độ' });
+    } catch (err) {
+        console.error("Lỗi rút từ vựng:", err);
+        res.status(500).json({ error: 'Lỗi server khi rút từ vựng' });
     }
 });
 

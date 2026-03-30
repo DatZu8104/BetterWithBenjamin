@@ -360,10 +360,14 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       {/* ✅ NHÚNG MODAL QUẢN LÝ TIẾN ĐỘ HỌC */}
       <StudyManagerModal 
         isOpen={isStudyModalOpen}
-        onClose={() => setIsStudyModalOpen(false)}
-        systemWords={currentViewWords} // Truyền 5000 từ (hoặc số từ của Level hiện tại) vào Tab Siêu thị
+        onClose={() => {
+            setIsStudyModalOpen(false);
+            loadData(); // 🚀 QUAN TRỌNG: Load lại data khi đóng modal để cập nhật Header
+        }}
+        systemWords={currentViewWords} 
         onStartLearn={handleStartLearnFromModal} 
-      />
+        onRefreshData={loadData} // 🚀 Truyền vào để Modal con có thể gọi khi xóa từ
+        />
     </div>
   );
 }
