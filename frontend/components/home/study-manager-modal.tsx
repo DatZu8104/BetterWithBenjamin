@@ -400,52 +400,51 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                           {isLoading ? "Đang xử lý..." : "Tạo & Học ngay"}
                         </Button>
                         {/* 👉 BƯỚC 5.1: COMBOBOX CHỌN NHANH MỚI */}
-  <div className="hidden md:flex items-center h-10 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shrink-0 shadow-md focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
-    {/* Ô Input để người dùng tự gõ số */}
-    <Input
-      value={quickSelectInputValue || (selectedWordIds.length > 0 ? selectedWordIds.length.toString() : "")}
-      onChange={handleQuickSelectChange}
-      onBlur={handleQuickSelectBlur}
-      onKeyDown={handleQuickSelectKeyDown}
-      placeholder="0"
-      className="w-14 h-full border-0 bg-transparent text-center text-sm font-bold text-blue-300 focus-visible:ring-0 px-1 shadow-none"
-    />
-    
-    {/* Nút xổ xuống (Dropdown) */}
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="h-full px-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border-l border-zinc-700 transition-colors flex items-center justify-center outline-none">
-          <ChevronDown className="w-4 h-4" />
-        </button>
-      </DropdownMenuTrigger>
-      
-      <DropdownMenuContent align="end" className="w-52 bg-zinc-900 border-zinc-800 text-zinc-200 z-[10005]">
-        <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-          Chọn nhanh (Max: {availableWords.length})
-        </div>
-        <DropdownMenuItem onClick={() => applyWordSelection(10)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-          ⚡ Chọn 10 từ mới
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => applyWordSelection(20)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-          ⚡ Chọn 20 từ mới
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => applyWordSelection(50)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-          ⚡ Chọn 50 từ mới
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => applyWordSelection("ALL")} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white font-bold text-blue-400">
-          ✨ Chọn tất cả ({availableWords.length})
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => applyWordSelection(0)} className="cursor-pointer text-red-400 hover:bg-red-500/20 hover:text-red-300 focus:bg-red-500/20 focus:text-red-300 mt-1 border-t border-zinc-800 pt-2">
-          Bỏ chọn tất cả
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-
-    {/* Phần hiển thị Tổng số từ */}
-    <div className="h-full flex items-center bg-zinc-950 px-3 border-l border-zinc-800 text-xs font-bold text-zinc-500 cursor-default">
-      / {availableWords.length}
-    </div>
-  </div>
+                        <div className="hidden md:flex items-center h-10 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shrink-0 shadow-md focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
+                          {/* Ô Input để người dùng tự gõ số */}
+                          <Input
+                            value={quickSelectInputValue || (selectedWordIds.length > 0 ? selectedWordIds.length.toString() : "")}
+                            onChange={handleQuickSelectChange}
+                            onBlur={handleQuickSelectBlur}
+                            onKeyDown={handleQuickSelectKeyDown}
+                            placeholder="0"
+                            className="w-14 h-full border-0 bg-transparent text-center text-sm font-bold text-blue-300 focus-visible:ring-0 px-1 shadow-none"
+                          />
+                          
+                          {/* Nút xổ xuống (Dropdown) */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="h-full px-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border-l border-zinc-700 transition-colors flex items-center justify-center outline-none">
+                                <ChevronDown className="w-4 h-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            
+                            <DropdownMenuContent align="end" className="w-52 bg-zinc-900 border-zinc-800 text-zinc-200 z-[10005]">
+                              <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                                Chọn nhanh (Max: {availableWords.length})
+                              </div>
+                              <DropdownMenuItem onClick={() => applyWordSelection(10)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
+                                ⚡ Chọn 10 từ mới
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => applyWordSelection(20)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
+                                ⚡ Chọn 20 từ mới
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => applyWordSelection(50)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
+                                ⚡ Chọn 50 từ mới
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => applyWordSelection("ALL")} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white font-bold text-blue-400">
+                                ✨ Chọn tất cả ({availableWords.length})
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => applyWordSelection(0)} className="cursor-pointer text-red-400 hover:bg-red-500/20 hover:text-red-300 focus:bg-red-500/20 focus:text-red-300 mt-1 border-t border-zinc-800 pt-2">
+                                Bỏ chọn tất cả
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          {/* Phần hiển thị Tổng số từ */}
+                          <div className="h-full flex items-center bg-zinc-950 px-3 border-l border-zinc-800 text-xs font-bold text-zinc-500 cursor-default">
+                            / {availableWords.length}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
