@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useTransition } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,10 +32,12 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const [newFolderName, setNewFolderName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [quickSelectInputValue, setQuickSelectInputValue] = useState("");
+  const [isPending, startTransition] = useTransition();
   // 🚀 STATE QUẢN LÝ MODAL CHỈNH SỬA THƯ MỤC
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingFolderData, setEditingFolderData] = useState<{ id: string, name: string } | null>(null);
   const [editingFolderWords, setEditingFolderWords] = useState<any[]>([]);
+  const [visibleCount, setVisibleCount] = useState(30);
 
   const systemGroups = useMemo(() => {
     const groupsMap = new Map<string, number>();
@@ -69,6 +71,11 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
       setNewFolderName("");
     }
   }, [isOpen]);
+
+// 👉 BƯỚC 2.2: Reset lại số lượng hiển thị mỗi khi đổi Tab hoặc Nhóm
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [selectedSystemGroup, activeTab]);
 
   useEffect(() => {
     if (selectedSystemGroup && availableWords.length > 0) {
@@ -224,6 +231,15 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     setQuickSelectInputValue("");
   };
 
+  // 👉 BƯỚC 2.3: Bộ cảm biến cuộn chuột (Tự động Load More)
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    // Nếu cuộn cách đáy 100px thì load thêm 30 từ
+    if (scrollHeight - scrollTop <= clientHeight + 100) {
+      setVisibleCount((prev) => prev + 30);
+    }
+  };
+
   // 👉 BƯỚC 4.2: Khi người dùng gõ xong (click chuột ra ngoài) thì áp dụng số đó
   const handleQuickSelectBlur = () => {
     if (!quickSelectInputValue) return; 
@@ -299,14 +315,14 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
               {/* Cụm Tabs */}
               <div className="flex gap-6 overflow-x-auto custom-scrollbar">
                 <button 
-                  onClick={() => setActiveTab("system")}
+                  onClick={() => startTransition(() => setActiveTab("system"))}
                   className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "system" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
                 >
                   <Library className="w-4 h-4" /> Kho từ vựng Oxford
                 </button>
                 
                 <button 
-                  onClick={() => setActiveTab("existing")}
+                  onClick={() => startTransition(() => setActiveTab("existing"))}
                   className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "existing" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
                 >
                   <FolderOpen className="w-4 h-4" /> Thư mục của bạn
@@ -326,7 +342,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
           </DialogHeader>
           
 
-          <div className="flex-1 min-h-0 bg-zinc-950/50 flex flex-col relative">
+          <div className={cn("flex-1 min-h-0 bg-zinc-950/50 flex flex-col relative transition-opacity duration-200", isPending && "opacity-50 pointer-events-none")}>
             {/* TAB THƯ MỤC CŨ */}
             {activeTab === "existing" && (
               <div className="absolute inset-0 overflow-y-auto p-6 custom-scrollbar">
@@ -393,7 +409,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                       {systemGroups.map(group => (
                         <button
                           key={group.name}
-                          onClick={() => setSelectedSystemGroup(group.name)}
+                          onClick={() => startTransition(() => setSelectedSystemGroup(group.name))}
                           className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-blue-950/30 hover:border-blue-900/50 transition-all group shadow-sm"
                         >
                           <FolderOpen className="w-12 h-12 text-zinc-600 group-hover:text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
@@ -410,7 +426,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                       
                       {/* TRÁI: Nút Back & Tên Nhóm Oxford */}
                       <div className="flex items-center gap-3 shrink-0">
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedSystemGroup(null)} className="h-8 px-2 text-zinc-400 hover:text-white hover:bg-zinc-800">
+                        <Button variant="ghost" size="sm" onClick={() => startTransition(() => setSelectedSystemGroup(null))} className="h-8 px-2 text-zinc-400 hover:text-white hover:bg-zinc-800">
                           <ArrowLeft className="w-4 h-4 mr-1"/> Trở về
                         </Button>
                         <div className="h-4 w-px bg-zinc-700"></div>
@@ -468,9 +484,15 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                     </div>
 
                     {/* DANH SÁCH TỪ VỰNG DẠNG LƯỚI GỌN GÀNG */}
-                    <div className="flex-1 overflow-y-auto p-4 pb-24 custom-scrollbar">
+                    {/* DANH SÁCH TỪ VỰNG DẠNG LƯỚI GỌN GÀNG */}
+                    {/* 👉 BƯỚC 2.4: Gắn sự kiện onScroll vào thẻ div có thanh cuộn */}
+                    <div 
+                      className="flex-1 overflow-y-auto p-4 pb-24 custom-scrollbar"
+                      onScroll={handleScroll}
+                    >
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
-                        {wordsInSelectedGroup.map((word) => {
+                        {/* 👉 BƯỚC 2.4: Dùng slice để cắt đúng số lượng cần thiết ra vẽ */}
+                        {wordsInSelectedGroup.slice(0, visibleCount).map((word) => {
                           const wordId = word._id || word.id;
                           const isAlreadySaved = savedWordIds.has(wordId);
                           const isSelected = selectedWordIds.includes(wordId);
