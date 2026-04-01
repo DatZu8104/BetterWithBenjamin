@@ -6,11 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 // 🚀 IMPORT THÊM PENCIL VÀ GROUP EDIT MODAL
-import { FolderOpen, PlayCircle, Lock, ChevronRight, ArrowLeft, Library, Trash2, Pencil } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { FolderOpen, PlayCircle, Lock, ChevronRight, ArrowLeft, Library, Trash2, Pencil, ChevronDown } from "lucide-react";import { cn } from "@/lib/utils";
 import { api } from "@/lib/api"; 
 import { GroupEditModal } from "./group-edit-modal"; 
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 interface StudyManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,7 +32,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
+  const [quickSelectInputValue, setQuickSelectInputValue] = useState("");
   // 🚀 STATE QUẢN LÝ MODAL CHỈNH SỬA THƯ MỤC
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingFolderData, setEditingFolderData] = useState<{ id: string, name: string } | null>(null);
@@ -48,7 +52,13 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const wordsInSelectedGroup = useMemo(() => {
     if (!selectedSystemGroup) return [];
     return systemWords.filter(w => (w.group || w.level || "Chưa phân loại") === selectedSystemGroup);
-  }, [systemWords, selectedSystemGroup]);
+  }, [systemWords, selectedSystemGroup]); 
+
+  const availableWords = useMemo(() => {
+      return wordsInSelectedGroup.filter(
+        (word) => !savedWordIds.includes(word._id || word.id)
+      );
+    }, [wordsInSelectedGroup, savedWordIds]);
 
   useEffect(() => {
     if (isOpen) {
@@ -163,6 +173,55 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     setSelectedWordIds(prev => 
       prev.includes(wordId) ? prev.filter(id => id !== wordId) : [...prev, wordId]
     );
+  };
+
+  // 👉 BƯỚC 3: Hàm "Bộ não" xử lý việc chọn số lượng từ
+  const applyWordSelection = (count: number | "ALL") => {
+    // Nếu chọn 0 hoặc rỗng -> Xóa trắng
+    if (count === 0) {
+      setSelectedWordIds([]);
+      setQuickSelectInputValue("");
+      return;
+    }
+
+    // Đảm bảo không chọn lố số từ tối đa hiện có
+    const targetCount = count === "ALL" ? availableWords.length : Math.min(count, availableWords.length);
+    
+    // Cập nhật lại số trên ô Input cho chuẩn
+    setQuickSelectInputValue(targetCount.toString());
+
+    // Cắt lấy đúng số lượng từ từ trên xuống dưới và lấy ID của chúng
+    const wordsToSelect = availableWords.slice(0, targetCount);
+    const newSelectedIds = wordsToSelect.map((w: any) => w._id || w.id);
+    
+    setSelectedWordIds(newSelectedIds);
+  };
+
+  // 👉 BƯỚC 4.1: Chỉ cho phép người dùng gõ số
+  const handleQuickSelectChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === "" || /^\d+$/.test(value)) {
+      setQuickSelectInputValue(value);
+    }
+  };
+
+  // 👉 BƯỚC 4.2: Khi người dùng gõ xong (click chuột ra ngoài) thì áp dụng số đó
+  const handleQuickSelectBlur = () => {
+    if (!quickSelectInputValue) return; 
+    
+    const num = parseInt(quickSelectInputValue, 10);
+    if (isNaN(num) || num <= 0) {
+      applyWordSelection(0); // Nếu gõ số tào lao thì đưa về 0
+    } else {
+      applyWordSelection(num);
+    }
+  };
+
+  // 👉 BƯỚC 4.3: Nhấn Enter cũng sẽ áp dụng ngay giống như click ra ngoài
+  const handleQuickSelectKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleQuickSelectBlur();
+    }
   };
 
   const handleCreateAndLearn = async () => {
@@ -340,9 +399,53 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                         >
                           {isLoading ? "Đang xử lý..." : "Tạo & Học ngay"}
                         </Button>
-                        <span className="hidden md:flex text-xs font-bold bg-blue-900/60 border border-blue-700 text-blue-300 px-3 h-10 items-center justify-center rounded-lg shadow-md shrink-0">
-                          {selectedWordIds.length} từ
-                        </span>
+                        {/* 👉 BƯỚC 5.1: COMBOBOX CHỌN NHANH MỚI */}
+  <div className="hidden md:flex items-center h-10 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shrink-0 shadow-md focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
+    {/* Ô Input để người dùng tự gõ số */}
+    <Input
+      value={quickSelectInputValue || (selectedWordIds.length > 0 ? selectedWordIds.length.toString() : "")}
+      onChange={handleQuickSelectChange}
+      onBlur={handleQuickSelectBlur}
+      onKeyDown={handleQuickSelectKeyDown}
+      placeholder="0"
+      className="w-14 h-full border-0 bg-transparent text-center text-sm font-bold text-blue-300 focus-visible:ring-0 px-1 shadow-none"
+    />
+    
+    {/* Nút xổ xuống (Dropdown) */}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="h-full px-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border-l border-zinc-700 transition-colors flex items-center justify-center outline-none">
+          <ChevronDown className="w-4 h-4" />
+        </button>
+      </DropdownMenuTrigger>
+      
+      <DropdownMenuContent align="end" className="w-52 bg-zinc-900 border-zinc-800 text-zinc-200 z-[10005]">
+        <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+          Chọn nhanh (Max: {availableWords.length})
+        </div>
+        <DropdownMenuItem onClick={() => applyWordSelection(10)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
+          ⚡ Chọn 10 từ mới
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => applyWordSelection(20)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
+          ⚡ Chọn 20 từ mới
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => applyWordSelection(50)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
+          ⚡ Chọn 50 từ mới
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => applyWordSelection("ALL")} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white font-bold text-blue-400">
+          ✨ Chọn tất cả ({availableWords.length})
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => applyWordSelection(0)} className="cursor-pointer text-red-400 hover:bg-red-500/20 hover:text-red-300 focus:bg-red-500/20 focus:text-red-300 mt-1 border-t border-zinc-800 pt-2">
+          Bỏ chọn tất cả
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+
+    {/* Phần hiển thị Tổng số từ */}
+    <div className="h-full flex items-center bg-zinc-950 px-3 border-l border-zinc-800 text-xs font-bold text-zinc-500 cursor-default">
+      / {availableWords.length}
+    </div>
+  </div>
                       </div>
                     </div>
 
