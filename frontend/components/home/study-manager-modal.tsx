@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 // 🚀 IMPORT THÊM PENCIL VÀ GROUP EDIT MODAL
-import { FolderOpen, PlayCircle, Lock, ChevronRight, ArrowLeft, Library, Trash2, Pencil, ChevronDown } from "lucide-react";import { cn } from "@/lib/utils";
+import { FolderOpen, PlayCircle, Lock, ChevronRight, ArrowLeft, Library, Trash2, Pencil, ChevronDown, X} from "lucide-react";import { cn } from "@/lib/utils";
 import { api } from "@/lib/api"; 
 import { GroupEditModal } from "./group-edit-modal"; 
 import {
@@ -28,8 +28,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const [selectedSystemGroup, setSelectedSystemGroup] = useState<string | null>(null);
   
   const [userFolders, setUserFolders] = useState<any[]>([]); 
-  const [savedWordIds, setSavedWordIds] = useState<string[]>([]); 
-  const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]);
+  const [savedWordIds, setSavedWordIds] = useState<Set<string>>(new Set());  const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [quickSelectInputValue, setQuickSelectInputValue] = useState("");
@@ -56,7 +55,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
 
   const availableWords = useMemo(() => {
       return wordsInSelectedGroup.filter(
-        (word) => !savedWordIds.includes(word._id || word.id)
+        (word) => !savedWordIds.has(word._id || word.id)
       );
     }, [wordsInSelectedGroup, savedWordIds]);
 
@@ -71,6 +70,17 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (selectedSystemGroup && availableWords.length > 0) {
+      // Đếm xem trong giỏ hàng hiện tại có bao nhiêu từ thuộc về nhóm này
+      const countInThisGroup = selectedWordIds.filter(id => 
+        availableWords.some((w: any) => (w._id || w.id) === id)
+      ).length;
+      
+      setQuickSelectInputValue(countInThisGroup > 0 ? countInThisGroup.toString() : "");
+    }
+  }, [selectedSystemGroup, availableWords]);
+
   const fetchUserFolders = async () => {
     try {
       const data = await api.getFoldersList();
@@ -83,7 +93,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const fetchSavedWordIds = async () => {
     try {
       const data = await api.getSavedWordIds();
-      setSavedWordIds(data.map((item: any) => item.wordId));
+      setSavedWordIds(new Set(data.map((item: any) => item.wordId)));
     } catch (err) {
       console.error("Lỗi tải ID từ đã add", err);
     }
@@ -177,24 +187,27 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
 
   // 👉 BƯỚC 3: Hàm "Bộ não" xử lý việc chọn số lượng từ
   const applyWordSelection = (count: number | "ALL") => {
-    // Nếu chọn 0 hoặc rỗng -> Xóa trắng
+    // 1. Lọc ra những ID đang nằm trong giỏ hàng nhưng THUỘC VỀ CÁC NHÓM KHÁC
+    const idsFromOtherGroups = selectedWordIds.filter(
+      id => !availableWords.some((w: any) => (w._id || w.id) === id)
+    );
+
+    // 2. Nếu chọn 0 -> Chỉ rút các từ của nhóm HIỆN TẠI ra khỏi giỏ
     if (count === 0) {
-      setSelectedWordIds([]);
+      setSelectedWordIds(idsFromOtherGroups);
       setQuickSelectInputValue("");
       return;
     }
 
-    // Đảm bảo không chọn lố số từ tối đa hiện có
+    // 3. Tính toán số lượng cần lấy cho nhóm HIỆN TẠI
     const targetCount = count === "ALL" ? availableWords.length : Math.min(count, availableWords.length);
-    
-    // Cập nhật lại số trên ô Input cho chuẩn
     setQuickSelectInputValue(targetCount.toString());
 
-    // Cắt lấy đúng số lượng từ từ trên xuống dưới và lấy ID của chúng
     const wordsToSelect = availableWords.slice(0, targetCount);
-    const newSelectedIds = wordsToSelect.map((w: any) => w._id || w.id);
+    const newSelectedIdsForThisGroup = wordsToSelect.map((w: any) => w._id || w.id);
     
-    setSelectedWordIds(newSelectedIds);
+    // 4. Gộp (Merge): Từ của nhóm khác + Từ mới chọn của nhóm này
+    setSelectedWordIds([...idsFromOtherGroups, ...newSelectedIdsForThisGroup]);
   };
 
   // 👉 BƯỚC 4.1: Chỉ cho phép người dùng gõ số
@@ -203,6 +216,12 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     if (value === "" || /^\d+$/.test(value)) {
       setQuickSelectInputValue(value);
     }
+  };
+
+  // 👉 BƯỚC 1.2: Hàm xóa trắng giỏ hàng trên toàn hệ thống
+  const handleClearCart = () => {
+    setSelectedWordIds([]);
+    setQuickSelectInputValue("");
   };
 
   // 👉 BƯỚC 4.2: Khi người dùng gõ xong (click chuột ra ngoài) thì áp dụng số đó
@@ -265,35 +284,49 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="!max-w-[95vw] md:!max-w-[85vw] !w-full h-[90vh] md:h-[85vh] flex flex-col p-0 gap-0 bg-black text-zinc-100 border-zinc-800 shadow-2xl overflow-hidden z-[10000]">
+        <DialogContent className="!max-w-[98vw] md:!max-w-[95vw] !w-full h-[95vh] md:h-[92vh] flex flex-col p-0 gap-0 bg-black text-zinc-100 border-zinc-800 shadow-2xl overflow-hidden z-[10000]">
           {/* 🚀 HEADER ĐÃ ĐƯỢC CHỈNH LẠI ĐỂ 2 TAB SONG SONG VỚI TIÊU ĐỀ */}
-          <DialogHeader className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-6 pt-4 md:pt-6 z-20 flex flex-col md:flex-row md:items-end justify-between gap-2 md:gap-4">
+          {/* 🚀 HEADER ĐÃ ĐƯỢC CHỈNH LẠI ĐỂ 2 TAB SONG SONG VỚI TIÊU ĐỀ */}
+          <DialogHeader className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-6 pt-4 md:pt-6 z-20 flex flex-col md:flex-row md:items-end justify-between gap-2 md:gap-4 relative">
             
             <DialogTitle className="text-2xl font-black tracking-tight text-white pb-2 md:pb-4 shrink-0">
                Quản lý Lộ trình Học tập
             </DialogTitle>
             
-            <div className="flex gap-6 overflow-x-auto custom-scrollbar w-full md:w-auto">
-              <button 
-                onClick={() => setActiveTab("system")}
-                className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "system" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
-              >
-                <Library className="w-4 h-4" /> Kho từ vựng Oxford
-              </button>
+            {/* Vùng chứa Tabs và Nút X */}
+            <div className="flex items-end justify-between md:justify-end gap-4 md:gap-8 w-full md:w-auto">
               
+              {/* Cụm Tabs */}
+              <div className="flex gap-6 overflow-x-auto custom-scrollbar">
+                <button 
+                  onClick={() => setActiveTab("system")}
+                  className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "system" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
+                >
+                  <Library className="w-4 h-4" /> Kho từ vựng Oxford
+                </button>
+                
+                <button 
+                  onClick={() => setActiveTab("existing")}
+                  className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "existing" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
+                >
+                  <FolderOpen className="w-4 h-4" /> Thư mục của bạn
+                </button>
+              </div>
+
+              {/* 👉 Nút X để đóng Modal */}
               <button 
-                onClick={() => setActiveTab("existing")}
-                className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "existing" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
+                onClick={onClose}
+                className="pb-4 text-zinc-500 hover:text-red-400 transition-colors shrink-0 outline-none"
+                title="Đóng cửa sổ"
               >
-                <FolderOpen className="w-4 h-4" /> Thư mục của bạn
+                <X className="w-6 h-6" />
               </button>
+
             </div>
-            
           </DialogHeader>
           
 
           <div className="flex-1 min-h-0 bg-zinc-950/50 flex flex-col relative">
-            
             {/* TAB THƯ MỤC CŨ */}
             {activeTab === "existing" && (
               <div className="absolute inset-0 overflow-y-auto p-6 custom-scrollbar">
@@ -384,24 +417,11 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                         <span className="font-bold text-white text-base md:text-lg">{selectedSystemGroup.toUpperCase()}</span>
                       </div>
 
-                      {/* PHẢI: Input đặt tên, Nút tạo & Báo số lượng từ */}
+                      {/* PHẢI: Chỉ còn lại Combobox chọn nhanh cho nhóm này */}
                       <div className="flex items-center gap-2 w-full lg:w-auto">
-                        <Input 
-                           placeholder="Tên thư mục (VD: Học ngày 1)..." 
-                           value={newFolderName}
-                           onChange={(e) => setNewFolderName(e.target.value)}
-                           className="h-10 bg-black border-zinc-800 focus-visible:ring-blue-500 text-white rounded-lg w-full lg:w-64"
-                        />
-                        <Button 
-                          disabled={isLoading || !newFolderName.trim() || selectedWordIds.length === 0}
-                          onClick={handleCreateAndLearn}
-                          className="h-10 bg-white text-black hover:bg-zinc-200 font-bold px-4 rounded-lg text-sm shrink-0 transition-transform active:scale-95"
-                        >
-                          {isLoading ? "Đang xử lý..." : "Tạo & Học ngay"}
-                        </Button>
-                        {/* 👉 BƯỚC 5.1: COMBOBOX CHỌN NHANH MỚI */}
+                        
+                        {/* 👉 BƯỚC 5.1: COMBOBOX CHỌN NHANH MỚI (Giữ nguyên phần này của bạn) */}
                         <div className="hidden md:flex items-center h-10 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shrink-0 shadow-md focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
-                          {/* Ô Input để người dùng tự gõ số */}
                           <Input
                             value={quickSelectInputValue || (selectedWordIds.length > 0 ? selectedWordIds.length.toString() : "")}
                             onChange={handleQuickSelectChange}
@@ -411,7 +431,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                             className="w-14 h-full border-0 bg-transparent text-center text-sm font-bold text-blue-300 focus-visible:ring-0 px-1 shadow-none"
                           />
                           
-                          {/* Nút xổ xuống (Dropdown) */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button className="h-full px-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border-l border-zinc-700 transition-colors flex items-center justify-center outline-none">
@@ -440,7 +459,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                          {/* Phần hiển thị Tổng số từ */}
+
                           <div className="h-full flex items-center bg-zinc-950 px-3 border-l border-zinc-800 text-xs font-bold text-zinc-500 cursor-default">
                             / {availableWords.length}
                           </div>
@@ -449,11 +468,11 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                     </div>
 
                     {/* DANH SÁCH TỪ VỰNG DẠNG LƯỚI GỌN GÀNG */}
-                    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-4 pb-24 custom-scrollbar">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
                         {wordsInSelectedGroup.map((word) => {
                           const wordId = word._id || word.id;
-                          const isAlreadySaved = savedWordIds.includes(wordId);
+                          const isAlreadySaved = savedWordIds.has(wordId);
                           const isSelected = selectedWordIds.includes(wordId);
 
                           return (
@@ -511,6 +530,47 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
               </div>
             )}
           </div>
+          {/* 👉 GIAI ĐOẠN 3: THANH DOCK GIỎ HÀNG NỔI (LUÔN HIỂN THỊ) */}
+          <div className="absolute bottom-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 p-4 md:px-6 flex flex-col md:flex-row justify-between items-center gap-4 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+            
+            {/* TRÁI: Hiển thị tổng số từ & Nút Xóa */}
+            <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Giỏ từ vựng</span>
+                <span className="text-xl md:text-2xl font-black text-blue-400">
+                  {selectedWordIds.length} <span className="text-sm font-bold text-zinc-400">từ đã chọn</span>
+                </span>
+              </div>
+              
+              <Button 
+                variant="ghost" 
+                onClick={handleClearCart}
+                disabled={selectedWordIds.length === 0}
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-10 disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <Trash2 className="w-4 h-4 mr-2" /> Xóa giỏ
+              </Button>
+            </div>
+
+            {/* PHẢI: Form đặt tên và Nút Tạo */}
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <Input 
+                placeholder="Tên thư mục mới (VD: Bài học 1)..." 
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                className="h-11 bg-black border-zinc-700 focus-visible:ring-blue-500 text-white rounded-xl w-full md:w-64 shadow-inner"
+              />
+              <Button 
+                disabled={isLoading || !newFolderName.trim() || selectedWordIds.length === 0}
+                onClick={handleCreateAndLearn}
+                className="h-11 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 rounded-xl text-sm shrink-0 transition-transform active:scale-95 shadow-lg shadow-blue-900/20 disabled:opacity-50"
+              >
+                {isLoading ? "Đang xử lý..." : "Tạo & Học ngay"}
+              </Button>
+            </div>
+
+          </div>
+
         </DialogContent>
       </Dialog>
 
