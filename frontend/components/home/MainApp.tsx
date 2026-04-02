@@ -6,8 +6,10 @@ import { Header } from '@/components/home/header';
 import { GroupListView } from '@/components/home/group-list';
 import { WordListView } from '@/components/home/word-list';
 import { LearnModeView } from '@/components/home/learn-mode';
-// ✅ IMPORT MODAL VỪA TẠO
 import { StudyManagerModal } from '@/components/home/study-manager-modal'; 
+
+// 🚀 MỚI: Import Hooks của Next.js để xử lý URL
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 
 interface MainAppProps {
   currentUser: string | null;
@@ -16,15 +18,23 @@ interface MainAppProps {
 }
 
 export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  // 🚀 MỚI: ĐỌC TRẠNG THÁI TỪ URL (Thay cho useState mặc định)
+  const viewMode = (searchParams.get('tab') as 'personal' | 'global') || 'personal';
+  const selectedGroup = searchParams.get('group');
+  const currentFolder = searchParams.get('folder');
+  const isLearnMode = searchParams.get('learn') === 'true';
+
+  // State lưu trữ Data (vẫn giữ nguyên)
   const [words, setWords] = useState<any[]>([]);
   const [rawGroupSettings, setRawGroupSettings] = useState<any[]>([]); 
   const [dbFolders, setDbFolders] = useState<string[]>([]); 
   const [folderColors, setFolderColors] = useState<Record<string, string>>({});
   const [groupSettings, setGroupSettings] = useState<Record<string, string>>({});
 
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
-  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
-  const [isLearnMode, setIsLearnMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -34,38 +44,34 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const [currentWord, setCurrentWord] = useState<any | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  // View Mode: 'personal' hoặc 'global'
-  const [viewMode, setViewMode] = useState<'personal' | 'global'>('personal');
-
-  // ✅ STATE CHO MODAL HỌC HỆ THỐNG
   const [isStudyModalOpen, setIsStudyModalOpen] = useState(false);
   const [modalLearnWords, setModalLearnWords] = useState<any[] | null>(null);
   const [modalFolderName, setModalFolderName] = useState<string>('');
 
-  // LOGIC QUYỀN HẠN
   const canEdit = viewMode === 'personal' || role === 'admin';
 
-  // --- LOAD DATA ---
+  // 🚀 MỚI: HÀM CẬP NHẬT URL MƯỢT MÀ (Không reload trang)
+  const updateUrl = (updates: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      Object.entries(updates).forEach(([key, value]) => {
+          if (value === null) params.delete(key);
+          else params.set(key, value);
+      });
+      router.push(`${pathname}?${params.toString()}`);
+  };
+
   // --- LOAD DATA ---
   const loadData = async () => {
     try {
-      // 1. Tải dữ liệu cá nhân & Cấu hình (Rất nhanh vì cục dữ liệu cực nhẹ)
       const data = await api.syncData();
       let personalWords: any[] = [];
       let learnedSysIds = new Set<string>();
 
       if (data) {
-          // Lấy danh sách ID hệ thống đã học (từ Backend gửi về)
-          if (data.learnedSystemIds) {
-              learnedSysIds = new Set(data.learnedSystemIds);
-          }
-
+          if (data.learnedSystemIds) learnedSysIds = new Set(data.learnedSystemIds);
           if (Array.isArray(data.words)) {
               personalWords = data.words.map((w: any) => ({
-                ...w,
-                id: w.id || w._id,
-                learned: w.learned || false,
-                isGlobal: false
+                ...w, id: w.id || w._id, learned: w.learned || false, isGlobal: false
               }));
           }
           
@@ -83,33 +89,21 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
           }
       }
 
-      // ⚡ BÍ QUYẾT TỐI ƯU UX:
-      // Nếu là lần đầu mở app (đang xoay Loading) -> Hiện ngay từ cá nhân & Tắt loading lập tức
       if (isLoading) {
           setWords(personalWords);
           setIsLoading(false); 
       }
 
-      // 2. Chạy ngầm lấy dữ liệu hệ thống (Từ lần 2 trình duyệt sẽ tự lấy từ Disk Cache siêu tốc)
       const sysWords = await api.getSystemWords();
       let formattedSysWords: any[] = [];
-      
       if (Array.isArray(sysWords)) {
           formattedSysWords = sysWords.map((w: any) => ({
-              ...w,
-              id: w.id || w._id,
-              // Ép kiểu String để Set.has() nhận diện chuẩn xác
-              learned: learnedSysIds.has(String(w._id || w.id)),
-              isGlobal: true
+              ...w, id: w.id || w._id, learned: learnedSysIds.has(String(w._id || w.id)), isGlobal: true
           }));
       }
 
-      // 3. Cập nhật lại mảng dữ liệu tổng (Gộp cá nhân + hệ thống đã gắn tiến độ mới nhất)
       setWords([...personalWords, ...formattedSysWords]);
-
-      // Đảm bảo loading luôn tắt (fallback)
       setIsLoading(false);
-
     } catch (error) {
       console.error("Data load error:", error);
       setIsLoading(false);
@@ -118,7 +112,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
 
   useEffect(() => { loadData(); }, []);
 
-  // Filter Words & Calculate Groups (Giữ nguyên gốc 100%)
+  // Filter & Logic
   const wordsByMode = useMemo(() => {
     if (viewMode === 'global') return words.filter(w => w.isGlobal === true);
     return words.filter(w => !w.isGlobal);
@@ -143,9 +137,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
             const y = parseInt(parts[0]); const m = parseInt(parts[1]); const d = parseInt(parts[2]);
             if (!isNaN(y) && !isNaN(m) && !isNaN(d)) dateVal = new Date(y, m - 1, d).getTime();
         }
-        return { 
-            name, count: groupWordsList.length, folder: groupSettings[name] || "", dateVal 
-        };
+        return { name, count: groupWordsList.length, folder: groupSettings[name] || "", dateVal };
     }).filter(g => {
         if (g.count > 0) return true;
         if (canEdit && relevantSettingNames.has(g.name)) return true;
@@ -174,7 +166,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   }, [wordsByMode, selectedGroup, currentFolder, groupSettings]);
 
   // --- ACTIONS ---
-  
   const pickRandomWord = (list: any[] = currentViewWords) => {
       const unlearned = list.filter(w => modalLearnWords ? !w.isMastered : !w.learned);
       if (unlearned.length === 0) { setCurrentWord(null); return; }
@@ -182,59 +173,40 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       setCurrentWord(rand);
   };
 
-  // ✅ UPDATE: Xử lý thẻ kế tiếp cho cả 2 luồng (Cá nhân & Giỏ hàng Hệ thống)
   const handleNextWord = (wordId: string, isKnown: boolean) => {
       if (modalLearnWords) {
-          // 1. Cập nhật trạng thái nội bộ trong thư mục (Modal)
           setModalLearnWords(prev => prev ? prev.map(w => (w.id || w._id) === wordId ? { ...w, isMastered: isKnown } : w) : null);
       }
-      
-      // 2. LUÔN LUÔN cập nhật mảng từ vựng tổng để thanh Progress ở ngoài nhảy số lập tức
       setWords(prev => prev.map(w => (w.id || w._id) === wordId ? { ...w, learned: isKnown } : w));
   };
 
-  // ✅ UPDATE: Hàm bắt đầu học (Đánh chặn để mở Modal nếu là System)
+  // 🚀 MỚI: Sửa hàm Bắt đầu học
   const handleStartLearn = () => {
       if (viewMode === 'global') {
-          // Nếu ở Tab System -> Mở Siêu thị / Giỏ hàng
           setIsStudyModalOpen(true);
       } else {
-          // Nếu ở Tab Cá nhân -> Học như bình thường
-          setIsLearnMode(true);
+          updateUrl({ learn: 'true' }); // Đẩy biến học lên URL
           setModalLearnWords(null);
           const unlearned = currentViewWords.filter(w => !w.learned);
           
-          if (unlearned.length === 0 && currentViewWords.length > 0) {
-              handleResetProgress();
-          } else {
-              setTimeout(() => pickRandomWord(currentViewWords), 50);
-          }
+          if (unlearned.length === 0 && currentViewWords.length > 0) handleResetProgress();
+          else setTimeout(() => pickRandomWord(currentViewWords), 50);
       }
   };
 
-  // ✅ NEW: Hàm nhận Data từ Modal và đẩy vào LearnMode
   const handleStartLearnFromModal = (folderName: string, formattedWords: any[]) => {
-      // Dữ liệu đã được ép phẳng (flatten) sẵn từ StudyManagerModal
-      // Nên chúng ta không cần map lại nữa để tránh bị undefined.
-
       setModalFolderName(folderName);
       setModalLearnWords(formattedWords);
-      setIsLearnMode(true);
-      setIsStudyModalOpen(false); // Đóng popup
+      updateUrl({ learn: 'true' }); // Đẩy biến học lên URL
+      setIsStudyModalOpen(false); 
 
-      // Bốc từ đầu tiên ra học
       const unlearned = formattedWords.filter((w: any) => !w.isMastered);
-      if (unlearned.length > 0) {
-          setCurrentWord(unlearned[Math.floor(Math.random() * unlearned.length)]);
-      } else {
-          setCurrentWord(null);
-      }
+      if (unlearned.length > 0) setCurrentWord(unlearned[Math.floor(Math.random() * unlearned.length)]);
+      else setCurrentWord(null);
   };
 
-  // ✅ UPDATE: Xử lý Reset Progress
   const handleResetProgress = async () => {
     if (modalLearnWords) {
-        // Reset tạm local để học lại vòng nữa (Học tự do nên không cần reset API)
         setIsResetting(true);
         setModalLearnWords(prev => prev ? prev.map(w => ({...w, isMastered: false})) : null);
         setTimeout(() => {
@@ -245,7 +217,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
         return;
     }
 
-    // Luồng Cá nhân gốc
     const wordsToReset = currentViewWords; 
     if (wordsToReset.length === 0) return;
 
@@ -254,44 +225,32 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       const idsToReset = wordsToReset.map((w: any) => w.id || w._id);
       await api.resetProgressBatch(idsToReset); 
       
-      setWords(prevWords => prevWords.map(w => 
-          idsToReset.includes(w.id || w._id) ? { ...w, learned: false } : w
-      ));
+      setWords(prevWords => prevWords.map(w => idsToReset.includes(w.id || w._id) ? { ...w, learned: false } : w));
 
       if (wordsToReset.length > 0) {
           const rand = wordsToReset[Math.floor(Math.random() * wordsToReset.length)];
           setCurrentWord(rand);
       }
-    } catch (error) {
-      alert("Error resetting progress.");
-    } finally {
-      setIsResetting(false);
-    }
+    } catch (error) { alert("Error resetting progress."); } 
+    finally { setIsResetting(false); }
   };
 
+  // 🚀 MỚI: Sửa hàm chuyển trạng thái
   const handleReset = () => { 
-      setSelectedGroup(null); 
-      setCurrentFolder(null); 
+      updateUrl({ group: null, folder: null, learn: null });
       setSearchTerm(''); 
-      setIsLearnMode(false); 
       setModalLearnWords(null);
   };
 
   const handleModeChange = (mode: 'personal' | 'global') => {
-      setViewMode(mode);
-      setSelectedGroup(null);
-      setCurrentFolder(null);
+      updateUrl({ tab: mode, group: null, folder: null, learn: null });
       setSearchTerm('');
-      setIsLearnMode(false);
       setModalLearnWords(null);
   };
 
-  // HANDLERS CÓ PHÂN QUYỀN (Giữ nguyên gốc)
+  // HANDLERS CÓ PHÂN QUYỀN
   const handleAddWord = !canEdit ? async () => {} : async (e: string, d: string, t: string[]) => { 
-      if(selectedGroup) { 
-          await api.addWord({ english: e, definition: d, type: t, group: selectedGroup, isGlobal: viewMode === 'global' }); 
-          loadData(); 
-      }
+      if(selectedGroup) { await api.addWord({ english: e, definition: d, type: t, group: selectedGroup, isGlobal: viewMode === 'global' }); loadData(); }
   };
   const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => { await api.deleteWord(id); loadData(); };
   const handleCreateFolder = async (n: string, c: string) => { if(canEdit) { await api.addFolder({ name: n, color: c }); loadData(); } };
@@ -322,82 +281,50 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
             {isLearnMode ? (
                 <div className="fixed inset-0 z-50 bg-white">
                     <LearnModeView 
-    currentWord={currentWord}
-    allWords={modalLearnWords || currentViewWords}
-    progress={(modalLearnWords || currentViewWords).filter((w: any) => modalLearnWords ? w.isMastered : w.learned).length}
-    total={(modalLearnWords || currentViewWords).length}
-    isResetting={isResetting}
-    onNext={handleNextWord}
-    
-    // 🚀 Sử dụng async/await để đợi dữ liệu cập nhật xong
-    onReset={async () => {
-        handleResetProgress();
-        await loadData(); 
-    }} 
-    
-    // 🚀 FIX: Thoát ra ngay lập tức, không cần đợi server.
-    onExit={() => { 
-    setIsLearnMode(false); 
-    setModalLearnWords(null); 
-    loadData(); // Chạy lệnh đồng bộ trong nền để đảm bảo dữ liệu luôn khớp.
-}}
-    themeColor={viewMode === 'global' ? '#9333ea' : (currentFolder && folderColors[currentFolder] ? undefined : '#2563eb')}
-/>
+                        currentWord={currentWord}
+                        allWords={modalLearnWords || currentViewWords}
+                        progress={(modalLearnWords || currentViewWords).filter((w: any) => modalLearnWords ? w.isMastered : w.learned).length}
+                        total={(modalLearnWords || currentViewWords).length}
+                        isResetting={isResetting}
+                        onNext={handleNextWord}
+                        onReset={async () => { handleResetProgress(); await loadData(); }} 
+                        // 🚀 MỚI: Cập nhật URL khi thoát
+                        onExit={() => { updateUrl({ learn: null }); setModalLearnWords(null); loadData(); }}
+                        themeColor={viewMode === 'global' ? '#9333ea' : (currentFolder && folderColors[currentFolder] ? undefined : '#2563eb')}
+                    />
                 </div>
             ) : selectedGroup ? (
                 <WordListView 
                     groupName={selectedGroup}
                     words={currentViewWords}
-                    onBack={() => setSelectedGroup(null)}
-                    onUpdate={loadData}
-                    onAddWord={handleAddWord}
-                    onDeleteWord={handleDeleteWord}
-                    onLearn={handleStartLearn} // ✅ Nút Learn trong WordListView cũng sẽ tự bắt logic Modal
-                    allowEdit={canEdit}
+                    // 🚀 MỚI: Thoát Group
+                    onBack={() => updateUrl({ group: null })}
+                    onUpdate={loadData} onAddWord={handleAddWord} onDeleteWord={handleDeleteWord}
+                    onLearn={handleStartLearn} allowEdit={canEdit}
                 />
             ) : (
                 <GroupListView 
-                    groups={calculatedGroups}
-                    searchResults={searchResults}
-                    searchTerm={searchTerm}
-                    folders={dbFolders}
-                    folderColors={folderColors}
-                    currentFolder={currentFolder}
-                    totalWords={currentViewWords.length}
-                    learnedCount={currentViewWords.filter(w => w.learned).length}
-                    onSearchChange={setSearchTerm}
-                    onClearSearch={() => setSearchTerm('')}
-                    onSelectGroup={setSelectedGroup}
-                    onSelectFolder={setCurrentFolder}
-                    allowAdd={canEdit}
-                    onAddGroup={handleAddGroup}
-                    onDeleteGroup={handleDeleteGroup}
-                    onDeleteWordResult={handleDeleteWord}
-                    onMoveGroup={handleMoveGroup}
-                    onCreateFolder={handleCreateFolder}
-                    onUpdateFolder={handleUpdateFolder}
-                    onDeleteFolder={handleDeleteFolder}
-                    onSort={(opt) => setSortOption(opt)}
-                    sortOption={sortOption}
-                    sortDirection={sortDirection}
-                    onStartLearn={handleStartLearn} // ✅ Nút Learn trên Banner cũng sẽ bắt logic Modal
-                    onResetLearn={handleResetProgress}
-                    onUpdate={loadData}
+                    groups={calculatedGroups} searchResults={searchResults} searchTerm={searchTerm}
+                    folders={dbFolders} folderColors={folderColors} currentFolder={currentFolder}
+                    totalWords={currentViewWords.length} learnedCount={currentViewWords.filter(w => w.learned).length}
+                    onSearchChange={setSearchTerm} onClearSearch={() => setSearchTerm('')}
+                    // 🚀 MỚI: Chọn Group/Folder
+                    onSelectGroup={(g) => updateUrl({ group: g })}
+                    onSelectFolder={(f) => updateUrl({ folder: f })}
+                    allowAdd={canEdit} onAddGroup={handleAddGroup} onDeleteGroup={handleDeleteGroup}
+                    onDeleteWordResult={handleDeleteWord} onMoveGroup={handleMoveGroup} onCreateFolder={handleCreateFolder}
+                    onUpdateFolder={handleUpdateFolder} onDeleteFolder={handleDeleteFolder}
+                    onSort={(opt) => setSortOption(opt)} sortOption={sortOption} sortDirection={sortDirection}
+                    onStartLearn={handleStartLearn} onResetLearn={handleResetProgress} onUpdate={loadData}
                 />
             )}
         </div>
       </div>
 
-      {/* ✅ NHÚNG MODAL QUẢN LÝ TIẾN ĐỘ HỌC */}
       <StudyManagerModal 
         isOpen={isStudyModalOpen}
-        onClose={() => {
-            setIsStudyModalOpen(false);
-            loadData(); // 🚀 QUAN TRỌNG: Load lại data khi đóng modal để cập nhật Header
-        }}
-        systemWords={currentViewWords} 
-        onStartLearn={handleStartLearnFromModal} 
-        onRefreshData={loadData} // 🚀 Truyền vào để Modal con có thể gọi khi xóa từ
+        onClose={() => { setIsStudyModalOpen(false); loadData(); }}
+        systemWords={currentViewWords} onStartLearn={handleStartLearnFromModal} onRefreshData={loadData} 
         />
     </div>
   );

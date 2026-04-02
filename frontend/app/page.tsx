@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // Import router để chuyển trang
+// 🚀 1. Bổ sung import Suspense
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { AuthScreen } from '../components/auth/AuthScreen';
 import { MainApp } from '../components/home/MainApp';
 import { api, setApiToken, clearApiToken } from '../lib/api';
-
-// ❌ XÓA DÒNG NÀY ĐI VÌ FILE ĐÃ XÓA:
-// import { AdminDashboard } from '../components/admin/AdminDashboard'; 
 
 export default function Home() {
   const router = useRouter();
@@ -56,10 +54,10 @@ export default function Home() {
     return <AuthScreen onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // ❌ XÓA ĐOẠN CHECK URL THỦ CÔNG NÀY:
-  // if (window.location.pathname === '/admin') ... return <AdminDashboard ... />
-
-  // ✅ Thay vào đó, MainApp sẽ hoạt động bình thường.
-  // Nếu muốn vào Admin, người dùng sẽ gõ /admin hoặc bấm nút chuyển.
-  return <MainApp currentUser={currentUser} role={role} onLogout={handleLogout} />;
+  // 🚀 2. Bọc Suspense ở đây để Next.js xử lý an toàn useSearchParams
+  return (
+    <Suspense fallback={<div className="h-screen bg-black flex items-center justify-center text-white">Loading App...</div>}>
+        <MainApp currentUser={currentUser} role={role} onLogout={handleLogout} />
+    </Suspense>
+  );
 }
