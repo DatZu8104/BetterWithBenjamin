@@ -14,16 +14,44 @@ const checkAdmin = async (userId) => {
 // 🚀 QUẢN LÝ TỪ VỰNG VÀ SYNC
 // ==========================================
 
+// ==========================================
+// 🚀 QUẢN LÝ TỪ VỰNG VÀ SYNC
+// ==========================================
+
+// 1. API tải dữ liệu cá nhân (SIÊU NHANH)
 router.get('/sync', verifyToken, async (req, res) => {
     try {
+        // Lấy từ cá nhân
         const userWords = await Vocabulary.find({ userId: req.userId }).sort({ createdAt: -1 });
         const formattedUserWords = userWords.map(w => ({ ...w.toObject(), isGlobal: false }));
 
-        const systemWords = await SystemVocabulary.find({});
+        // Chỉ lấy mảng ID các từ hệ thống đã thuộc (Không kéo cả 5000 từ nữa)
         const userProgress = await UserProgress.find({ userId: req.userId });
-        const learnedSysIds = new Set(userProgress.map(p => p.wordId.toString()));
+        const learnedSysIds = userProgress.map(p => p.wordId.toString());
         
+        const folders = await Folder.find({
+            $or: [{ userId: req.userId }, { isGlobal: true }]
+        });
 
+        const groupSettings = await GroupSetting.find({
+            $or: [{ userId: req.userId }, { isGlobal: true }]
+        });
+        
+        res.json({ 
+            words: formattedUserWords, 
+            learnedSystemIds: learnedSysIds, // Gửi mảng ID này về để Frontend tự trộn
+            folders, 
+            groupSettings 
+        });
+    } catch (e) { 
+        res.status(500).json({ error: "Lỗi sync data" }); 
+    }
+});
+
+// 2. API tải 5000+ từ hệ thống (CHẠY NGẦM)
+router.get('/sync-system', verifyToken, async (req, res) => {
+    try {
+        const systemWords = await SystemVocabulary.find({});
         const formattedSystemWords = systemWords.map(w => ({
             _id: w._id,
             word: w.word,
@@ -37,24 +65,14 @@ router.get('/sync', verifyToken, async (req, res) => {
             example: w.definitions?.[0]?.examples?.[0] || "",
             type: w.type,
             group: w.group,
-            learned: learnedSysIds.has(w._id.toString()), 
+            learned: false, // Mặc định là false, Frontend sẽ dùng learnedSystemIds ở trên để bật thành true
             isGlobal: true,
-            createdAt: w._id.getTimestamp()
+            createdAt: w.createdAt || new Date()
         }));
 
-        const allWords = [...formattedUserWords, ...formattedSystemWords];
-
-        const folders = await Folder.find({
-            $or: [{ userId: req.userId }, { isGlobal: true }]
-        });
-
-        const groupSettings = await GroupSetting.find({
-            $or: [{ userId: req.userId }, { isGlobal: true }]
-        });
-        
-        res.json({ words: allWords, folders, groupSettings });
+        res.json(formattedSystemWords);
     } catch (e) { 
-        res.status(500).json({ error: "Lỗi sync data" }); 
+        res.status(500).json({ error: "Lỗi sync system data" }); 
     }
 });
 

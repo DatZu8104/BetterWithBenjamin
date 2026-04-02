@@ -46,24 +46,28 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const canEdit = viewMode === 'personal' || role === 'admin';
 
   // --- LOAD DATA ---
+  // --- LOAD DATA ---
   const loadData = async () => {
     try {
+      // 1. Tải dữ liệu cá nhân & Cấu hình (Rất nhanh vì cục dữ liệu cực nhẹ)
       const data = await api.syncData();
-      if (data && Array.isArray(data.words)) {
-          // DEBUG: Xem cấu trúc dữ liệu trả về từ API
-          const learnedWords = data.words.filter((w: any) => w.learned);
-          console.log("🔥 [FRONTEND] DATA TẢI VỀ - Số từ đã thuộc:", learnedWords.length);
-          if (data.words.length > 0) {
-              console.log('🔥 [FRONTEND] Sample Word Structure (Từ đầu tiên):', data.words[0]);
+      let personalWords: any[] = [];
+      let learnedSysIds = new Set<string>();
+
+      if (data) {
+          // Lấy danh sách ID hệ thống đã học (từ Backend gửi về)
+          if (data.learnedSystemIds) {
+              learnedSysIds = new Set(data.learnedSystemIds);
           }
-          
-          const normalizedWords = data.words.map((w: any) => ({
-            ...w,
-            id: w.id || w._id,
-            learned: w.learned || false,
-            isGlobal: w.isGlobal || false
-          }));
-          setWords(normalizedWords);
+
+          if (Array.isArray(data.words)) {
+              personalWords = data.words.map((w: any) => ({
+                ...w,
+                id: w.id || w._id,
+                learned: w.learned || false,
+                isGlobal: false
+              }));
+          }
           
           if(data.folders) {
               setDbFolders(data.folders.map((f: any) => f.name));
@@ -78,9 +82,36 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
               setGroupSettings(settings);
           }
       }
+
+      // ⚡ BÍ QUYẾT TỐI ƯU UX:
+      // Nếu là lần đầu mở app (đang xoay Loading) -> Hiện ngay từ cá nhân & Tắt loading lập tức
+      if (isLoading) {
+          setWords(personalWords);
+          setIsLoading(false); 
+      }
+
+      // 2. Chạy ngầm lấy dữ liệu hệ thống (Từ lần 2 trình duyệt sẽ tự lấy từ Disk Cache siêu tốc)
+      const sysWords = await api.getSystemWords();
+      let formattedSysWords: any[] = [];
+      
+      if (Array.isArray(sysWords)) {
+          formattedSysWords = sysWords.map((w: any) => ({
+              ...w,
+              id: w.id || w._id,
+              // Ép kiểu String để Set.has() nhận diện chuẩn xác
+              learned: learnedSysIds.has(String(w._id || w.id)),
+              isGlobal: true
+          }));
+      }
+
+      // 3. Cập nhật lại mảng dữ liệu tổng (Gộp cá nhân + hệ thống đã gắn tiến độ mới nhất)
+      setWords([...personalWords, ...formattedSysWords]);
+
+      // Đảm bảo loading luôn tắt (fallback)
+      setIsLoading(false);
+
     } catch (error) {
       console.error("Data load error:", error);
-    } finally {
       setIsLoading(false);
     }
   };

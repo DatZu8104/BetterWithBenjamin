@@ -71,7 +71,23 @@ export const api = {
         return null;
     }
   },
-
+getSystemWords: async () => {
+    try {
+        // Thêm ?t=... và đổi thành no-store để chắc chắn lấy dữ liệu mới
+        const res = await fetch(`${API_URL}/sync-system?t=${new Date().getTime()}`, { 
+            headers: getHeaders(),
+            cache: 'no-store' 
+        });
+        if (!res.ok) {
+            console.error("❌ Lỗi API từ Server:", res.status);
+            return [];
+        }
+        return await res.json();
+    } catch (error) {
+        console.error("Lỗi tải bộ từ hệ thống:", error);
+        return [];
+    }
+  },
   // Cập nhật trạng thái Đã thuộc / Chưa thuộc trong thư mục
   updateMasterStatus: async (savedWordId: string, isMastered: boolean) => {
     const res = await fetch(`${API_URL}/saved-words/${savedWordId}/master`, {
