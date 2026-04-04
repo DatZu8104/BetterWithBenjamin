@@ -27,7 +27,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const selectedGroup = searchParams.get('group');
   const currentFolder = searchParams.get('folder');
   const isLearnMode = searchParams.get('learn') === 'true';
-
+  
   // State lưu trữ Data (vẫn giữ nguyên)
   const [words, setWords] = useState<any[]>([]);
   const [rawGroupSettings, setRawGroupSettings] = useState<any[]>([]); 

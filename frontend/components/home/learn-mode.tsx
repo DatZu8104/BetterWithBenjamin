@@ -30,6 +30,11 @@ export function LearnModeView({
   const [localCurrentWord, setLocalCurrentWord] = useState<any | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   
+  // 1. STATE THÊM VÀO ĐỂ XỬ LÝ VUỐT THẺ (Chỉ dùng cho mobile)
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+
   // Quiz & Typing State
   const [quizOptions, setQuizOptions] = useState<any[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -94,6 +99,7 @@ export function LearnModeView({
   // --- LOGIC ---
   const switchWord = (newWord: any | null) => {
     setIsAnimating(true); 
+    setSwipeOffset(0); // Trả thẻ về giữa nếu đang vuốt
     setTimeout(() => {
         setLocalCurrentWord(newWord);
         resetModeState();
@@ -170,6 +176,45 @@ export function LearnModeView({
       setTypingInput('');
       setTypingStatus('idle');
   }
+
+  // 2. LOGIC VUỐT KẾT HỢP HÀM GỐC
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Chỉ kích hoạt vuốt trên mobile (khi màn hình nhỏ hơn md)
+    if (window.innerWidth >= 768) return; 
+    setTouchEndX(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+  };
+  
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartX) return;
+    const currentX = e.targetTouches[0].clientX;
+    setTouchEndX(currentX);
+    setSwipeOffset((currentX - touchStartX) * 0.7); 
+  };
+  
+  const handleTouchEnd = () => {
+    if (!touchStartX || !touchEndX) { setSwipeOffset(0); return; }
+    const distance = touchEndX - touchStartX;
+    
+    if (distance < -75) {
+        // Vuốt từ Phải sang Trái (<-) -> Đã thuộc
+        setSwipeOffset(-500);
+        setTimeout(() => {
+            handleKnown();
+            setSwipeOffset(0);
+        }, 200);
+    } else if (distance > 75) {
+        // Vuốt từ Trái sang Phải (->) -> Chưa nhớ
+        setSwipeOffset(500);
+        setTimeout(() => {
+            handleUnknown();
+            setSwipeOffset(0);
+        }, 200);
+    } else {
+        setSwipeOffset(0); // Vuốt quá nhẹ, hoàn tác
+    }
+  };
+
 
   // Quiz Logic
   useEffect(() => {
@@ -262,27 +307,43 @@ export function LearnModeView({
                         
                         {/* MODE 1: FLASHCARD */}
                         {mode === 'flashcard' && (
-                            <div className="w-full flex items-center justify-between gap-2 md:gap-4">
+                            <div className="w-full flex items-center justify-between gap-2 md:gap-4 overflow-hidden md:overflow-visible">
+                                
+                                {/* NÚT MŨI TÊN TRÁI: CHỈ HIỂN THỊ TRÊN MÀN HÌNH LỚN (md:flex) */}
                                 <Button 
                                     variant="ghost" 
                                     size="icon" 
                                     onClick={handleUnknown} 
                                     disabled={isAnimating}
-                                    className="h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-red-500 hover:bg-red-950/30 hover:text-red-400 hover:border-red-900/50 transition-all"
+                                    className="hidden md:flex h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-red-500 hover:bg-red-950/30 hover:text-red-400 hover:border-red-900/50 transition-all"
                                 >
                                     <ChevronLeft className="w-8 h-8" />
                                 </Button>
 
-                                <div className="flex-1 min-w-0">
+                                <div 
+                                    className="flex-1 min-w-0 transition-transform duration-200 relative 
+                                              md:[&_h2]:whitespace-normal md:[&_h2]:text-[clamp(1.5rem,8vw,3.5rem)] md:[&_h2]:px-0
+                                              max-md:[&_h2]:!whitespace-nowrap max-md:[&_h2]:!text-[clamp(1.5rem,8vw,3.5rem)] max-md:[&_h2]:!px-2"
+                                    style={{ transform: `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.04}deg)` }}
+                                    onTouchStart={handleTouchStart}
+                                    onTouchMove={handleTouchMove}
+                                    onTouchEnd={handleTouchEnd}
+                                >
+                                     {/* Hiệu ứng màu nền báo hiệu khi vuốt thẻ (chỉ trên mobile) */}
+                                    <div className="md:hidden">
+                                        {swipeOffset < -30 && <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
+                                        {swipeOffset > 30 && <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
+                                    </div>
                                     <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" color={themeColor} />
                                 </div>
 
+                                {/* NÚT MŨI TÊN PHẢI: CHỈ HIỂN THỊ TRÊN MÀN HÌNH LỚN (md:flex) */}
                                 <Button 
                                     variant="ghost" 
                                     size="icon" 
                                     onClick={handleKnown} 
                                     disabled={isAnimating}
-                                    className="h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-green-500 hover:bg-green-950/30 hover:text-green-400 hover:border-green-900/50 transition-all"
+                                    className="hidden md:flex h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-green-500 hover:bg-green-950/30 hover:text-green-400 hover:border-green-900/50 transition-all"
                                 >
                                     <ChevronRight className="w-8 h-8" />
                                 </Button>

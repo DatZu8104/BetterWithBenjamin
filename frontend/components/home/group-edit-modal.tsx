@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Pencil, Save, X, ArrowLeft, Search } from "lucide-react";
+import { Pencil, Save, X, ArrowLeft, Search, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface GroupEditModalProps {
@@ -21,13 +21,41 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
   const [newFolderName, setNewFolderName] = useState(folderName);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // 🚀 MỚI: State và Ref cho Infinite Scroll
+  const [visibleCount, setVisibleCount] = useState(50);
+  const loaderRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (isOpen) {
       setNewFolderName(folderName);
       setIsEditingName(false);
       setSearchTerm("");
+      setVisibleCount(50); // Reset số lượng hiển thị khi mở lại Modal
     }
   }, [isOpen, folderName]);
+
+  // 🚀 MỚI: Reset lại số lượng hiển thị khi người dùng gõ tìm kiếm
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [searchTerm]);
+
+  // 🚀 MỚI: Bộ quan sát (Observer) lắng nghe sự kiện cuộn chạm đáy
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => prev + 50); // Tải thêm 50 từ mỗi lần chạm đáy
+        }
+      },
+      { rootMargin: "200px" } // Kích hoạt tải thêm khi còn cách đáy 200px để cuộn mượt hơn
+    );
+
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
 
   const handleSaveFolderName = async () => {
     if (!newFolderName.trim() || newFolderName === folderName) {
@@ -62,21 +90,21 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
            displayDef.toLowerCase().includes(lowerSearch);
   });
 
+  // 🚀 MỚI: Cắt mảng từ vựng dựa trên số lượng visibleCount hiện tại
+  const displayedWords = filteredWords.slice(0, visibleCount);
+
   return (
     <>
-      {/* 🚀 BƯỚC 1: LỚP PHỦ LÀM TỐI TOÀN BỘ MÀN HÌNH BÊN DƯỚI */}
+      {/* LỚP PHỦ LÀM TỐI TOÀN BỘ MÀN HÌNH BÊN DƯỚI */}
       {isOpen && (
         <div className="fixed inset-0 z-[10001] bg-black/85 backdrop-blur-sm pointer-events-none transition-all duration-300" />
       )}
 
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        {/* Nâng z-index lên 10002 để nổi bật hoàn toàn lên trên lớp phủ đen */}
         <DialogContent className="!max-w-[95vw] md:!max-w-[60vw] !w-full h-[95vh] md:h-[90vh] flex flex-col p-0 gap-0 bg-zinc-950 text-zinc-100 border-zinc-800 shadow-2xl overflow-hidden z-[10002]">
           
           {/* HEADER */}
           <DialogHeader className="shrink-0 border-b border-zinc-800 bg-black px-6 py-3 z-20 flex flex-col gap-1">
-            
-            {/* NÚT BACK (Đã thu gọn) */}
             <Button 
               variant="ghost" 
               onClick={onClose} 
@@ -85,10 +113,7 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
               <ArrowLeft className="w-4 h-4 mr-2" /> Trở về
             </Button>
 
-            {/* 🚀 BƯỚC 2: ĐƯA DÒNG CHỮ SANG BÊN PHẢI, SONG SONG VỚI TÊN FOLDER */}
             <div className="flex items-center justify-between w-full">
-              
-              {/* TRÁI: Tên thư mục & Nút sửa */}
               <div className="flex items-center gap-3 w-full md:w-auto pr-4">
                 {isEditingName ? (
                   <>
@@ -117,7 +142,6 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
                 )}
               </div>
 
-              {/* PHẢI: Chữ Quản lý thư mục */}
               <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest hidden sm:block shrink-0 text-right">
                 Quản lý Thư mục Cá nhân
               </span>
@@ -139,7 +163,7 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
               </div>
               
               <p className="text-sm font-medium text-zinc-400">
-                Đang hiển thị: <span className="text-blue-400 font-bold">{filteredWords.length}</span> / {words.length} từ vựng
+                Đang hiển thị: <span className="text-blue-400 font-bold">{displayedWords.length}</span> / {filteredWords.length} từ vựng
               </p>
             </div>
 
@@ -154,7 +178,8 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {filteredWords.map((word) => {
+                {/* 🚀 MỚI: Chỉ render mảng displayedWords đã được cắt */}
+                {displayedWords.map((word) => {
                   const savedWordId = word._id; 
                   const displayWord = word.wordId?.word || word.word || word.english;
                   const displayType = word.wordId?.type || word.type;
@@ -195,6 +220,14 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
                     </div>
                   );
                 })}
+
+                {/* 🚀 MỚI: Thẻ Observer nằm cuối danh sách để kích hoạt load thêm */}
+                {visibleCount < filteredWords.length && (
+                  <div ref={loaderRef} className="w-full h-16 flex items-center justify-center mt-4">
+                    <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+                  </div>
+                )}
+
               </div>
             )}
           </div>

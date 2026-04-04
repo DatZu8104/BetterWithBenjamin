@@ -52,7 +52,8 @@ const folderSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     name: { type: String, required: true },
     color: { type: String, default: '#3b82f6' },
-    isGlobal: { type: Boolean, default: false } 
+    isGlobal: { type: Boolean, default: false }, 
+    createdAt: { type: Date, default: Date.now }
 });
 
 // 5. Group Setting Schema

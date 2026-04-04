@@ -28,7 +28,9 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const [selectedSystemGroup, setSelectedSystemGroup] = useState<string | null>(null);
   
   const [userFolders, setUserFolders] = useState<any[]>([]); 
-  const [savedWordIds, setSavedWordIds] = useState<Set<string>>(new Set());  const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]);
+  const [savedWordIds, setSavedWordIds] = useState<Set<string>>(new Set());
+  const [folderWordCounts, setFolderWordCounts] = useState<Record<string, number>>({});  
+  const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [quickSelectInputValue, setQuickSelectInputValue] = useState("");
@@ -101,6 +103,16 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     try {
       const data = await api.getSavedWordIds();
       setSavedWordIds(new Set(data.map((item: any) => item.wordId)));
+      
+      // 🚀 MỚI: Đếm số lượng từ vựng cho từng thư mục (Dựa vào folderId)
+      const counts: Record<string, number> = {};
+      data.forEach((item: any) => {
+        if (item.folderId) {
+          counts[item.folderId] = (counts[item.folderId] || 0) + 1;
+        }
+      });
+      setFolderWordCounts(counts); // Lưu vào State
+      
     } catch (err) {
       console.error("Lỗi tải ID từ đã add", err);
     }
@@ -361,8 +373,17 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                           className="flex-1 min-w-0 pr-4 cursor-pointer"
                           onClick={() => handleLearnExistingFolder(folder)}
                         >
-                          <h3 className="font-bold text-base text-white truncate group-hover:text-blue-400">{folder.name}</h3>
-                          <p className="text-xs text-zinc-500 mt-1">Tạo: {new Date(folder.createdAt).toLocaleDateString()}</p>
+                          <h3 className="font-bold text-base text-white truncate group-hover:text-blue-400 mb-2">
+                             {folder.name}
+                          </h3>
+                          {/* 🚀 MỚI: Badge hiển thị Ngày tạo và Số lượng từ */}
+                          <div className="flex items-center gap-2 text-[11px] font-medium text-zinc-400">
+                             <span className="bg-zinc-950 px-2 py-1 rounded-md border border-zinc-800/80 flex items-center gap-1.5">
+                                📅 {folder.createdAt ? new Date(folder.createdAt).toLocaleDateString('vi-VN') : 'Mới đây'}                             </span>
+                             <span className="bg-blue-950/30 text-blue-400 px-2 py-1 rounded-md border border-blue-900/30 flex items-center gap-1.5">
+                                📦 {folderWordCounts[folder._id] || 0} từ
+                             </span>
+                          </div>
                         </div>
                         
                         <div className="flex items-center gap-1 shrink-0">
