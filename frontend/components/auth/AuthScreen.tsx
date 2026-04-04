@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { api, setApiToken } from '../../lib/api'; // Nhớ import setApiToken
-import { Loader2, User, Lock, ArrowRight, BookOpen } from 'lucide-react';
+import { api, setApiToken } from '../../lib/api'; 
+// 🚀 Thêm icon KeyRound cho ô Xác nhận mật khẩu
+import { Loader2, User, Lock, ArrowRight, BookOpen, KeyRound } from 'lucide-react';
 
 interface AuthScreenProps {
   onLoginSuccess: (token: string, user: string, role: string) => void;
@@ -12,12 +13,29 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  
+  // --- GIAI ĐOẠN 1: State cho ô Xác nhận mật khẩu ---
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // --- GIAI ĐOẠN 3: Cấu hình màu sắc động (Blue = Login, Emerald = Sign Up) ---
+  const colorBgGlow = isLogin ? 'bg-blue-600/10' : 'bg-emerald-600/10';
+  const colorIcon = isLogin ? 'text-blue-500' : 'text-emerald-500';
+  const colorFocus = isLogin ? 'focus:border-blue-500 focus:ring-blue-500' : 'focus:border-emerald-500 focus:ring-emerald-500';
+  const colorButton = isLogin ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/30' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/30';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // --- GIAI ĐOẠN 1: Validate mật khẩu khi đăng ký ---
+    if (!isLogin && password !== confirmPassword) {
+        setError('Passwords do not match!');
+        return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -30,22 +48,19 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
 
       if (data.error) throw new Error(data.error);
 
-      // ✅ 1. LƯU TOKEN VÀO API
       setApiToken(data.token);
-
-      // ✅ 2. LƯU THÔNG TIN VÀO SESSION STORAGE (ĐỂ F5 KHÔNG MẤT)
       if (typeof window !== 'undefined') {
           sessionStorage.setItem('current_user', data.username);
           sessionStorage.setItem('user_role', data.role || 'user');
       }
 
-      // ✅ 3. CHUYỂN VÀO TRANG CHÍNH
       if (isLogin) {
         onLoginSuccess(data.token, data.username, data.role);
       } else {
         alert('Registration successful! Please login.');
         setIsLogin(true);
         setPassword('');
+        setConfirmPassword(''); // Reset lại ô xác nhận
       }
 
     } catch (err: any) {
@@ -55,26 +70,53 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
     }
   };
 
+  // Hàm chuyển đổi Tab (Reset lại Form)
+  const handleSwitchTab = (toLogin: boolean) => {
+      setIsLogin(toLogin);
+      setError('');
+      setPassword('');
+      setConfirmPassword('');
+  };
+
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl p-8 relative overflow-hidden">
+      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl p-8 relative overflow-hidden transition-all duration-500">
         
-        {/* Decorative Background */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+        {/* Ánh sáng nền thay đổi theo trạng thái */}
+        <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none transition-colors duration-500 ${colorBgGlow}`}></div>
 
-        <div className="text-center mb-8 relative z-10">
+        <div className="text-center mb-6 relative z-10">
             <div className="inline-flex p-3 bg-zinc-800 rounded-2xl mb-4 shadow-inner">
-                <BookOpen className="w-8 h-8 text-blue-500" />
+                <BookOpen className={`w-8 h-8 transition-colors duration-500 ${colorIcon}`} />
             </div>
             <h1 className="text-3xl font-black text-white tracking-tight mb-2">
-                Better With <span className="text-blue-500">Ben</span>
+                Better With <span className={`transition-colors duration-500 ${colorIcon}`}>Ben</span>
             </h1>
             <p className="text-zinc-500 text-sm">
                 {isLogin ? 'Welcome back! Ready to learn?' : 'Create an account to start learning'}
             </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+        {/* --- GIAI ĐOẠN 2: Hệ thống Tabs chuyển đổi --- */}
+        <div className="flex bg-black/50 p-1.5 rounded-xl mb-6 border border-white/5 relative z-10">
+            <button 
+                type="button"
+                onClick={() => handleSwitchTab(true)} 
+                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${isLogin ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+                Login
+            </button>
+            <button 
+                type="button"
+                onClick={() => handleSwitchTab(false)} 
+                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${!isLogin ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+                Sign Up
+            </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
+            {/* Input: Username */}
             <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Username</label>
                 <div className="relative">
@@ -82,7 +124,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                     <input 
                         type="text" 
                         required 
-                        className="w-full pl-12 pr-4 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none"
+                        className={`w-full pl-12 pr-4 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:ring-1 transition-all outline-none ${colorFocus}`}
                         placeholder="Enter username"
                         value={username}
                         onChange={e => setUsername(e.target.value)}
@@ -90,6 +132,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                 </div>
             </div>
 
+            {/* Input: Password */}
             <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Password</label>
                 <div className="relative">
@@ -97,7 +140,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                     <input 
                         type="password" 
                         required 
-                        className="w-full pl-12 pr-4 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none"
+                        className={`w-full pl-12 pr-4 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:ring-1 transition-all outline-none ${colorFocus}`}
                         placeholder="••••••••"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
@@ -105,6 +148,25 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                 </div>
             </div>
 
+            {/* --- GIAI ĐOẠN 1: Input: Confirm Password (Chỉ hiện khi Đăng ký) --- */}
+            {!isLogin && (
+                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Confirm Password</label>
+                    <div className="relative">
+                        <KeyRound className="absolute left-4 top-3.5 w-5 h-5 text-zinc-500" />
+                        <input 
+                            type="password" 
+                            required 
+                            className={`w-full pl-12 pr-4 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:ring-1 transition-all outline-none ${colorFocus}`}
+                            placeholder="••••••••"
+                            value={confirmPassword}
+                            onChange={e => setConfirmPassword(e.target.value)}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* Error Message */}
             {error && (
                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 animate-in fade-in">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></div>
@@ -112,28 +174,20 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                 </div>
             )}
 
+            {/* Nút Submit (Màu đổi tự động) */}
             <button 
                 type="submit" 
                 disabled={isLoading}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-900/30 active:scale-95 transition-all flex items-center justify-center gap-2 mt-2"
+                className={`w-full py-4 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-4 ${colorButton}`}
             >
                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : (
                     <>
-                        {isLogin ? 'Login' : 'Sign Up'} 
+                        {isLogin ? 'Login' : 'Create Account'} 
                         <ArrowRight className="w-5 h-5" />
                     </>
                 )}
             </button>
         </form>
-
-        <div className="mt-8 text-center relative z-10">
-            <button 
-                onClick={() => { setIsLogin(!isLogin); setError(''); }}
-                className="text-sm text-zinc-500 hover:text-white transition-colors underline underline-offset-4"
-            >
-                {isLogin ? "Don't have an account? Sign up" : "Already have an account? Login"}
-            </button>
-        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { WordForm } from '../word-form';
 import { ArrowLeft, Plus, Trash2, X, Pencil, PlayCircle, ListPlus, Save, CheckCircle, Loader2, Search, BookOpen, Volume2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -31,6 +31,34 @@ export function WordListView({
   const [parsedWords, setParsedWords] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 🚀 MỚI: State và Ref cho Infinite Scroll
+  const [visibleCount, setVisibleCount] = useState(50);
+  const loaderRef = useRef<HTMLDivElement>(null);
+
+  // 🚀 MỚI: Chỉ Reset số lượng hiển thị khi đổi Nhóm hoặc Tìm kiếm. 
+  // Không đưa 'words' vào mảng dependency để tránh bị nhảy trang khi đánh dấu từ.
+  useEffect(() => {
+      setVisibleCount(50);
+  }, [groupName, localSearch]);
+
+  // 🚀 MỚI: Bộ lắng nghe sự kiện cuộn chạm đáy
+  useEffect(() => {
+      const observer = new IntersectionObserver((entries) => {
+          // Nếu thẻ tàng hình xuất hiện trên màn hình
+          if (entries[0].isIntersecting) {
+              setVisibleCount(prev => prev + 50); // Tải thêm 50 từ
+          }
+      }, { 
+          rootMargin: "200px" // Kích hoạt sớm khi còn cách đáy 200px để cuộn mượt hơn
+      });
+
+      if (loaderRef.current) {
+          observer.observe(loaderRef.current);
+      }
+
+      return () => observer.disconnect(); // Dọn dẹp khi thoát
+  }, []); // Chạy 1 lần khi mount
+
   // --- HÀM PHÁT AUDIO NHANH ---
   const playAudio = (e: React.MouseEvent, url: string | undefined, text: string) => {
     e.stopPropagation();
@@ -58,7 +86,6 @@ export function WordListView({
   };
 
   const startEdit = (word: any) => {
-    // Chỉ cho phép sửa từ cá nhân (isGlobal = false) hoặc nếu là Admin
     if (word.isGlobal && !allowEdit) {
         alert("Bạn không thể sửa từ vựng hệ thống Oxford.");
         return;
@@ -76,7 +103,6 @@ export function WordListView({
     setParsedWords([]);
   };
 
-  // ... (Phần Bulk Import Logic giữ nguyên như cũ, chỉ rút gọn hiển thị để tập trung vào phần chính)
   const handlePreview = () => {
     if (!bulkText.trim()) return;
     const lines = bulkText.split('\n');
@@ -104,15 +130,17 @@ export function WordListView({
           cancelForm();
       } catch (error) { alert("⚠️ Connection error."); } finally { setIsSaving(false); }
   };
-  // ... (Hết phần Bulk)
 
-  // Filter
+  // Filter & Logic cắt mảng hiển thị
   const filteredWords = words.filter(w => {
     const mainWord = w.word || w.english || "";
     const mainDef = w.definition || (w.definitions?.[0]?.definition) || "";
     return mainWord.toLowerCase().includes(localSearch.toLowerCase()) || 
            mainDef.toLowerCase().includes(localSearch.toLowerCase());
   });
+
+  // 🚀 MỚI: Chỉ lấy số lượng từ theo biến visibleCount thay vì lấy tất cả
+  const displayedWords = filteredWords.slice(0, visibleCount);
 
   return (
     <div className="h-full flex flex-col bg-zinc-950 text-white relative">
@@ -215,71 +243,80 @@ export function WordListView({
                 ) : filteredWords.length === 0 ? (
                     <div className="text-center py-10 text-zinc-500">No matching words found.</div>
                 ) : (
-                    filteredWords.map((word) => {
-                      // Normalize Data
-                      const displayWord = word.word || word.english;
-                      const displayDef = word.definition || (word.definitions?.[0]?.definition) || "No definition";
-                      const displayLevel = word.level || (word.group?.includes('Level') ? word.group.split('Level ')[1] : null);
-                      const displayPhonetic = word.phonetics?.us || word.phonetics?.uk || word.ipa || "";
+                    <>
+                        {displayedWords.map((word) => {
+                          // Normalize Data
+                          const displayWord = word.word || word.english;
+                          const displayDef = word.definition || (word.definitions?.[0]?.definition) || "No definition";
+                          const displayLevel = word.level || (word.group?.includes('Level') ? word.group.split('Level ')[1] : null);
+                          const displayPhonetic = word.phonetics?.us || word.phonetics?.uk || word.ipa || "";
 
-                      return (
-                      <div key={word.id} className="group flex items-center justify-between p-4 rounded-2xl border border-white/5 bg-zinc-900 hover:bg-zinc-800 hover:border-blue-500/30 transition-all duration-300 shadow-sm hover:shadow-md">
-                        <div className="min-w-0 pr-4">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            
-                            {/* LEVEL BADGE */}
-                            {displayLevel && (
-                                <span className="text-[10px] font-bold bg-yellow-600/20 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-600/30">
-                                    {displayLevel}
-                                </span>
-                            )}
+                          return (
+                          <div key={word.id} className="group flex items-center justify-between p-4 rounded-2xl border border-white/5 bg-zinc-900 hover:bg-zinc-800 hover:border-blue-500/30 transition-all duration-300 shadow-sm hover:shadow-md">
+                            <div className="min-w-0 pr-4">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                
+                                {/* LEVEL BADGE */}
+                                {displayLevel && (
+                                    <span className="text-[10px] font-bold bg-yellow-600/20 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-600/30">
+                                        {displayLevel}
+                                    </span>
+                                )}
 
-                            <span className="font-bold text-lg text-white group-hover:text-blue-400 transition-colors">{displayWord}</span>
-                            
-                            {/* PHONETIC */}
-                            {displayPhonetic && (
-                                <span className="text-xs text-zinc-500 font-mono">
-                                    {displayPhonetic}
-                                </span>
-                            )}
+                                <span className="font-bold text-lg text-white group-hover:text-blue-400 transition-colors">{displayWord}</span>
+                                
+                                {/* PHONETIC */}
+                                {displayPhonetic && (
+                                    <span className="text-xs text-zinc-500 font-mono">
+                                        {displayPhonetic}
+                                    </span>
+                                )}
 
-                            {/* TYPE */}
-                            {word.type && (
-                                <span className="text-[10px] uppercase font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded">
-                                    {Array.isArray(word.type) ? word.type.join(', ') : word.type}
-                                </span>
-                            )}
+                                {/* TYPE */}
+                                {word.type && (
+                                    <span className="text-[10px] uppercase font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded">
+                                        {Array.isArray(word.type) ? word.type.join(', ') : word.type}
+                                    </span>
+                                )}
 
-                            {/* LEARNED STATUS */}
-                            {word.learned && <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">Learned</span>}
-                          
-                            {/* AUDIO ICON (Quick Play) */}
-                            {(word.audio?.us || word.audio?.uk) && (
-                                <button 
-                                    onClick={(e) => playAudio(e, word.audio?.us || word.audio?.uk, displayWord)}
-                                    className="p-1 text-zinc-600 hover:text-blue-400 transition-colors"
-                                >
-                                    <Volume2 className="w-3.5 h-3.5"/>
-                                </button>
-                            )}
+                                {/* LEARNED STATUS */}
+                                {word.learned && <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">Learned</span>}
+                              
+                                {/* AUDIO ICON (Quick Play) */}
+                                {(word.audio?.us || word.audio?.uk) && (
+                                    <button 
+                                        onClick={(e) => playAudio(e, word.audio?.us || word.audio?.uk, displayWord)}
+                                        className="p-1 text-zinc-600 hover:text-blue-400 transition-colors"
+                                    >
+                                        <Volume2 className="w-3.5 h-3.5"/>
+                                    </button>
+                                )}
+                              </div>
+                              
+                              <p className="text-sm text-zinc-400 truncate group-hover:text-zinc-300">
+                                  {displayDef}
+                              </p>
+                            </div>
+
+                            {/* ACTIONS */}
+                            <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all transform sm:translate-x-2 group-hover:translate-x-0">
+                              {allowEdit && (
+                                <button onClick={() => startEdit(word)} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-700 rounded-lg transition-colors"><Pencil className="w-4 h-4"/></button>
+                              )}
+                              {allowEdit && (
+                                <button onClick={() => onDeleteWord(word.id)} className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
+                              )}
+                            </div>
                           </div>
-                          
-                          <p className="text-sm text-zinc-400 truncate group-hover:text-zinc-300">
-                              {displayDef}
-                          </p>
-                        </div>
-
-                        {/* ACTIONS */}
-                        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all transform sm:translate-x-2 group-hover:translate-x-0">
-                          {allowEdit && (
-                            <button onClick={() => startEdit(word)} className="p-2 text-zinc-500 hover:text-white hover:bg-zinc-700 rounded-lg transition-colors"><Pencil className="w-4 h-4"/></button>
-                          )}
-                          {allowEdit && (
-                            <button onClick={() => onDeleteWord(word.id)} className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
-                          )}
-                        </div>
-                      </div>
-                    )})
+                        )})}
+                        
+                        {/* 🚀 MỚI: Thẻ quan sát (Observer Sentinel) nằm ở cuối danh sách */}
+                        {visibleCount < filteredWords.length && (
+                            <div ref={loaderRef} className="w-full h-16 flex items-center justify-center mt-6">
+                                <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
           )}

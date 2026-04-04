@@ -314,7 +314,19 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                     allowAdd={canEdit} onAddGroup={handleAddGroup} onDeleteGroup={handleDeleteGroup}
                     onDeleteWordResult={handleDeleteWord} onMoveGroup={handleMoveGroup} onCreateFolder={handleCreateFolder}
                     onUpdateFolder={handleUpdateFolder} onDeleteFolder={handleDeleteFolder}
-                    onSort={(opt) => setSortOption(opt)} sortOption={sortOption} sortDirection={sortDirection}
+                    onSort={(opt) => {
+                        if (sortOption === opt) {
+                            // 🚀 Nhấn lại lần 2 vào bộ lọc đang chọn -> Hủy lọc
+                            setSortOption('date'); // Reset về mặc định (Sắp xếp theo ngày)
+                            setSortDirection('desc'); // Reset về Mới nhất xếp trên
+                            // Bạn có thể mở comment dòng dưới nếu muốn nút này xóa luôn cả ô tìm kiếm
+                            // setSearchTerm(''); 
+                        } else {
+                            // Chọn bộ lọc mới
+                            setSortOption(opt);
+                        }
+                    }}
+
                     onStartLearn={handleStartLearn} onResetLearn={handleResetProgress} onUpdate={loadData}
                 />
             )}

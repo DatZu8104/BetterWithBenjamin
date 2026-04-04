@@ -261,9 +261,30 @@ export function GroupListView({
 
               <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 no-scrollbar">
                 <div className="flex items-center bg-zinc-900 p-1 rounded-lg border border-zinc-800 shadow-sm shrink-0">
-                  <Button variant="ghost" size="sm" className="h-8 px-3 rounded text-zinc-400 hover:text-white hover:bg-zinc-800" onClick={() => onSort('date')}>Calendar</Button>
-                  <Button variant="ghost" size="sm" className="h-8 px-3 rounded text-zinc-400 hover:text-white hover:bg-zinc-800" onClick={() => onSort('size')}>Size</Button>
-                  <Button variant="ghost" size="sm" className="h-8 px-3 rounded text-zinc-400 hover:text-white hover:bg-zinc-800" onClick={() => onSort('name')}>Name</Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={cn("h-8 px-3 rounded transition-all", sortOption === 'date' ? "bg-zinc-700 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-zinc-800")} 
+                    onClick={() => onSort('date')}
+                  >
+                    Calendar
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={cn("h-8 px-3 rounded transition-all", sortOption === 'size' ? "bg-zinc-700 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-zinc-800")} 
+                    onClick={() => onSort('size')}
+                  >
+                    Size
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={cn("h-8 px-3 rounded transition-all", sortOption === 'name' ? "bg-zinc-700 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-zinc-800")} 
+                    onClick={() => onSort('name')}
+                  >
+                    Name
+                  </Button>
                 </div>
                 {/* ✅ Ẩn nút New Group ở toolbar nếu không có quyền */}
                 {allowAdd && (
