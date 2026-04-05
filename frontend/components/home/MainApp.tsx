@@ -1,5 +1,5 @@
 'use client';
-
+import { db } from '../../lib/db';
 import { useState, useEffect, useMemo } from 'react';
 import { api } from '../../lib/api'; 
 import { Header } from '@/components/home/header';
@@ -44,7 +44,8 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
 
   const [isStudyModalOpen, setIsStudyModalOpen] = useState(false);
   const [modalLearnWords, setModalLearnWords] = useState<any[] | null>(null);
-  const [modalFolderName, setModalFolderName] = useState<string>('');
+  const [modalFolderName, setModalFolderName] = useState<string>(''); 
+  const [isSyncingSystem, setIsSyncingSystem] = useState(false);  
 
   const canEdit = viewMode === 'personal' || role === 'admin';
 
@@ -75,6 +76,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
 
   const loadData = async () => {
     try {
+      // 1. Tải dữ liệu cá nhân & cấu hình
       const data = await api.syncData();
       let personalWords: any[] = [];
       let learnedSysIds = new Set<string>();
@@ -86,7 +88,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                 ...w, id: w.id || w._id, learned: w.learned || false, isGlobal: false
               }));
           }
-          
           if(data.folders) {
               setDbFolders(data.folders.map((f: any) => f.name));
               const colors: Record<string, string> = {};
@@ -101,19 +102,38 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
           }
       }
 
-      const sysWords = await api.getSystemWords();
-      let formattedSysWords: any[] = [];
-      if (Array.isArray(sysWords)) {
-          formattedSysWords = sysWords.map((w: any) => ({
-              ...w, id: w.id || w._id, learned: learnedSysIds.has(String(w._id || w.id)), isGlobal: true
-          }));
+      // 2. Mở ổ cứng Dexie
+      let cachedSysWords = await db.systemWords.toArray();
+
+      // 3. CHỈ BẬT UI LOADING NẾU DEXIE RỖNG (Lần đầu tiên)
+      if (cachedSysWords.length === 0) {
+          setIsSyncingSystem(true); 
+          const sysWordsFromApi = await api.getSystemWords();
+          
+          if (Array.isArray(sysWordsFromApi)) {
+              cachedSysWords = sysWordsFromApi.map((w: any) => ({
+                  ...w, id: String(w._id || w.id), isGlobal: true
+              }));
+              await db.systemWords.bulkPut(cachedSysWords);
+          }
+          setIsSyncingSystem(false); 
       }
 
-      setWords([...personalWords, ...formattedSysWords]);
+      // 4. Map trạng thái "Đã học"
+      const finalSysWords = cachedSysWords.map(w => ({
+          ...w, learned: learnedSysIds.has(String(w.id))
+      }));
+
+      // 5. CHỐNG GIẬT MÀN HÌNH: Cập nhật State ĐÚNG 1 LẦN DUY NHẤT
+      setWords([...personalWords, ...finalSysWords]);
+      
+      // 6. Tắt Loading tổng (nếu là lần đầu vào trang)
       setIsLoading(false);
+
     } catch (error) {
       console.error("Data load error:", error);
       setIsLoading(false);
+      setIsSyncingSystem(false);
     }
   };
 
@@ -372,6 +392,15 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
         onClose={() => { setIsStudyModalOpen(false); loadData(); }}
         systemWords={currentViewWords} onStartLearn={handleStartLearnFromModal} onRefreshData={loadData} 
         />
+        {isSyncingSystem && (
+        <div className="fixed bottom-4 right-4 bg-blue-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 text-sm border border-blue-400">
+          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Đang đồng bộ dữ liệu hệ thống...</span>
+        </div>
+        )}
     </div>
   );
 }

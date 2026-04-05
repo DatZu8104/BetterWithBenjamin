@@ -8,12 +8,13 @@ interface FlashcardProps {
   word: any; 
   className?: string;
   color?: string;
+  volume?: number;
 }
 
-export function Flashcard({ word, className, color }: FlashcardProps) {
+export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
   const hasPlayedRef = useRef(false);
-
+  const scrollRef = useRef<HTMLDivElement>(null);
   const actualData = word?.wordId || word || {};
 
   // --- HÀM TRỢ GIÚP: GOOGLE TEXT-TO-SPEECH (TTS) ---
@@ -21,6 +22,7 @@ export function Flashcard({ word, className, color }: FlashcardProps) {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
+      utterance.volume = volume;
       
       // Chọn ngôn ngữ tương ứng
       utterance.lang = type === 'uk' ? 'en-GB' : 'en-US';
@@ -51,6 +53,7 @@ export function Flashcard({ word, className, color }: FlashcardProps) {
     // 2. Phát Audio nếu có link
     if (audioUrl && audioUrl.startsWith('http')) {
         const audio = new Audio(audioUrl);
+        audio.volume = volume;
         // Lớp Fallback 2: Bắt lỗi nếu file hỏng hoặc lỗi mạng (404)
         audio.play().catch(e => {
             console.warn(`Lỗi file audio gốc, chuyển sang Google TTS:`, e);
@@ -63,21 +66,27 @@ export function Flashcard({ word, className, color }: FlashcardProps) {
   };
 
   // --- AUTO-PLAY KHI ĐỔI TỪ ---
+  // --- AUTO-PLAY VÀ RESET CUỘN KHI ĐỔI TỪ ---
   useEffect(() => {
     setIsFlipped(false); 
     hasPlayedRef.current = false;
+    
+    // Ép cuộn mặt sau về lại đầu trang
+    if (scrollRef.current) {
+        scrollRef.current.scrollTop = 0;
+    }
 
+    // Giảm độ trễ từ 600ms xuống 50ms để đọc ngay lập tức khi chuyển thẻ
     const timer = setTimeout(() => {
         if (!hasPlayedRef.current && actualData) {
             const textToRead = actualData.word || actualData.english || "";
-            // Auto-play ưu tiên phát giọng Mỹ (US)
             playAudioWithFallback('us', textToRead); 
             hasPlayedRef.current = true;
         }
-    }, 600); 
+    }, 10); 
 
     return () => clearTimeout(timer);
-  }, [word]);
+  }, [word]); // Đừng quên giữ [word] nhé
 
   // --- KHI BẤM NÚT THỦ CÔNG ---
   const handleManualPlay = (e: React.MouseEvent, type: 'us' | 'uk') => {
@@ -172,7 +181,7 @@ export function Flashcard({ word, className, color }: FlashcardProps) {
             className="absolute inset-0 w-full h-full rounded-3xl border-2 border-blue-900/50 bg-zinc-800 shadow-xl overflow-hidden rotate-y-180"
             style={{ transform: 'rotateY(180deg)', backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
         >
-           <div className="w-full h-full overflow-y-auto custom-scrollbar flex flex-col p-6 text-left relative">
+           <div ref={scrollRef} className="w-full h-full overflow-y-auto custom-scrollbar flex flex-col p-6 text-left relative">
              
              {actualData.href && (
                  <div className="absolute top-4 right-4 z-10">

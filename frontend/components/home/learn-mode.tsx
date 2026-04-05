@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Flashcard } from '../flashcard'; 
-import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw, Check, X, ChevronLeft, ChevronRight, Volume2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface LearnModeProps {
@@ -29,11 +29,7 @@ export function LearnModeView({
   const [studyQueue, setStudyQueue] = useState<any[]>([]);
   const [localCurrentWord, setLocalCurrentWord] = useState<any | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
-  
-  // 1. STATE THÊM VÀO ĐỂ XỬ LÝ VUỐT THẺ (Chỉ dùng cho mobile)
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [touchEndX, setTouchEndX] = useState<number | null>(null);
-  const [swipeOffset, setSwipeOffset] = useState(0);
+
 
   // Quiz & Typing State
   const [quizOptions, setQuizOptions] = useState<any[]>([]);
@@ -48,7 +44,14 @@ export function LearnModeView({
   const getWordText = (w: any) => getActual(w).word || getActual(w).english || "";
   const getWordDef = (w: any) => getActual(w).definition || getActual(w).definitions?.[0]?.definition || "No definition";
   const getWordId = (w: any) => w?._id || w?.id || w?.savedWordId;
+// 1. STATE THÊM VÀO ĐỂ XỬ LÝ VUỐT THẺ THÔNG MINH HƠN
+  const [touchStart, setTouchStart] = useState<{x: number, y: number} | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [swipeDirection, setSwipeDirection] = useState<'horizontal' | 'vertical' | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
 
+  // Thêm state quản lý âm lượng (0.0 đến 1.0)
+  const [volume, setVolume] = useState<number>(1);
   // 🚀 FIX: Lấy token RAW nguyên thủy cho Backend
   const getAuthToken = () => {
     let token = localStorage.getItem("token") || "";
@@ -178,40 +181,53 @@ export function LearnModeView({
   }
 
   // 2. LOGIC VUỐT KẾT HỢP HÀM GỐC
+  // 2. LOGIC VUỐT KẾT HỢP KHÓA HƯỚNG CHỐNG RUNG
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Chỉ kích hoạt vuốt trên mobile (khi màn hình nhỏ hơn md)
     if (window.innerWidth >= 768) return; 
+    setTouchStart({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
     setTouchEndX(null);
-    setTouchStartX(e.targetTouches[0].clientX);
+    setSwipeDirection(null); // Reset hướng
+    setSwipeOffset(0);
   };
   
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartX) return;
+    if (!touchStart) return;
     const currentX = e.targetTouches[0].clientX;
+    const currentY = e.targetTouches[0].clientY;
+    const deltaX = currentX - touchStart.x;
+    const deltaY = currentY - touchStart.y;
+
+    // QUAN TRỌNG: Đợi tay nhích 10px để khóa hướng vuốt (Ngang hay Dọc?)
+    if (!swipeDirection) {
+        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+            setSwipeDirection(Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical');
+        }
+        return; 
+    }
+
+    // Nếu đã khóa là cuộn dọc (đọc nghĩa), TUYỆT ĐỐI KHÔNG xê dịch thẻ ngang
+    if (swipeDirection === 'vertical') return;
+
+    // Nếu vuốt ngang, kéo thẻ đi
     setTouchEndX(currentX);
-    setSwipeOffset((currentX - touchStartX) * 0.7); 
+    setSwipeOffset(deltaX * 0.7); 
   };
   
   const handleTouchEnd = () => {
-    if (!touchStartX || !touchEndX) { setSwipeOffset(0); return; }
-    const distance = touchEndX - touchStartX;
+    if (!touchStart || !touchEndX || swipeDirection === 'vertical') { 
+        setSwipeOffset(0); 
+        return; 
+    }
+    const distance = touchEndX - touchStart.x;
     
     if (distance < -75) {
-        // Vuốt từ Phải sang Trái (<-) -> Đã thuộc
         setSwipeOffset(-500);
-        setTimeout(() => {
-            handleKnown();
-            setSwipeOffset(0);
-        }, 200);
+        setTimeout(() => { handleKnown(); setSwipeOffset(0); }, 200);
     } else if (distance > 75) {
-        // Vuốt từ Trái sang Phải (->) -> Chưa nhớ
         setSwipeOffset(500);
-        setTimeout(() => {
-            handleUnknown();
-            setSwipeOffset(0);
-        }, 200);
+        setTimeout(() => { handleUnknown(); setSwipeOffset(0); }, 200);
     } else {
-        setSwipeOffset(0); // Vuốt quá nhẹ, hoàn tác
+        setSwipeOffset(0); 
     }
   };
 
@@ -334,7 +350,7 @@ export function LearnModeView({
                                         {swipeOffset < -30 && <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
                                         {swipeOffset > 30 && <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
                                     </div>
-                                    <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" color={themeColor} />
+                                    <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" color={themeColor} volume={volume}/>
                                 </div>
 
                                 {/* NÚT MŨI TÊN PHẢI: CHỈ HIỂN THỊ TRÊN MÀN HÌNH LỚN (md:flex) */}
@@ -423,9 +439,26 @@ export function LearnModeView({
                         
                         {/* 2 NÚT BÊN DƯỚI (KNOWN / UNKNOWN) */}
                         {mode === 'flashcard' && (
-                            <div className="shrink-0 mt-6 pt-2 border-t border-zinc-900/50 grid grid-cols-2 gap-3 w-full">
-                                <Button onClick={handleUnknown} className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white" disabled={isAnimating}><X className="w-5 h-5 mr-2"/> Chưa nhớ</Button>
-                                <Button onClick={handleKnown} className="h-16 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white" style={{ backgroundColor: themeColor || '#2563eb' }} disabled={isAnimating}>Đã thuộc <Check className="ml-2 w-5 h-5"/></Button>
+                            <div className="shrink-0 mt-6 pt-4 border-t border-zinc-900/50 flex flex-col gap-4 w-full">
+                                
+                                {/* THANH KÉO ÂM LƯỢNG */}
+                                <div className="flex items-center gap-3 px-4 max-w-sm mx-auto w-full">
+                                    <Volume2 className="w-5 h-5 text-zinc-500 shrink-0" />
+                                    <input 
+                                        type="range" 
+                                        min="0" max="1" step="0.1" 
+                                        value={volume} 
+                                        onChange={(e) => setVolume(parseFloat(e.target.value))}
+                                        className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                    />
+                                </div>
+
+                                {/* 2 NÚT BẤM (GRID 2 CỘT) */}
+                                <div className="grid grid-cols-2 gap-3 w-full">
+                                    <Button onClick={handleUnknown} className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white" disabled={isAnimating}><X className="w-5 h-5 mr-2"/> Chưa nhớ</Button>
+                                    <Button onClick={handleKnown} className="h-16 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white" style={{ backgroundColor: themeColor || '#2563eb' }} disabled={isAnimating}>Đã thuộc <Check className="ml-2 w-5 h-5"/></Button>
+                                </div>
+                                
                             </div>
                         )}
                     </div>
