@@ -443,21 +443,64 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                 ) : (
                   <div className="flex-1 flex flex-col min-h-0 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
                     {/* 🚀 HEADER MỚI: TÍCH HỢP LUÔN THANH TẠO THƯ MỤC LÊN ĐÂY */}
-                    <div className="shrink-0 p-3 md:p-4 border-b border-zinc-800 bg-zinc-950 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 z-10">
+                    <div className="shrink-0 p-3 md:p-4 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between gap-2 z-10 w-full overflow-hidden">
                       
                       {/* TRÁI: Nút Back & Tên Nhóm Oxford */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        <Button variant="ghost" size="sm" onClick={() => startTransition(() => setSelectedSystemGroup(null))} className="h-8 px-2 text-zinc-400 hover:text-white hover:bg-zinc-800">
-                          <ArrowLeft className="w-4 h-4 mr-1"/> Trở về
+                      <div className="flex items-center gap-1.5 md:gap-3 min-w-0 pr-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => startTransition(() => setSelectedSystemGroup(null))} 
+                          className="h-8 px-2 md:px-3 text-zinc-400 hover:text-white hover:bg-zinc-800 shrink-0"
+                        >
+                          <ArrowLeft className="w-5 h-5 md:w-4 md:h-4 md:mr-1"/> 
+                          {/* Ẩn chữ "Trở về" trên mobile (nhỏ hơn md), chỉ hiện mũi tên */}
+                          <span className="hidden md:inline">Trở về</span>
                         </Button>
-                        <div className="h-4 w-px bg-zinc-700"></div>
-                        <span className="font-bold text-white text-base md:text-lg">{selectedSystemGroup.toUpperCase()}</span>
+                        <div className="h-4 w-px bg-zinc-700 shrink-0 hidden md:block"></div>
+                        {/* truncate giúp tên group quá dài sẽ biến thành "..." để không đẩy rớt hàng */}
+                        <span className="font-bold text-white text-base md:text-lg truncate">
+                          {selectedSystemGroup.toUpperCase()}
+                        </span>
                       </div>
 
                       {/* PHẢI: Chỉ còn lại Combobox chọn nhanh cho nhóm này */}
-                      <div className="flex items-center gap-2 w-full lg:w-auto">
+                      <div className="flex items-center justify-end gap-2 shrink-0">
                         
-                        {/* 👉 BƯỚC 5.1: COMBOBOX CHỌN NHANH MỚI (Giữ nguyên phần này của bạn) */}
+                        {/* 📱 GIAO DIỆN MOBILE: Nút dropdown nhỏ gọn */}
+                        <div className="md:hidden">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="flex items-center justify-center gap-1.5 h-9 px-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-blue-400 shadow-sm outline-none transition-colors">
+                                {quickSelectInputValue || (selectedWordIds.length > 0 ? selectedWordIds.length : 0)} / {availableWords.length}
+                                <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            
+                            <DropdownMenuContent align="end" className="w-52 bg-zinc-900 border-zinc-800 text-zinc-200 z-[10005]">
+                              <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                                Chọn nhanh (Max: {availableWords.length})
+                              </div>
+                              <DropdownMenuItem onClick={() => applyWordSelection(10)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
+                                ⚡ Chọn 10 từ mới
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => applyWordSelection(20)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
+                                ⚡ Chọn 20 từ mới
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => applyWordSelection(50)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
+                                ⚡ Chọn 50 từ mới
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => applyWordSelection("ALL")} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white font-bold text-blue-400">
+                                ✨ Chọn tất cả ({availableWords.length})
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => applyWordSelection(0)} className="cursor-pointer text-red-400 hover:bg-red-500/20 hover:text-red-300 focus:bg-red-500/20 focus:text-red-300 mt-1 border-t border-zinc-800 pt-2">
+                                Bỏ chọn tất cả
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+
+                        {/* 💻 GIAO DIỆN DESKTOP: Input nhập tay kèm nút Dropdown (Giữ nguyên của bạn) */}
                         <div className="hidden md:flex items-center h-10 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shrink-0 shadow-md focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
                           <Input
                             value={quickSelectInputValue || (selectedWordIds.length > 0 ? selectedWordIds.length.toString() : "")}
@@ -501,7 +544,9 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                             / {availableWords.length}
                           </div>
                         </div>
+
                       </div>
+
                     </div>
 
                     {/* DANH SÁCH TỪ VỰNG DẠNG LƯỚI GỌN GÀNG */}
