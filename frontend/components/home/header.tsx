@@ -139,7 +139,7 @@ export function Header({
       )}
 
             {/* --- 1. CỤM TRÁI: MENU & LOGO --- */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-none shrink-0 overflow-hidden">            
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink min-w-0 overflow-hidden">            
             <FeatureHint 
                 id={ONBOARDING_IDS.HOME_SYSTEM_WORDS}
                 side="bottom"
@@ -195,7 +195,7 @@ export function Header({
                     <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
                 </svg>
            </div>
-            <h1 className="text-sm sm:text-xl font-black text-white whitespace-nowrap tracking-tight">
+            <h1 className="text-xs sm:text-xl font-black text-white whitespace-nowrap tracking-tight">
                    Better With Benjamin
            </h1>
         </div>
