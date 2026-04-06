@@ -231,6 +231,11 @@ getSystemWords: async () => {
     const res = await fetch(`${API_URL}/admin/users/${userId}/words`, { headers: getHeaders() });
     return res.json();
   },
+  getUserProgress: async (userId: string) => {
+    const res = await fetch(`${API_URL}/admin/users/${userId}/progress`, { headers: getHeaders() });
+    if (!res.ok) throw new Error("Lỗi lấy dữ liệu tiến độ");
+    return res.json();
+  },
   adminDeleteWord: async (wordId: string) => {
     await fetch(`${API_URL}/admin/words/${wordId}`, { method: 'DELETE', headers: getHeaders() });
   },

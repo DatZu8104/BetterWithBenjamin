@@ -1,18 +1,41 @@
 const express = require('express');
 const router = express.Router();
-const { User, Vocabulary, SystemVocabulary, Folder, GroupSetting } = require('../models');
+const { User, Vocabulary, SystemVocabulary, Folder, GroupSetting, SavedWord, UserProgress } = require('../models');
 const { verifyToken, verifyAdmin } = require('../middleware');
 
 
-router.get('/users', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        const users = await User.find().select('-password');
-        const usersWithCount = await Promise.all(users.map(async (user) => {
-            const count = await Vocabulary.countDocuments({ userId: user._id });
-            return { ...user.toObject(), wordCount: count };
-        }));
-        res.json(usersWithCount);
-    } catch (e) { res.status(500).json(e); }
+// Lấy danh sách tất cả người dùng (kèm thống kê chi tiết)
+router.get('/users', async (req, res) => {
+  try {
+    const users = await User.find().select('-password').sort({ createdAt: -1 });
+
+    const usersWithStats = await Promise.all(users.map(async (user) => {
+      // 1. Số từ do user tự tạo
+      const customWordCount = await Vocabulary.countDocuments({ userId: user._id });
+      
+      // 2. Số từ hệ thống (Oxford) mà user đã lưu
+      const systemWordCount = await SavedWord.countDocuments({ userId: user._id });
+      
+      // 3. Số từ hệ thống user đã học (learned: true)
+      const learnedSystemCount = await UserProgress.countDocuments({ userId: user._id, learned: true });
+      
+      // 4. Số từ tự tạo user đã học
+      const learnedCustomCount = await Vocabulary.countDocuments({ userId: user._id, learned: true });
+
+      return {
+        ...user.toObject(),
+        customWordCount,
+        systemWordCount,
+        learnedCount: learnedSystemCount + learnedCustomCount, // Tổng số từ đã thuộc
+        totalWords: customWordCount + systemWordCount // Tổng tài nguyên đang có
+      };
+    }));
+
+    res.json(usersWithStats);
+  } catch (error) {
+    console.error('Lỗi khi lấy danh sách người dùng:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
 });
 
 // Xóa User
@@ -141,4 +164,54 @@ router.post('/import-oxford-full', verifyToken, verifyAdmin, async (req, res) =>
     }
 });
 
+// Lấy chi tiết tiến độ học từ vựng của 1 user cụ thể
+router.get('/users/:id/progress', async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // 1. Lấy dữ liệu từ hệ thống (Oxford)
+    const savedWords = await SavedWord.find({ userId }).populate('wordId');
+    const userProgress = await UserProgress.find({ userId });
+
+    const systemProgress = savedWords.map(saved => {
+      // Tìm xem từ này đã có trong bảng Progress chưa
+      const progress = userProgress.find(p => p.wordId.toString() === saved.wordId._id.toString());
+      return {
+        _id: saved.wordId._id,
+        word: saved.wordId.word,
+        pos: saved.wordId.pos,
+        ipa: saved.wordId.ipa,
+        meaning: saved.wordId.meaning,
+        isMastered: saved.isMastered,
+        learned: progress ? progress.learned : false,
+        type: 'system'
+      };
+    });
+
+    // 2. Lấy dữ liệu từ tự tạo (Vocabulary)
+    const customWords = await Vocabulary.find({ userId });
+    const customProgress = customWords.map(word => ({
+        _id: word._id,
+        word: word.word,
+        meaning: word.meaning,
+        learned: word.learned || false,
+        type: 'custom'
+    }));
+
+    // 3. Trả về kết quả đã phân loại
+    res.json({
+        systemWords: systemProgress,
+        customWords: customProgress,
+        stats: {
+            totalSystem: systemProgress.length,
+            learnedSystem: systemProgress.filter(w => w.learned).length,
+            totalCustom: customProgress.length,
+            learnedCustom: customProgress.filter(w => w.learned).length
+        }
+    });
+  } catch (error) {
+    console.error('Lỗi khi lấy chi tiết tiến độ user:', error);
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+});
 module.exports = router;
