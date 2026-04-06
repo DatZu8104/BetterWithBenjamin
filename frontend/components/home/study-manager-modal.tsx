@@ -347,8 +347,8 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
 
           <div className={cn("flex-1 min-h-0 bg-zinc-950/50 flex flex-col relative transition-opacity duration-200", isPending && "opacity-50 pointer-events-none")}>
             {activeTab === "existing" && (
-              <div className="absolute inset-0 overflow-y-auto p-6 custom-scrollbar">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="absolute inset-0 overflow-y-auto p-6 pb-40 md:pb-28 custom-scrollbar">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {userFolders.length === 0 ? (
                     <div className="col-span-full py-12 text-center text-zinc-500">
                       You don't have any folders yet. Please go to the Vocabulary Tab to create lessons!
@@ -413,8 +413,8 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
             {activeTab === "system" && (
               <div className="absolute inset-0 flex flex-col p-6 overflow-hidden">
                 {!selectedSystemGroup ? (
-                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                    <FeatureHint
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-40 md:pb-28">
+                  <FeatureHint
                       id={ONBOARDING_IDS.MODAL_STUDY_SELECT_FOLDER}
                       waitFor={ONBOARDING_IDS.MODAL_STUDY_TABS} 
                       delay={400}
@@ -561,7 +561,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
 
    
                     <div 
-                      className="flex-1 overflow-y-auto p-4 pb-24 custom-scrollbar"
+                      className="flex-1 overflow-y-auto p-4 pb-40 md:pb-28 custom-scrollbar"
                       onScroll={handleScroll}
                     >
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
