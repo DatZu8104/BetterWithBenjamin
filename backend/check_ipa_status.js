@@ -12,22 +12,22 @@ const SystemVocabulary = mongoose.model('SystemVocabulary', vocabularySchema, 's
 async function check() {
     try {
         await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI);
-        console.log("🔥 Đã kết nối DB.");
+        console.log("🔥 Connected to DB.");
 
         // Lấy thử 5 từ đầu tiên
         const docs = await SystemVocabulary.find({}).limit(5);
 
         if (docs.length === 0) {
-            console.log("⚠️ Database đang rỗng! Bạn cần chạy bước Import.");
+            console.log("⚠️ Database is empty! You need to run the Import step.");
         } else {
-            console.log("\n--- KẾT QUẢ SOI DỮ LIỆU ---");
+            console.log("\n--- DATA INSPECTION RESULT ---");
             docs.forEach(doc => {
-                console.log(`Từ: [${doc.english}]`);
+                console.log(`Word: [${doc.english}]`);
                 // Kiểm tra xem có IPA không
                 if (doc.ipa) {
                     console.log(`✅ IPA: ${doc.ipa}`);
                 } else {
-                    console.log(`❌ IPA: (Trống/Chưa có)`);
+                    console.log(`❌ IPA: (Empty/Not found)`);
                 }
                 console.log("---------------------------");
             });

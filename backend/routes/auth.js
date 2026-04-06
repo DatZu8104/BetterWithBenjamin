@@ -9,10 +9,10 @@ const { verifyToken, loginLimiter } = require('../middleware');
 router.post('/register', async (req, res) => {
     try {
         const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ error: "Thiếu thông tin" });
+        if (!username || !password) return res.status(400).json({ error: "Missing information" });
 
         const existingUser = await User.findOne({ username });
-        if (existingUser) return res.status(400).json({ error: "Tên đăng nhập đã tồn tại" });
+        if (existingUser) return res.status(400).json({ error: "Username already exists" });
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
@@ -20,26 +20,24 @@ router.post('/register', async (req, res) => {
         const newUser = new User({ username, password: hashedPassword });
         await newUser.save();
 
-        res.json({ message: "Đăng ký thành công" });
-    } catch (e) { res.status(500).json({ error: "Lỗi Server" }); }
+        res.json({ message: "Registered successfully" });
+    } catch (e) { res.status(500).json({ error: "Server error" }); }
 });
 
-// Đăng nhập (Có loginLimiter bảo vệ)
 router.post('/login', loginLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
         const user = await User.findOne({ username });
         
         if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(400).json({ error: "Sai tài khoản hoặc mật khẩu" });
+            return res.status(400).json({ error: "Wrong account or password" });
         }
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
         res.json({ token, username, role: user.role });
-    } catch (e) { res.status(500).json({ error: "Lỗi Server" }); }
+    } catch (e) { res.status(500).json({ error: "Server error" }); }
 });
 
-// Đổi mật khẩu
 router.post('/change-password', verifyToken, async (req, res) => {
     try {
         const { oldPassword, newPassword } = req.body;
@@ -47,14 +45,14 @@ router.post('/change-password', verifyToken, async (req, res) => {
         if (!user) return res.status(404).json({ error: "User not found" });
 
         const isMatch = await bcrypt.compare(oldPassword, user.password);
-        if (!isMatch) return res.status(400).json({ error: "Mật khẩu cũ sai" });
+        if (!isMatch) return res.status(400).json({ error: "Old password is wrong" });
 
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(newPassword, salt);
         await user.save();
 
-        res.json({ success: true, message: "Đổi mật khẩu thành công" });
-    } catch (e) { res.status(500).json({ error: "Lỗi Server" }); }
+        res.json({ success: true, message: "Password changed successfully" });
+    } catch (e) { res.status(500).json({ error: "Server error" }); }
 });
 
 module.exports = router;

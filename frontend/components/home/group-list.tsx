@@ -6,9 +6,9 @@ import { Button } from '../ui/button';
 import { Plus, Trash2, Folder, FolderOpen, MoreVertical, MoveRight, PlayCircle, RotateCcw, GraduationCap, Library, ChevronDown, Check, X, Settings, Pencil } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { cn } from '../../lib/utils';
-import { Input } from '../ui/input'; // Đảm bảo import này có để tránh lỗi search
-// Nếu project của bạn không dùng component Input từ ui/input cho search bar (mà dùng input thường), bạn có thể bỏ dòng trên.
-// Tuy nhiên code gốc bạn gửi không có import Input nhưng lại không dùng component Input trong JSX (bạn dùng input html thường ở modal), nên tôi giữ nguyên logic của bạn.
+import { Input } from '../ui/input'; 
+import { FeatureHint } from '../onboarding/FeatureHint';
+import { ONBOARDING_IDS } from '../onboarding/constants';
 
 const COLORS = [
   { id: 'blue', name: 'Blue', bg: 'bg-blue-600', style: { bg: "bg-blue-950/20", border: "border-blue-900/50", iconBox: "bg-blue-900/50 text-blue-300", title: "text-blue-300", progressTrack: "bg-blue-950", progressFill: "bg-blue-600", button: "bg-blue-700 hover:bg-blue-600 text-white", resetBtn: "text-blue-400 hover:bg-blue-950/50", cardBorder: "border-blue-800", cardBg: "bg-blue-950/20", folderText: "text-blue-400", cardHover: "hover:border-blue-600" }},
@@ -48,7 +48,6 @@ interface GroupListProps {
 
   onUpdate?: () => void; 
   words?: any[];
-  // ✅ PROP MỚI
   allowAdd?: boolean;
 }
 
@@ -123,7 +122,6 @@ export function GroupListView({
                     {currentFolder ? currentFolder : "Master Library"}
                     </h2>
                     
-                    {/* ✅ Ẩn nút Edit Folder nếu không có quyền */}
                     {currentFolder && allowAdd && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -168,26 +166,53 @@ export function GroupListView({
             </div>
 
             {totalWords > 0 && (
-                <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto z-10">
+    <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto z-10">
+    
+    {!allowAdd ? (
+        <FeatureHint 
+            id={ONBOARDING_IDS.SYSTEM_WORDS_START}
+            side="bottom"
+            align="center"
+            message={
+                <div className="space-y-1.5 w-[220px]">
+                    <p className="font-bold text-white flex items-center gap-1.5">
+                        <PlayCircle className="w-4 h-4 text-emerald-400" />
+                        Get started now!
+                    </p>
+                    <p className="text-zinc-100 text-sm leading-snug font-normal">
+                        Click here to choose a vocabulary library (eg Level A1) and start studying with flashcards!
+                    </p>
+                </div>
+            }
+        >
+            <div className="inline-block w-full">
                 <Button size="lg" onClick={onStartLearn} className={cn("w-full md:w-64 h-14 text-lg font-bold shadow-lg transition-all hover:scale-105 rounded-2xl border-none", currentTheme.button)}>
                     <PlayCircle className="w-6 h-6 mr-2 fill-current" /> {learnedCount > 0 && learnedCount < totalWords ? "Continue Learning" : "Start Learning"}
                 </Button>
-                {learnedCount > 0 && (
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => { 
-                            if(confirm("Are you sure you want to reset all progress for this section?")) {
-                                onResetLearn(); 
-                            }
-                        }} 
-                        className={cn("w-full transition-colors", currentTheme.resetBtn)}
-                    >
-                    <RotateCcw className="w-4 h-4 mr-2" /> Reset Progress
-                    </Button>
-                )}
-                </div>
-            )}
+            </div>
+        </FeatureHint>
+    ) : (
+        <Button size="lg" onClick={onStartLearn} className={cn("w-full md:w-64 h-14 text-lg font-bold shadow-lg transition-all hover:scale-105 rounded-2xl border-none", currentTheme.button)}>
+            <PlayCircle className="w-6 h-6 mr-2 fill-current" /> {learnedCount > 0 && learnedCount < totalWords ? "Continue Learning" : "Start Learning"}
+        </Button>
+    )}
+
+    {learnedCount > 0 && (
+        <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => { 
+                if(confirm("Are you sure you want to reset all progress for this section?")) {
+                    onResetLearn(); 
+                }
+            }} 
+            className={cn("w-full transition-colors", currentTheme.resetBtn)}
+        >
+        <RotateCcw className="w-4 h-4 mr-2" /> Reset Progress
+        </Button>
+    )}
+    </div>
+)}
           </div>
         )}
 
@@ -207,7 +232,6 @@ export function GroupListView({
                         </div>
                         <p className="text-sm text-zinc-400 truncate font-medium">{word.definition}</p>
                     </div>
-                    {/* ✅ Ẩn nút xóa kết quả search nếu không có quyền */}
                     {allowAdd && (
                         <Button variant="ghost" size="icon" onClick={() => { onDeleteWordResult(word.id); if(onUpdate) onUpdate(); }} className="text-zinc-500 hover:text-red-400 hover:bg-red-950/20"><Trash2 className="w-5 h-5"/></Button>
                     )}
@@ -286,7 +310,6 @@ export function GroupListView({
                     Name
                   </Button>
                 </div>
-                {/* ✅ Ẩn nút New Group ở toolbar nếu không có quyền */}
                 {allowAdd && (
                     <Button onClick={onAddGroup} className="shrink-0 h-10 px-4 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> New Group</Button>
                 )}
@@ -314,7 +337,6 @@ export function GroupListView({
                         <div className={cn("p-2 rounded-lg border mb-3 transition-colors", cardFolder && cardTheme ? `${cardTheme.iconBox} border-transparent` : "bg-zinc-800 border-zinc-700 text-zinc-400")}>
                             <Folder className="w-5 h-5" />
                         </div>
-                        {/* ✅ Ẩn menu thao tác nhóm nếu không có quyền */}
                         {allowAdd && (
                             <div onClick={(e) => e.stopPropagation()}>
                                 <DropdownMenu>
@@ -351,7 +373,6 @@ export function GroupListView({
                 </Card>
               )})}
               
-              {/* ✅ Ẩn nút tạo nhóm ở cuối Grid nếu không có quyền */}
               {allowAdd && (
                   <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700" onClick={onAddGroup}>
                     <Plus className="w-8 h-8 mb-2 opacity-50" />

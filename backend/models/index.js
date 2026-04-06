@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// 2. Vocabulary Schema (Cá nhân)
+// 2. Vocabulary Schema 
 const vocabSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     english: { type: String, required: true },
@@ -64,7 +64,7 @@ const groupSettingSchema = new mongoose.Schema({
     isGlobal: { type: Boolean, default: false } 
 });
 
-// 6. User Progress (Cũ)
+// 6. User Progress 
 const userProgressSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     wordId: { type: mongoose.Schema.Types.ObjectId, ref: 'SystemVocabulary', required: true },
@@ -73,7 +73,7 @@ const userProgressSchema = new mongoose.Schema({
 });
 userProgressSchema.index({ userId: 1, wordId: 1 }, { unique: true });
 
-// 7. SavedWord Schema (Giỏ hàng - Mới)
+// 7. SavedWord Schema
 const savedWordSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     folderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder', required: true },

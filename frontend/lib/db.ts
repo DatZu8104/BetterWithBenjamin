@@ -23,10 +23,9 @@ export interface Folder {
   createdAt: number;
 }
 
-// THÊM MỚI: Interface cho từ vựng hệ thống
 export interface SystemWord {
   id: string;
-  [key: string]: any; // Dùng any để linh hoạt nhận các trường phonetics, audio... từ API
+  [key: string]: any; 
 }
 
 class VocabularyDB extends Dexie {
@@ -34,18 +33,17 @@ class VocabularyDB extends Dexie {
   learned!: Table<LearnedWord>;
   groupSettings!: Table<GroupSetting>;
   folders!: Table<Folder>;
-  systemWords!: Table<SystemWord>; // THÊM MỚI: Khai báo bảng systemWords
+  systemWords!: Table<SystemWord>; 
 
   constructor() {
     super("VocabularyDatabase");
 
-    // QUAN TRỌNG: Nâng lên version 13 để Dexie tạo thêm bảng mới
     this.version(13).stores({
       words: "id, english, definition, type, group",
       learned: "id",
       groupSettings: "groupName, folder",
       folders: "name, color, createdAt",
-      systemWords: "id" // THÊM MỚI: Bảng mới chỉ cần index khóa chính là id
+      systemWords: "id" 
     });
   }
 }

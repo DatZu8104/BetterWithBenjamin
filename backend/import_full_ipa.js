@@ -85,12 +85,12 @@ function parseDefinition(htmlContent, knownWord, knownType, knownIpa) {
 async function main() {
     try {
         await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI);
-        console.log("🔥 Đã kết nối MongoDB.");
+        console.log("🔥 Connected to MongoDB.");
 
-        console.log("🗑️  Đang xóa dữ liệu cũ...");
+        console.log("🗑️  Deleting old data...");
         await SystemVocabulary.deleteMany({});
         
-        console.log("📦 Đang giải nén...");
+        console.log("📦 Extracting...");
         const zip = new AdmZip(ANKI_FILE_NAME);
         zip.extractAllTo(TEMP_DIR, true);
 
@@ -98,7 +98,7 @@ async function main() {
         const db = new Database(dbPath, { readonly: true });
         
         const rows = db.prepare('SELECT flds FROM notes').all();
-        console.log(`🔍 Tìm thấy ${rows.length} từ vựng.`);
+        console.log(`🔍 Found ${rows.length} vocabularies.`);
         
         const bulkOps = [];
         
@@ -126,9 +126,9 @@ async function main() {
 
                 // KIỂM TRA MẪU (Rất quan trọng)
                 if (index < 3) {
-                    console.log(`\n🧐 TỪ [${wordData.english}]:`);
-                    console.log(`   ► IPA Gốc (Cột 2): "${wordData.ipa}"`);
-                    console.log(`   ► Nghĩa Sạch:      "${wordData.definition}"`);
+                    console.log(`\n🧐 WORD [${wordData.english}]:`);
+                    console.log(`   ► Original IPA (Column 2): "${wordData.ipa}"`);
+                    console.log(`   ► Clean Meaning:      "${wordData.definition}"`);
                     console.log("----------------------------------");
                 }
 
@@ -137,14 +137,14 @@ async function main() {
         });
 
         if (bulkOps.length > 0) {
-            console.log(`🚀 Đang import ${bulkOps.length} từ...`);
+            console.log(`🚀 Importing ${bulkOps.length} words...`);
             const CHUNK_SIZE = 1000;
             for (let i = 0; i < bulkOps.length; i += CHUNK_SIZE) {
                 const chunk = bulkOps.slice(i, i + CHUNK_SIZE);
                 await SystemVocabulary.insertMany(chunk);
                 process.stdout.write(".");
             }
-            console.log("\n✅ HOÀN TẤT!");
+            console.log("\n✅ DONE!");
         }
 
         db.close();
@@ -152,7 +152,7 @@ async function main() {
         process.exit(0);
 
     } catch (error) {
-        console.error("❌ Lỗi:", error.message);
+        console.error("❌ Error:", error.message);
         process.exit(1);
     }
 }

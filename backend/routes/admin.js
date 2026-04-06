@@ -1,12 +1,9 @@
 const express = require('express');
 const router = express.Router();
-// ✅ 1. Import đầy đủ các Model cần thiết
 const { User, Vocabulary, SystemVocabulary, Folder, GroupSetting } = require('../models');
 const { verifyToken, verifyAdmin } = require('../middleware');
 
-// --- CÁC API QUẢN LÝ USER (Giữ nguyên) ---
-
-// Lấy danh sách Users
+ q
 router.get('/users', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const users = await User.find().select('-password');
@@ -35,7 +32,7 @@ router.get('/users/:id/words', verifyToken, verifyAdmin, async (req, res) => {
     } catch (e) { res.status(500).json(e); }
 });
 
-// Import từ cho User cụ thể (Giữ lại nếu bạn cần sửa chữa tài khoản user)
+// Import từ cho User cụ thể 
 router.post('/users/:userId/import', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const { userId } = req.params;
@@ -62,28 +59,23 @@ router.post('/users/:userId/import', verifyToken, verifyAdmin, async (req, res) 
     }
 });
 
-// Xóa 1 từ vựng (hệ thống hoặc cá nhân - admin quyền lực nhất)
 router.delete('/words/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
-        await Vocabulary.findByIdAndDelete(req.params.id); // Thử xóa ở User
-        await SystemVocabulary.findByIdAndDelete(req.params.id); // Thử xóa ở System
+        await Vocabulary.findByIdAndDelete(req.params.id);
+        await SystemVocabulary.findByIdAndDelete(req.params.id);
         res.json({ success: true });
     } catch (e) { res.status(500).json(e); }
 });
 
-// --- ✅ API QUAN TRỌNG NHẤT: IMPORT OXFORD TOÀN TẬP ---
 
 router.post('/import-oxford-full', verifyToken, verifyAdmin, async (req, res) => {
     try {
-        const jsonData = req.body; // Dữ liệu file JSON lớn
+        const jsonData = req.body; 
         console.log(`Đang xử lý ${jsonData.length} từ...`);
 
-        // 1. Dọn dẹp dữ liệu cũ (Theo yêu cầu của bạn)
-        await SystemVocabulary.deleteMany({}); 
-        // Xóa các nhóm Oxford cũ để tránh trùng lặp
-        await GroupSetting.deleteMany({ isGlobal: true, groupName: { $regex: /^Oxford Level/ } });
+         await SystemVocabulary.deleteMany({}); 
+         await GroupSetting.deleteMany({ isGlobal: true, groupName: { $regex: /^Oxford Level/ } });
 
-        // 2. Tạo/Lấy Folder hệ thống "Oxford 5000 Total"
         const folderName = "Oxford 5000 Total";
         let folder = await Folder.findOne({ name: folderName, isGlobal: true });
         
@@ -91,22 +83,19 @@ router.post('/import-oxford-full', verifyToken, verifyAdmin, async (req, res) =>
             folder = await Folder.create({ 
                 userId: req.userId, 
                 name: folderName, 
-                color: "#e11d48", // Màu đỏ
+                color: "#e11d48",
                 isGlobal: true 
             });
         }
 
-        // 3. Xử lý chia nhóm theo Level
         const levelGroups = new Set();
         
         const wordsToInsert = jsonData.map(item => {
-            // Chuẩn hóa Level (nếu null thì cho vào Unknown)
             const lvl = item.level ? item.level.toUpperCase().trim() : "Others";
             const groupName = `Oxford Level ${lvl}`;
             
             levelGroups.add(groupName);
 
-            // Map dữ liệu JSON sang Schema Mới
             return {
                 word: item.word,
                 type: item.type,
@@ -126,32 +115,29 @@ router.post('/import-oxford-full', verifyToken, verifyAdmin, async (req, res) =>
                     examples: def.examples || []
                 })),
                 href: item.href,
-                group: groupName // ✅ Tự động vào nhóm Level tương ứng
+                group: groupName // 
             };
         });
 
-        // 4. Tạo các GroupSetting (Level A1, A2...) và nhét vào Folder
         for (const groupName of levelGroups) {
             await GroupSetting.create({ 
                 userId: req.userId,
                 groupName: groupName, 
-                folder: folderName, // ✅ Nhét vào folder chung
+                folder: folderName, 
                 isGlobal: true 
             });
         }
 
-        // 5. Insert dữ liệu mới
-        // Dùng insertMany với option ordered: false để nếu 1 từ lỗi thì các từ khác vẫn chạy
         await SystemVocabulary.insertMany(wordsToInsert, { ordered: false });
 
         res.json({ 
             success: true, 
-            message: `Đã nhập xong ${wordsToInsert.length} từ. Đã chia thành ${levelGroups.size} cấp độ trong folder "${folderName}".` 
+            message: `Finished importing ${wordsToInsert.length} words. Divided into ${levelGroups.size} levels in folder "${folderName}".` 
         });
 
     } catch (e) {
         console.error("Import Oxford Error:", e);
-        res.status(500).json({ error: e.message || "Lỗi server khi import" });
+        res.status(500).json({ error: e.message || "Server error when importing" });
     }
 });
 

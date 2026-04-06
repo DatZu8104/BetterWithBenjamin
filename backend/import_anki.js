@@ -76,12 +76,12 @@ function cleanBasic(text) {
 async function main() {
     try {
         await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI);
-        console.log("🔥 Đã kết nối MongoDB.");
+        console.log("🔥 Connected to MongoDB.");
 
-        console.log("🗑️  Đang xóa dữ liệu cũ...");
+        console.log("🗑️  Deleting old data...");
         await SystemVocabulary.deleteMany({});
         
-        console.log("📦 Đang giải nén...");
+        console.log("📦 Extracting...");
         const zip = new AdmZip(ANKI_FILE_NAME);
         zip.extractAllTo(TEMP_DIR, true);
 
@@ -121,7 +121,7 @@ async function main() {
 
                 // Check 3 từ đầu để xem kết quả vi diệu
                 if (index < 3) {
-                    console.log(`\n🧐 TỪ [${wordData.english}]:`);
+                    console.log(`\n🧐 WORD [${wordData.english}]:`);
                     console.log(`   ► Type: ${wordData.type}`);
                     console.log(`   ► Def:  "${wordData.definition}"`);
                     console.log(`   ► Ex:   "${wordData.example.substring(0, 60)}..."`);
@@ -132,14 +132,14 @@ async function main() {
         });
 
         if (bulkOps.length > 0) {
-            console.log(`\n🚀 Đang import ${bulkOps.length} từ...`);
+            console.log(`\n🚀 Importing ${bulkOps.length} words...`);
             const CHUNK_SIZE = 1000;
             for (let i = 0; i < bulkOps.length; i += CHUNK_SIZE) {
                 const chunk = bulkOps.slice(i, i + CHUNK_SIZE);
                 await SystemVocabulary.insertMany(chunk);
                 process.stdout.write(".");
             }
-            console.log("\n✅ HOÀN TẤT! Dữ liệu đã được bóc tách bằng parser chuẩn.");
+            console.log("\n✅ DONE! Data extracted using standard parser.");
         }
 
         db.close();
@@ -147,7 +147,7 @@ async function main() {
         process.exit(0);
 
     } catch (error) {
-        console.error("❌ Lỗi:", error.message);
+        console.error("❌ Error:", error.message);
         process.exit(1);
     }
 }

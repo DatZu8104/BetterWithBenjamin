@@ -44,19 +44,15 @@ export function LearnModeView({
   const getWordText = (w: any) => getActual(w).word || getActual(w).english || "";
   const getWordDef = (w: any) => getActual(w).definition || getActual(w).definitions?.[0]?.definition || "No definition";
   const getWordId = (w: any) => w?._id || w?.id || w?.savedWordId;
-// 1. STATE THÊM VÀO ĐỂ XỬ LÝ VUỐT THẺ THÔNG MINH HƠN
   const [touchStart, setTouchStart] = useState<{x: number, y: number} | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const [swipeDirection, setSwipeDirection] = useState<'horizontal' | 'vertical' | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
 
-  // Thêm state quản lý âm lượng (0.0 đến 1.0)
   const [volume, setVolume] = useState<number>(1);
-  // 🚀 FIX: Lấy token RAW nguyên thủy cho Backend
   const getAuthToken = () => {
     let token = localStorage.getItem("token") || "";
-    token = token.replace(/(^"|"$)/g, ""); // Xóa dấu nháy kép nếu có (tránh lỗi giải mã JWT)
-    // Đảm bảo không có chữ "Bearer " nào được gửi đi, vì backend chỉ đọc JWT thô
+    token = token.replace(/(^"|"$)/g, ""); 
     return token.replace(/^Bearer\s+/i, "");
   };
 
@@ -72,20 +68,15 @@ export function LearnModeView({
     window.speechSynthesis.speak(utterance);
   };
 
-  // Init Data: 🚀 FIX LỖI MẢNG RỖNG VÀ LỌC TỪ
-// Init Data: 🚀 CHẾ ĐỘ ÔN TẬP KHI ĐÃ THUỘC 100%
   useEffect(() => {
       if (hasInitialized.current && !isResetting) return;
       
-      // 1. Lọc ra các từ chưa thuộc
       let pendingWords = allWords.filter(w => w.isMastered !== true && w.learned !== true);
       
-      // 2. 🚀 LÔ-GIC MỚI: Nếu đã thuộc hết (pending rỗng), nạp lại toàn bộ danh sách để tạo luồng Ôn tập
       if (pendingWords.length === 0 && allWords.length > 0) {
           pendingWords = [...allWords];
       }
       
-      // 3. Khởi tạo hàng chờ
       if (pendingWords.length > 0) {
           const shuffled = [...pendingWords].sort(() => Math.random() - 0.5);
           setStudyQueue(shuffled);
@@ -102,15 +93,14 @@ export function LearnModeView({
   // --- LOGIC ---
   const switchWord = (newWord: any | null) => {
     setIsAnimating(true); 
-    setSwipeOffset(0); // Trả thẻ về giữa nếu đang vuốt
+    setSwipeOffset(0); 
     setTimeout(() => {
         setLocalCurrentWord(newWord);
         resetModeState();
         setIsAnimating(false);
-    }, 100); // Tăng chút thời gian cho mượt
+    }, 100);
   };
 
-  // 🚀 NÚT "HỌC LẠI TỪ ĐẦU"
   const handleRestart = () => {
     const folderId = allWords[0]?.folderId; 
     if (folderId) {
@@ -118,7 +108,6 @@ export function LearnModeView({
             if (typeof api.resetFolderProgress !== 'function') {
                 alert("LỖI FRONTEND: Bạn chưa thêm hàm resetFolderProgress vào file api.ts!");
             } else {
-                // Chạy ngầm
                 api.resetFolderProgress(folderId).catch(err => alert("LỖI BACKEND: " + err.message));
             }
         } catch (e) { console.error(e); }
@@ -130,19 +119,16 @@ export function LearnModeView({
     onReset(); 
   };
 
-  // 🚀 NÚT "ĐÃ NHỚ"
   const handleKnown = useCallback(() => {
       if (!localCurrentWord) return;
       const currentId = getWordId(localCurrentWord);
 
-      // 1. GỌI API THEO ĐÚNG LUỒNG DỮ LIỆU
       if (localCurrentWord.savedWordId) {
           api.updateMasterStatus(localCurrentWord.savedWordId, true).catch(console.error);
       } else {
           api.updateWord(currentId, { learned: true }).catch(console.error);
       }
 
-      // 2. BÁO CHO MAIN APP ĐỂ HEADER NHẢY SỐ
       onNext(currentId, true); 
       
       const newQueue = studyQueue.filter(w => getWordId(w) !== currentId);
@@ -151,19 +137,16 @@ export function LearnModeView({
       switchWord(nextWord);
   }, [localCurrentWord, studyQueue, onNext]);
 
-  // 🚀 NÚT "CHƯA NHỚ"
   const handleUnknown = useCallback(() => {
       if (!localCurrentWord) return;
       const currentId = getWordId(localCurrentWord);
 
-      // 1. GỌI API THEO ĐÚNG LUỒNG DỮ LIỆU
       if (localCurrentWord.savedWordId) {
           api.updateMasterStatus(localCurrentWord.savedWordId, false).catch(console.error);
       } else {
           api.updateWord(currentId, { learned: false }).catch(console.error);
       }
 
-      // 2. BÁO CHO MAIN APP
       onNext(currentId, false);
 
       const remaining = studyQueue.filter(w => getWordId(w) !== currentId);
@@ -180,13 +163,11 @@ export function LearnModeView({
       setTypingStatus('idle');
   }
 
-  // 2. LOGIC VUỐT KẾT HỢP HÀM GỐC
-  // 2. LOGIC VUỐT KẾT HỢP KHÓA HƯỚNG CHỐNG RUNG
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.innerWidth >= 768) return; 
     setTouchStart({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
     setTouchEndX(null);
-    setSwipeDirection(null); // Reset hướng
+    setSwipeDirection(null); 
     setSwipeOffset(0);
   };
   
@@ -325,7 +306,7 @@ export function LearnModeView({
                         {mode === 'flashcard' && (
                             <div className="w-full flex items-center justify-between gap-2 md:gap-4 overflow-hidden md:overflow-visible">
                                 
-                                {/* NÚT MŨI TÊN TRÁI: CHỈ HIỂN THỊ TRÊN MÀN HÌNH LỚN (md:flex) */}
+                                {/* NÚT MŨI TÊN TRÁI */}
                                 <Button 
                                     variant="ghost" 
                                     size="icon" 
@@ -345,7 +326,6 @@ export function LearnModeView({
                                     onTouchMove={handleTouchMove}
                                     onTouchEnd={handleTouchEnd}
                                 >
-                                     {/* Hiệu ứng màu nền báo hiệu khi vuốt thẻ (chỉ trên mobile) */}
                                     <div className="md:hidden">
                                         {swipeOffset < -30 && <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
                                         {swipeOffset > 30 && <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
@@ -353,7 +333,6 @@ export function LearnModeView({
                                     <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" color={themeColor} volume={volume}/>
                                 </div>
 
-                                {/* NÚT MŨI TÊN PHẢI: CHỈ HIỂN THỊ TRÊN MÀN HÌNH LỚN (md:flex) */}
                                 <Button 
                                     variant="ghost" 
                                     size="icon" 
@@ -437,7 +416,7 @@ export function LearnModeView({
                         </div>
                         )}
                         
-                        {/* 2 NÚT BÊN DƯỚI (KNOWN / UNKNOWN) */}
+                        {/* (KNOWN / UNKNOWN) */}
                         {mode === 'flashcard' && (
                             <div className="shrink-0 mt-6 pt-4 border-t border-zinc-900/50 flex flex-col gap-4 w-full">
                                 
@@ -453,7 +432,7 @@ export function LearnModeView({
                                     />
                                 </div>
 
-                                {/* 2 NÚT BẤM (GRID 2 CỘT) */}
+                                {/* 2 NÚT BẤM */}
                                 <div className="grid grid-cols-2 gap-3 w-full">
                                     <Button onClick={handleUnknown} className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white" disabled={isAnimating}><X className="w-5 h-5 mr-2"/> Chưa nhớ</Button>
                                     <Button onClick={handleKnown} className="h-16 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white" style={{ backgroundColor: themeColor || '#2563eb' }} disabled={isAnimating}>Đã thuộc <Check className="ml-2 w-5 h-5"/></Button>

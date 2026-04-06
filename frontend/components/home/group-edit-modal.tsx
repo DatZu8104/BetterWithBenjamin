@@ -21,7 +21,6 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
   const [newFolderName, setNewFolderName] = useState(folderName);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // 🚀 MỚI: State và Ref cho Infinite Scroll
   const [visibleCount, setVisibleCount] = useState(50);
   const loaderRef = useRef<HTMLDivElement>(null);
 
@@ -30,24 +29,22 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
       setNewFolderName(folderName);
       setIsEditingName(false);
       setSearchTerm("");
-      setVisibleCount(50); // Reset số lượng hiển thị khi mở lại Modal
+      setVisibleCount(50);
     }
   }, [isOpen, folderName]);
 
-  // 🚀 MỚI: Reset lại số lượng hiển thị khi người dùng gõ tìm kiếm
   useEffect(() => {
     setVisibleCount(50);
   }, [searchTerm]);
 
-  // 🚀 MỚI: Bộ quan sát (Observer) lắng nghe sự kiện cuộn chạm đáy
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => prev + 50); // Tải thêm 50 từ mỗi lần chạm đáy
+          setVisibleCount((prev) => prev + 50);
         }
       },
-      { rootMargin: "200px" } // Kích hoạt tải thêm khi còn cách đáy 200px để cuộn mượt hơn
+      { rootMargin: "200px" }
     );
 
     if (loaderRef.current) {
@@ -90,7 +87,6 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
            displayDef.toLowerCase().includes(lowerSearch);
   });
 
-  // 🚀 MỚI: Cắt mảng từ vựng dựa trên số lượng visibleCount hiện tại
   const displayedWords = filteredWords.slice(0, visibleCount);
 
   return (

@@ -58,7 +58,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       router.push(`${pathname}?${params.toString()}`);
   };
 
-  // 🚀 MỚI: Khôi phục danh sách học từ Cache (chống mất state khi F5)
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const isLearnUrl = new URLSearchParams(window.location.search).get('learn') === 'true';
@@ -73,10 +72,8 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
     }
     loadData();
   }, []);
-
   const loadData = async () => {
     try {
-      // 1. Tải dữ liệu cá nhân & cấu hình
       const data = await api.syncData();
       let personalWords: any[] = [];
       let learnedSysIds = new Set<string>();
@@ -102,12 +99,23 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
           }
       }
 
-      // 2. Mở ổ cứng Dexie
+      setWords(personalWords);
+      setIsLoading(false);
+
+      syncSystemWordsInBackground(learnedSysIds);
+
+    } catch (error) {
+      console.error("Data load error:", error);
+      setIsLoading(false);
+    }
+  };
+
+  const syncSystemWordsInBackground = async (learnedSysIds: Set<string>) => {
+    try {
       let cachedSysWords = await db.systemWords.toArray();
 
-      // 3. CHỈ BẬT UI LOADING NẾU DEXIE RỖNG (Lần đầu tiên)
       if (cachedSysWords.length === 0) {
-          setIsSyncingSystem(true); 
+          setIsSyncingSystem(true); // Hiện cái popup "Đang đồng bộ..." ở góc
           const sysWordsFromApi = await api.getSystemWords();
           
           if (Array.isArray(sysWordsFromApi)) {
@@ -116,23 +124,21 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
               }));
               await db.systemWords.bulkPut(cachedSysWords);
           }
-          setIsSyncingSystem(false); 
       }
 
-      // 4. Map trạng thái "Đã học"
       const finalSysWords = cachedSysWords.map(w => ({
           ...w, learned: learnedSysIds.has(String(w.id))
       }));
 
-      // 5. CHỐNG GIẬT MÀN HÌNH: Cập nhật State ĐÚNG 1 LẦN DUY NHẤT
-      setWords([...personalWords, ...finalSysWords]);
+      setWords(prevWords => {
+          const personalOnly = prevWords.filter(w => !w.isGlobal);
+          return [...personalOnly, ...finalSysWords];
+      });      
       
-      // 6. Tắt Loading tổng (nếu là lần đầu vào trang)
-      setIsLoading(false);
+      setIsSyncingSystem(false); 
 
     } catch (error) {
-      console.error("Data load error:", error);
-      setIsLoading(false);
+      console.error("System sync error:", error);
       setIsSyncingSystem(false);
     }
   };
@@ -201,7 +207,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
           setModalLearnWords(prev => {
               if (!prev) return null;
               const newWords = prev.map(w => (w.id || w._id) === wordId ? { ...w, isMastered: isKnown } : w);
-              // 🚀 MỚI: Liên tục cập nhật tiến độ vào Cache để F5 không bị lùi lại
               sessionStorage.setItem('current_learn_words', JSON.stringify(newWords));
               return newWords;
           });
@@ -215,7 +220,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       } else {
           updateUrl({ learn: 'true' }); 
           setModalLearnWords(null);
-          sessionStorage.removeItem('current_learn_words'); // Dọn dẹp cache
+          sessionStorage.removeItem('current_learn_words'); 
           const unlearned = currentViewWords.filter(w => !w.learned);
           
           if (unlearned.length === 0 && currentViewWords.length > 0) handleResetProgress();
@@ -226,7 +231,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const handleStartLearnFromModal = (folderName: string, formattedWords: any[]) => {
       setModalFolderName(folderName);
       setModalLearnWords(formattedWords);
-      // 🚀 MỚI: Khởi tạo Cache khi bắt đầu học
       sessionStorage.setItem('current_learn_words', JSON.stringify(formattedWords));
       updateUrl({ learn: 'true', sysFolder: folderName }); 
       setIsStudyModalOpen(false); 
@@ -242,7 +246,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
         setModalLearnWords(prev => {
             if (!prev) return null;
             const resetWords = prev.map(w => ({...w, isMastered: false}));
-            // 🚀 MỚI: Xóa tiến độ trong Cache khi học lại
             sessionStorage.setItem('current_learn_words', JSON.stringify(resetWords));
             return resetWords;
         });
@@ -301,11 +304,9 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   };
   const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => { await api.deleteGroup(n); loadData(); };
 
-  // 🚀 Tự động tính toán lại list từ, ưu tiên dữ liệu từ Cache khi F5
   const activeLearnWords = useMemo(() => {
     if (modalLearnWords) return modalLearnWords; 
     
-    // Backup fallback (Hiếm khi xảy ra nếu đã dùng Cache)
     if (viewMode === 'global' && learnSysFolder) {
         return wordsByMode.filter(w => 
             w.folder === learnSysFolder || 
@@ -344,7 +345,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                         isResetting={isResetting}
                         onNext={handleNextWord}
                         onReset={async () => { handleResetProgress(); await loadData(); }} 
-                        // 🚀 Dọn dẹp cache khi ấn Thoát
                         onExit={() => { 
                             updateUrl({ learn: null, sysFolder: null }); 
                             setModalLearnWords(null); 
@@ -389,7 +389,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
 
       <StudyManagerModal 
         isOpen={isStudyModalOpen}
-        onClose={() => { setIsStudyModalOpen(false); loadData(); }}
+        onClose={() => { setIsStudyModalOpen(false) }}
         systemWords={currentViewWords} onStartLearn={handleStartLearnFromModal} onRefreshData={loadData} 
         />
         {isSyncingSystem && (
@@ -398,7 +398,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span>Đang đồng bộ dữ liệu hệ thống...</span>
+          <span>Synchronizing system data...</span>
         </div>
         )}
     </div>

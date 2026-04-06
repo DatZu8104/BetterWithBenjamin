@@ -17,17 +17,14 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
   const scrollRef = useRef<HTMLDivElement>(null);
   const actualData = word?.wordId || word || {};
 
-  // --- HÀM TRỢ GIÚP: GOOGLE TEXT-TO-SPEECH (TTS) ---
   const playTTS = (text: string, type: 'us' | 'uk') => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.volume = volume;
       
-      // Chọn ngôn ngữ tương ứng
       utterance.lang = type === 'uk' ? 'en-GB' : 'en-US';
       
-      // Cố gắng tìm giọng đọc hay nhất có sẵn trong máy
       const voices = window.speechSynthesis.getVoices();
       const preferredVoice = voices.find(v => 
            v.lang === utterance.lang && (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel'))
@@ -38,45 +35,37 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
     }
   };
 
-  // --- 🚀 HÀM PHÁT AUDIO THÔNG MINH (3 LỚP FALLBACK) ---
   const playAudioWithFallback = (preferredType: 'us' | 'uk', text: string) => {
     if (!text) return;
 
     let audioUrl = actualData.audio?.[preferredType];
     
-    // 1. Lớp Fallback 1: Nếu không có link ưu tiên, thử mượn link của giọng còn lại
     if (!audioUrl || !audioUrl.startsWith('http')) {
         const alternativeType = preferredType === 'us' ? 'uk' : 'us';
         audioUrl = actualData.audio?.[alternativeType];
     }
 
-    // 2. Phát Audio nếu có link
     if (audioUrl && audioUrl.startsWith('http')) {
         const audio = new Audio(audioUrl);
         audio.volume = volume;
-        // Lớp Fallback 2: Bắt lỗi nếu file hỏng hoặc lỗi mạng (404)
         audio.play().catch(e => {
-            console.warn(`Lỗi file audio gốc, chuyển sang Google TTS:`, e);
+            console.warn(`Original audio file error, converted to Google TTS:`, e);
             playTTS(text, preferredType); 
         });
     } else {
-        // 3. Không có bất kỳ link nào cả -> Nhờ chị Google đọc
         playTTS(text, preferredType);
     }
   };
 
-  // --- AUTO-PLAY KHI ĐỔI TỪ ---
-  // --- AUTO-PLAY VÀ RESET CUỘN KHI ĐỔI TỪ ---
+
   useEffect(() => {
     setIsFlipped(false); 
     hasPlayedRef.current = false;
     
-    // Ép cuộn mặt sau về lại đầu trang
     if (scrollRef.current) {
         scrollRef.current.scrollTop = 0;
     }
 
-    // Giảm độ trễ từ 600ms xuống 50ms để đọc ngay lập tức khi chuyển thẻ
     const timer = setTimeout(() => {
         if (!hasPlayedRef.current && actualData) {
             const textToRead = actualData.word || actualData.english || "";
@@ -86,17 +75,15 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
     }, 10); 
 
     return () => clearTimeout(timer);
-  }, [word]); // Đừng quên giữ [word] nhé
+  }, [word]); 
 
-  // --- KHI BẤM NÚT THỦ CÔNG ---
   const handleManualPlay = (e: React.MouseEvent, type: 'us' | 'uk') => {
     e.stopPropagation(); 
     const textToRead = actualData.word || actualData.english || "";
     playAudioWithFallback(type, textToRead);
   };
 
-  // --- CHUẨN BỊ DỮ LIỆU HIỂN THỊ ---
-  const displayWord = actualData.word || actualData.english || "Đang tải...";
+  const displayWord = actualData.word || actualData.english || "Loading...";
   const displayLevel = actualData.level || (actualData.group?.includes('Level') ? actualData.group.split('Level ')[1] : null);
   
   const definitions = (actualData.definitions && actualData.definitions.length > 0) 
@@ -104,7 +91,7 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
       : [{ 
           order: 1, 
           label: 'Definition', 
-          definition: actualData.definition || "Không có định nghĩa", 
+          definition: actualData.definition || "There is no definition.", 
           examples: actualData.example ? [actualData.example] : [] 
         }];
 

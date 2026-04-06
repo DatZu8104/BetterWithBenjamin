@@ -1,6 +1,5 @@
 'use client';
 
-// 🚀 1. Bổ sung import Suspense
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthScreen } from '../components/auth/AuthScreen';
@@ -14,7 +13,6 @@ export default function Home() {
   const [role, setRole] = useState<string>('user');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Tự động đăng nhập
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const storedToken = sessionStorage.getItem('auth_token');
@@ -26,26 +24,50 @@ export default function Home() {
             setToken(storedToken);
             setCurrentUser(storedUser);
             setRole(storedRole || 'user');
+            
+            if (window.location.search === '') {
+                router.replace('/?tab=personal');
+            }
         }
     }
     setIsLoading(false);
-  }, []);
+  }, [router]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+        if (token && window.location.search === '') {
+            handleLogout();
+        }
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [token]);
 
   const handleLoginSuccess = (newToken: string, user: string, userRole: string) => {
+    if (typeof window !== 'undefined') {
+        sessionStorage.setItem('auth_token', newToken);
+    }
+    
     setToken(newToken);
     setCurrentUser(user);
     setRole(userRole);
+    
+    router.push('/?tab=personal'); 
   };
 
   const handleLogout = () => {
     clearApiToken();
     if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('auth_token'); 
         sessionStorage.removeItem('current_user');
         sessionStorage.removeItem('user_role');
     }
     setToken(null);
     setCurrentUser(null);
     setRole('user');
+    
+    router.replace('/'); 
   };
 
   if (isLoading) return <div className="h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
@@ -54,7 +76,6 @@ export default function Home() {
     return <AuthScreen onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // 🚀 2. Bọc Suspense ở đây để Next.js xử lý an toàn useSearchParams
   return (
     <Suspense fallback={<div className="h-screen bg-black flex items-center justify-center text-white">Loading App...</div>}>
         <MainApp currentUser={currentUser} role={role} onLogout={handleLogout} />

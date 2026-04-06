@@ -17,10 +17,9 @@ export const clearApiToken = () => {
 const getHeaders = () => {
   let token = '';
   if (typeof window !== 'undefined') {
-    // 🚀 FIX: Đồng bộ kho lưu trữ Token và làm sạch JWT
     token = localStorage.getItem('token') || sessionStorage.getItem('auth_token') || '';
-    token = token.replace(/(^"|"$)/g, ""); // Xóa dấu nháy kép
-    token = token.replace(/^Bearer\s+/i, ""); // Gửi RAW JWT cho Backend
+    token = token.replace(/(^"|"$)/g, ""); 
+    token = token.replace(/^Bearer\s+/i, ""); 
   }
   return {
     'Content-Type': 'application/json',
@@ -60,7 +59,6 @@ export const api = {
   // --- DATA SYNC ---
   syncData: async () => {
     try {
-        // 🚀 BỔ SUNG CHẶN CACHE ĐỂ HEADER LUÔN CẬP NHẬT ĐÚNG SỐ LƯỢNG MỚI NHẤT
         const res = await fetch(`${API_URL}/sync?t=${new Date().getTime()}`, { 
             headers: getHeaders(),
             cache: 'no-store' 
@@ -73,7 +71,6 @@ export const api = {
   },
 getSystemWords: async () => {
     try {
-        // Thêm ?t=... và đổi thành no-store để chắc chắn lấy dữ liệu mới
         const res = await fetch(`${API_URL}/sync-system?t=${new Date().getTime()}`, { 
             headers: getHeaders(),
             cache: 'no-store' 
@@ -88,7 +85,6 @@ getSystemWords: async () => {
         return [];
     }
   },
-  // Cập nhật trạng thái Đã thuộc / Chưa thuộc trong thư mục
   updateMasterStatus: async (savedWordId: string, isMastered: boolean) => {
     const res = await fetch(`${API_URL}/saved-words/${savedWordId}/master`, {
       method: 'PUT',
@@ -99,7 +95,6 @@ getSystemWords: async () => {
     return res.json();
   },
 
-  // Reset tiến độ của thư mục
   resetFolderProgress: async (folderId: string) => {
     const res = await fetch(`${API_URL}/folders/${folderId}/reset`, {
       method: 'PUT',
@@ -134,7 +129,7 @@ getSystemWords: async () => {
     return res.json();
   },
 
-  // --- FOLDERS & GROUPS (CŨ) ---
+  // --- FOLDERS & GROUPS  ---
   addFolder: async (data: any) => {
     await fetch(`${API_URL}/folders`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
   },
@@ -160,9 +155,6 @@ getSystemWords: async () => {
     if (!res.ok) throw new Error("Lỗi xóa nhóm");
   },
 
-  // ==========================================
-  // 🚀 TÍNH NĂNG MỚI DÀNH CHO MODAL GIỎ HÀNG
-  // ==========================================
   getFoldersList: async () => {
     const res = await fetch(`${API_URL}/folders`, { headers: getHeaders() });
     if (!res.ok) throw new Error("Lỗi tải danh sách thư mục");
@@ -207,7 +199,6 @@ getSystemWords: async () => {
     return res.json();
   },
 
-  // 🚀 HÀM MỚI: Đổi tên thư mục (Playlist)
   renameFolder: async (folderId: string, newName: string) => {
     const res = await fetch(`${API_URL}/folders/${folderId}`, {
       method: 'PUT',
@@ -218,7 +209,6 @@ getSystemWords: async () => {
     return res.json();
   },
 
-// 🚀 HÀM MỚI SỬA LẠI: Rút một từ vựng khỏi thư mục
   removeWordFromFolder: async (savedWordId: string) => {
     const res = await fetch(`${API_URL}/saved-words/${savedWordId}`, {
       method: 'DELETE',

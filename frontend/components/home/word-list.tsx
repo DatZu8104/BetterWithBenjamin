@@ -31,33 +31,30 @@ export function WordListView({
   const [parsedWords, setParsedWords] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 🚀 MỚI: State và Ref cho Infinite Scroll
+  // State và Ref cho Infinite Scroll
   const [visibleCount, setVisibleCount] = useState(50);
   const loaderRef = useRef<HTMLDivElement>(null);
 
-  // 🚀 MỚI: Chỉ Reset số lượng hiển thị khi đổi Nhóm hoặc Tìm kiếm. 
-  // Không đưa 'words' vào mảng dependency để tránh bị nhảy trang khi đánh dấu từ.
+
   useEffect(() => {
       setVisibleCount(50);
   }, [groupName, localSearch]);
 
-  // 🚀 MỚI: Bộ lắng nghe sự kiện cuộn chạm đáy
   useEffect(() => {
       const observer = new IntersectionObserver((entries) => {
-          // Nếu thẻ tàng hình xuất hiện trên màn hình
-          if (entries[0].isIntersecting) {
-              setVisibleCount(prev => prev + 50); // Tải thêm 50 từ
+           if (entries[0].isIntersecting) {
+              setVisibleCount(prev => prev + 50); 
           }
       }, { 
-          rootMargin: "200px" // Kích hoạt sớm khi còn cách đáy 200px để cuộn mượt hơn
+          rootMargin: "200px"
       });
 
       if (loaderRef.current) {
           observer.observe(loaderRef.current);
       }
 
-      return () => observer.disconnect(); // Dọn dẹp khi thoát
-  }, []); // Chạy 1 lần khi mount
+      return () => observer.disconnect();
+  }, []); 
 
   // --- HÀM PHÁT AUDIO NHANH ---
   const playAudio = (e: React.MouseEvent, url: string | undefined, text: string) => {
@@ -139,7 +136,7 @@ export function WordListView({
            mainDef.toLowerCase().includes(localSearch.toLowerCase());
   });
 
-  // 🚀 MỚI: Chỉ lấy số lượng từ theo biến visibleCount thay vì lấy tất cả
+  //Chỉ lấy số lượng từ theo biến visibleCount thay vì lấy tất cả
   const displayedWords = filteredWords.slice(0, visibleCount);
 
   return (
@@ -166,7 +163,6 @@ export function WordListView({
               </button>
               <button onClick={onLearn} className="sm:hidden p-2 bg-blue-600 rounded-full text-white"><PlayCircle className="w-5 h-5"/></button>
 
-              {/* Chỉ hiện nút Add nếu cho phép (thường là nhóm cá nhân) */}
               {allowEdit && (
                   <>
                     <button onClick={() => setShowForm(true)} className="p-2 sm:px-3 sm:py-2 bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-white rounded-xl flex items-center gap-2 transition-colors">
@@ -310,7 +306,6 @@ export function WordListView({
                           </div>
                         )})}
                         
-                        {/* 🚀 MỚI: Thẻ quan sát (Observer Sentinel) nằm ở cuối danh sách */}
                         {visibleCount < filteredWords.length && (
                             <div ref={loaderRef} className="w-full h-16 flex items-center justify-center mt-6">
                                 <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />

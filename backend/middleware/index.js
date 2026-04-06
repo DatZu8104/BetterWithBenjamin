@@ -2,41 +2,41 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { User } = require('../models');
 
-// 1. Rate Limiters (Chống Spam)
+//  Rate Limiters 
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
     max: 200, 
-    message: "Quá nhiều request, vui lòng thử lại sau."
+    message: "Too many requests, please try again later."
 });
 
 const loginLimiter = rateLimit({
     windowMs: 5 * 60 * 1000, 
     max: 10, 
-    message: "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng đợi 5 phút."
+    message: "You have tried logging in too many times. Please wait 5 minutes."
 });
 
-// 2. Verify Token (Kiểm tra đăng nhập)
+//  Verify Token
 const verifyToken = async (req, res, next) => {
     const token = req.headers['authorization'];
-    if (!token) return res.status(403).json({ error: "Chưa đăng nhập (No Token)" });
+    if (!token) return res.status(403).json({ error: "Not logged in (No Token)" });
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.id);
-        if (!user) return res.status(401).json({ error: "Tài khoản không tồn tại" });
+        if (!user) return res.status(401).json({ error: "Account does not exist" });
 
         req.userId = decoded.id;
         req.userRole = user.role;
         next();
     } catch (err) {
-        return res.status(401).json({ error: "Phiên đăng nhập hết hạn" });
+        return res.status(401).json({ error: "Login session expired" });
     }
 };
 
-// 3. Verify Admin (Kiểm tra quyền Admin)
+//  Verify Admin
 const verifyAdmin = (req, res, next) => {
     if (req.userRole !== 'admin') {
-        return res.status(403).json({ error: "Bạn không có quyền Admin" });
+        return res.status(403).json({ error: "You do not have Admin rights" });
     }
     next();
 };

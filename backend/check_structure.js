@@ -10,7 +10,7 @@ const TEMP_DIR = "./temp_check_anki";
 try {
     // 1. Giải nén nhanh
     if (!fs.existsSync(ANKI_FILE_NAME)) {
-        throw new Error("❌ Không tìm thấy file .apkg!");
+        throw new Error("❌ .apkg file not found!");
     }
     const zip = new AdmZip(ANKI_FILE_NAME);
     zip.extractAllTo(TEMP_DIR, true);
@@ -27,7 +27,7 @@ try {
         const fields = row.flds.split('\x1f');
 
         console.log("\n==========================================");
-        console.log("🔍 CẤU TRÚC DỮ LIỆU CỦA FILE NÀY LÀ:");
+        console.log("🔍 DATA STRUCTURE OF THIS FILE IS:");
         console.log("==========================================\n");
         
         fields.forEach((content, index) => {
@@ -37,9 +37,9 @@ try {
         });
         
         console.log("\n==========================================");
-        console.log("💡 HÃY COPY KẾT QUẢ NÀY GỬI CHO TÔI ĐỂ TÔI SỬA SCRIPT IMPORT!");
+        console.log("💡 PLEASE COPY THIS RESULT AND SEND IT TO ME SO I CAN FIX THE IMPORT SCRIPT!");
     } else {
-        console.log("❌ File rỗng, không có dữ liệu note nào.");
+        console.log("❌ Empty file, no note data.");
     }
 
     db.close();
@@ -47,5 +47,5 @@ try {
     fs.rmSync(TEMP_DIR, { recursive: true, force: true });
 
 } catch (error) {
-    console.error("Lỗi:", error.message);
+    console.error("Error:", error.message);
 }

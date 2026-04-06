@@ -64,10 +64,10 @@ function toCsvField(text) {
 async function exportToCsv() {
     let dbSqlite = null;
     try {
-        console.log("📊 ĐANG XUẤT DỮ LIỆU RA FILE CSV...");
+        console.log("📊 EXPORTING DATA TO CSV FILE...");
 
         const ankiPath = path.join(__dirname, ANKI_FILE_NAME);
-        if (!fs.existsSync(ankiPath)) throw new Error(`Không tìm thấy file ${ANKI_FILE_NAME}`);
+        if (!fs.existsSync(ankiPath)) throw new Error(`File not found ${ANKI_FILE_NAME}`);
 
         // 1. Giải nén
         const zip = new AdmZip(ankiPath);
@@ -77,7 +77,7 @@ async function exportToCsv() {
         const dbPath = path.join(TEMP_DIR, 'collection.anki2');
         dbSqlite = new Database(dbPath, { readonly: true });
         const rows = dbSqlite.prepare('SELECT flds FROM notes').all();
-        console.log(`🔍 Tìm thấy ${rows.length} từ. Đang xử lý...`);
+        console.log(`🔍 Found ${rows.length} words. Processing...`);
 
         // 3. TẠO FILE CSV VÀ GHI HEADER
         const writeStream = fs.createWriteStream(path.join(__dirname, OUTPUT_FILE), { encoding: 'utf8' });
@@ -122,13 +122,13 @@ async function exportToCsv() {
 
         writeStream.end();
 
-        console.log("\n✅ XUẤT FILE THÀNH CÔNG!");
-        console.log(`📁 File đã được lưu tại: backend/${OUTPUT_FILE}`);
-        console.log(`📊 Tổng số dòng: ${count}`);
-        console.log("👉 Bạn có thể mở file này bằng Excel hoặc Google Sheets.");
+        console.log("\n✅ FILE EXPORT SUCCESSFUL!");
+        console.log(`📁 File saved at: backend/${OUTPUT_FILE}`);
+        console.log(`📊 Total rows: ${count}`);
+        console.log("👉 You can open this file with Excel or Google Sheets.");
 
     } catch (error) {
-        console.error("❌ Lỗi:", error);
+        console.error("❌ Error:", error);
     } finally {
         if (dbSqlite) dbSqlite.close();
         try { fs.rmSync(TEMP_DIR, { recursive: true, force: true }); } catch (e) {}

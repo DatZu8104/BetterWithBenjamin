@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { api, setApiToken } from '../../lib/api'; 
-// 🚀 Thêm icon KeyRound cho ô Xác nhận mật khẩu
 import { Loader2, User, Lock, ArrowRight, BookOpen, KeyRound } from 'lucide-react';
 
 interface AuthScreenProps {
@@ -14,13 +13,11 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   
-  // --- GIAI ĐOẠN 1: State cho ô Xác nhận mật khẩu ---
   const [confirmPassword, setConfirmPassword] = useState('');
   
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // --- GIAI ĐOẠN 3: Cấu hình màu sắc động (Blue = Login, Emerald = Sign Up) ---
   const colorBgGlow = isLogin ? 'bg-blue-600/10' : 'bg-emerald-600/10';
   const colorIcon = isLogin ? 'text-blue-500' : 'text-emerald-500';
   const colorFocus = isLogin ? 'focus:border-blue-500 focus:ring-blue-500' : 'focus:border-emerald-500 focus:ring-emerald-500';
@@ -30,7 +27,6 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
     e.preventDefault();
     setError('');
 
-    // --- GIAI ĐOẠN 1: Validate mật khẩu khi đăng ký ---
     if (!isLogin && password !== confirmPassword) {
         setError('Passwords do not match!');
         return;
@@ -60,7 +56,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
         alert('Registration successful! Please login.');
         setIsLogin(true);
         setPassword('');
-        setConfirmPassword(''); // Reset lại ô xác nhận
+        setConfirmPassword('');
       }
 
     } catch (err: any) {
@@ -70,7 +66,6 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
     }
   };
 
-  // Hàm chuyển đổi Tab (Reset lại Form)
   const handleSwitchTab = (toLogin: boolean) => {
       setIsLogin(toLogin);
       setError('');

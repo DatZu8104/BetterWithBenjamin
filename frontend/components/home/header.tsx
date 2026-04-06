@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
 import { Upload, Download, LogOut, ChevronDown, Search, BookOpen, ShieldCheck, Loader2, KeyRound, X, Menu, Library, User, Check } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { FeatureHint } from '../onboarding/FeatureHint';
+import { ONBOARDING_IDS } from '../onboarding/constants';
 
 interface HeaderProps {
   onSearchChange: (term: string) => void;
@@ -49,10 +51,10 @@ export function Header({
           const res = await api.changePassword(oldPass, newPass);
           if (res.error) setPassError(res.error);
           else {
-              alert("✅ Đổi mật khẩu thành công! Vui lòng đăng nhập lại.");
+              alert("Password changed successfully! Please log in again.");
               onLogout(); 
           }
-      } catch (err) { setPassError("Lỗi kết nối Server"); } 
+      } catch (err) { setPassError("Server connection error"); } 
       finally { setIsProcessing(false); }
   };
 
@@ -60,7 +62,7 @@ export function Header({
     try {
         setIsProcessing(true);
         const data = await api.syncData();
-        if (!data) return alert("Không lấy được dữ liệu!");
+        if (!data) return alert("Could not get data!");
 
         const allWords = data.words || [];
         const exportData = {
@@ -115,7 +117,7 @@ export function Header({
     <header className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b border-zinc-800 bg-black sticky top-0 z-40 text-white shadow-sm relative h-16 sm:h-[72px]">
       <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
 
-      {/* MOBILE SEARCH OVERLAY (Mở rộng toàn màn hình trên điện thoại) */}
+      {/* MOBILE SEARCH OVERLAY*/}
       {isMobileSearchOpen && (
           <div className="absolute inset-0 bg-black z-50 flex items-center px-4 sm:px-8 animate-in fade-in slide-in-from-top-2 duration-200">
               <Search className="absolute left-8 sm:left-12 w-5 h-5 text-zinc-400" />
@@ -136,35 +138,56 @@ export function Header({
           </div>
       )}
 
-      {/* --- 1. CỤM TRÁI: MENU & LOGO --- (Dùng flex-1 để chiếm 1/3 chiều rộng) */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-1 overflow-hidden">        {/* MENU HAMBURGER */}
-        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-            <SheetTrigger asChild>
-                <button className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg sm:rounded-xl border transition-all outline-none shrink-0 ${currentMode === 'global' ? 'bg-purple-950/30 border-purple-900/50 hover:bg-purple-900/50' : 'bg-blue-950/30 border-blue-900/50 hover:bg-blue-900/50'}`}>
-                    <span className={`text-xs sm:text-sm font-bold ${currentMode === 'global' ? 'text-purple-300' : 'text-blue-300'}`}>
-                        {currentMode === 'global' ? 'Hệ thống' : 'Cá nhân'}
-                    </span>
-                    {/* Icon xoay lên khi menu đang mở */}
-                    <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform duration-200 ${isSheetOpen ? 'rotate-180' : ''} ${currentMode === 'global' ? 'text-purple-400' : 'text-blue-400'}`} />
-                </button>
-            </SheetTrigger>
-            <SheetContent side="left" className="bg-zinc-950 border-r border-zinc-800 text-white w-[300px] z-[60]">
-                    <SheetHeader className="mb-6 text-left">
-                    <SheetTitle className="text-white text-xl font-bold flex items-center gap-2">Menu Học Tập</SheetTitle>
-                    <SheetDescription className="text-zinc-500">Chọn nguồn từ vựng bạn muốn học.</SheetDescription>
-                </SheetHeader>
-                <div className="space-y-2">
-                    <button onClick={() => { onModeChange('personal'); setIsSheetOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${currentMode === 'personal' ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
-                        <User className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Từ vựng cá nhân</div><div className="text-[10px] font-normal opacity-70">Của {username}</div></div>
-                    </button>
-                    <button onClick={() => { onModeChange('global'); setIsSheetOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${currentMode === 'global' ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
-                        <Library className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Oxford 3000</div><div className="text-[10px] font-normal opacity-70">Từ vựng hệ thống</div></div>
-                    </button>
+            {/* --- 1. CỤM TRÁI: MENU & LOGO --- */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-none shrink-0 overflow-hidden">            
+            <FeatureHint 
+                id={ONBOARDING_IDS.HOME_SYSTEM_WORDS}
+                side="bottom"
+                align="start"
+                message={
+                    <div className="space-y-1.5 min-w-[200px]">
+                        <p className="font-bold text-white flex items-center gap-1.5">
+                            <Library className="w-4 h-4 text-400" /> 
+                            Vocabulary is available
+                        </p>
+                        <p className="text-zinc-100 text-sm leading-snug font-normal">
+                            Click here to switch to <span className="font-bold text-300">System</span>. The website has prepared the Oxford vocabulary set (A1-C2) for you to learn right away!
+                        </p>
+                    </div>
+                }
+            >
+                <div className="inline-block"> 
+                    
+                    {/* MENU HAMBURGER */}
+                    <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                        <SheetTrigger asChild>
+                            <button className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg sm:rounded-xl border transition-all outline-none shrink-0 ${currentMode === 'global' ? 'bg-purple-950/30 border-purple-900/50 hover:bg-purple-900/50' : 'bg-blue-950/30 border-blue-900/50 hover:bg-blue-900/50'}`}>
+                                <span className={`text-xs sm:text-sm font-bold whitespace-nowrap ${currentMode === 'global' ? 'text-purple-300' : 'text-blue-300'}`}>
+                                    {currentMode === 'global' ? 'System' : 'Personal'}
+                                </span>
+                                <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 transition-transform duration-200 ${isSheetOpen ? 'rotate-180' : ''} ${currentMode === 'global' ? 'text-purple-400' : 'text-blue-400'}`} />
+                            </button>
+                        </SheetTrigger>
+                        <SheetContent side="left" className="bg-zinc-950 border-r border-zinc-800 text-white w-[300px] z-[60]">
+                            <SheetHeader className="mb-6 text-left">
+                                <SheetTitle className="text-white text-xl font-bold flex items-center gap-2">Menu</SheetTitle>
+                                <SheetDescription className="text-zinc-500">Choose the source of vocabulary you want to learn.</SheetDescription>
+                            </SheetHeader>
+                            <div className="space-y-2">
+                                <button onClick={() => { onModeChange('personal'); setIsSheetOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${currentMode === 'personal' ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
+                                    <User className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Personal vocabulary</div><div className="text-[10px] font-normal opacity-70"> {username}</div></div>
+                                </button>
+                                <button onClick={() => { onModeChange('global'); setIsSheetOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${currentMode === 'global' ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
+                                    <Library className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Oxford 5000</div><div className="text-[10px] font-normal opacity-70">System vocabulary</div></div>
+                                </button>
+                            </div>
+                        </SheetContent>
+                    </Sheet>
+                    
                 </div>
-            </SheetContent>
-        </Sheet>
+            </FeatureHint>
 
-        {/* 🚀 FIXED: ICON & TÊN APP LUÔN CỐ ĐỊNH LÀ CỦA BENJAMIN */}
+
         <div className="flex items-center gap-2 sm:gap-3 shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onReset}>
            <div className="p-1.5 sm:p-2 rounded-lg bg-white/10 text-white transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -172,15 +195,14 @@ export function Header({
                     <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
                 </svg>
            </div>
-           <h1 className="text-lg sm:text-xl font-bold tracking-tight hidden lg:block select-none truncate">
-               Better With Benjamin
+            <h1 className="text-sm sm:text-xl font-black text-white whitespace-nowrap tracking-tight">
+                   Better With Benjamin
            </h1>
         </div>
       </div>
       
-      {/* --- 2. CỤM GIỮA: THANH TÌM KIẾM THU GỌN --- */}
+      {/* --- 2. CỤM GIỮA: THANH TÌM KIẾM--- */}
       <div className="flex justify-center items-center flex-1 px-2">
-          {/* THANH TÌM KIẾM TRÊN PC/TABLET (Thu gọn với max-w-[260px]) */}
           <div className="relative hidden md:block w-full max-w-[220px] lg:max-w-[280px] transition-all">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input 
@@ -201,7 +223,7 @@ export function Header({
           </button>
       </div>
 
-      {/* --- 3. CỤM PHẢI: NÚT CHẾ ĐỘ & AVATAR --- (Dùng flex-1 justify-end) */}
+      {/* --- 3. CỤM PHẢI: NÚT CHẾ ĐỘ & AVATAR ---*/}
       <div className="flex items-center justify-end gap-2 sm:gap-4 flex-1">
          
 

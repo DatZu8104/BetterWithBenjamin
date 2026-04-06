@@ -12,11 +12,11 @@ dotenv.config();
 // KẾT NỐI MONGODB
 mongoose.connect(process.env.MONGO_URI)
     .then(() => {
-        console.log("✅ Đã kết nối MongoDB. Bắt đầu import...");
+        console.log("✅ Connected to MongoDB. Starting import...");
         importData();
     })
     .catch(err => {
-        console.error("❌ Lỗi kết nối MongoDB:", err);
+        console.error("❌ MongoDB connection error:", err);
         process.exit(1);
     });
 
@@ -26,26 +26,26 @@ const importData = async () => {
         // (Lấy admin đầu tiên tìm thấy)
         const adminUser = await User.findOne({ role: 'admin' });
         if (!adminUser) {
-            console.error("❌ Không tìm thấy user nào là Admin trong Database. Hãy tạo admin trước.");
+            console.error("❌ No Admin user found in the Database. Please create an admin first.");
             process.exit(1);
         }
         const adminId = adminUser._id;
-        console.log(`👤 Dữ liệu sẽ thuộc về Admin: ${adminUser.username} (${adminId})`);
+        console.log(`👤 Data will belong to Admin: ${adminUser.username} (${adminId})`);
 
         // 2. Đọc file JSON
         const filePath = path.join(__dirname, 'oxford_5000_merged_final.json');
         if (!fs.existsSync(filePath)) {
-            console.error(`❌ Không tìm thấy file tại: ${filePath}`);
-            console.error("👉 Hãy copy file 'oxford_5000_merged_final.json' vào cùng thư mục với file script này.");
+            console.error(`❌ File not found at: ${filePath}`);
+            console.error("👉 Please copy 'oxford_5000_merged_final.json' to the same directory as this script file.");
             process.exit(1);
         }
         
         const rawData = fs.readFileSync(filePath, 'utf-8');
         const jsonData = JSON.parse(rawData);
-        console.log(`📦 Đã đọc file JSON: ${jsonData.length} từ.`);
+        console.log(`📦 Read JSON file: ${jsonData.length} words.`);
 
         // 3. Dọn dẹp dữ liệu cũ (Xóa sạch SystemVocabulary & Group Oxford cũ)
-        console.log("🧹 Đang dọn dẹp dữ liệu cũ...");
+        console.log("🧹 Cleaning old data...");
         await SystemVocabulary.deleteMany({});
         await GroupSetting.deleteMany({ isGlobal: true, groupName: { $regex: /^Oxford Level/ } });
         
@@ -59,9 +59,9 @@ const importData = async () => {
                 color: "#e11d48",
                 isGlobal: true
             });
-            console.log("📁 Đã tạo Folder mới:", folderName);
+            console.log("📁 Created new Folder:", folderName);
         } else {
-            console.log("📁 Sử dụng Folder có sẵn:", folderName);
+            console.log("📁 Using existing Folder:", folderName);
         }
 
         // 5. Chuẩn bị dữ liệu để Insert
@@ -97,7 +97,7 @@ const importData = async () => {
         });
 
         // 6. Tạo các Group Setting
-        console.log(`🔄 Đang tạo ${levelGroups.size} nhóm Level...`);
+        console.log(`🔄 Creating ${levelGroups.size} Level groups...`);
         for (const groupName of levelGroups) {
             await GroupSetting.findOneAndUpdate(
                 { groupName: groupName, isGlobal: true },
@@ -112,21 +112,21 @@ const importData = async () => {
         }
 
         // 7. Insert hàng loạt vào Database
-        console.log("🚀 Đang nạp từ vựng vào Database (Việc này mất khoảng 10-20 giây)...");
+        console.log("🚀 Loading vocabulary into Database (This takes about 10-20 seconds)...");
         // ordered: false giúp chạy nhanh hơn và không dừng lại nếu 1 từ lỗi
         await SystemVocabulary.insertMany(wordsToInsert, { ordered: false });
 
         console.log("\n============================================");
-        console.log("✅ THÀNH CÔNG RỰC RỠ!");
-        console.log(`📊 Tổng số từ đã nạp: ${wordsToInsert.length}`);
+        console.log("✅ GLORIOUS SUCCESS!");
+        console.log(`📊 Total words loaded: ${wordsToInsert.length}`);
         console.log(`📂 Folder: ${folderName}`);
-        console.log(`📑 Các nhóm đã tạo: ${Array.from(levelGroups).join(", ")}`);
+        console.log(`📑 Created groups: ${Array.from(levelGroups).join(", ")}`);
         console.log("============================================");
 
         process.exit(0);
 
     } catch (error) {
-        console.error("❌ LỖI KHÔNG MONG MUỐN:", error);
+        console.error("❌ UNEXPECTED ERROR:", error);
         process.exit(1);
     }
 };

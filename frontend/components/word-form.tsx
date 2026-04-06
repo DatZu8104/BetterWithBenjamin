@@ -17,7 +17,6 @@ export function WordForm({ onSave, onCancel, initialData }: any) {
   const [definition, setDefinition] = useState('');
   const [types, setTypes] = useState<string[]>([]);
 
-  // Nếu có dữ liệu cũ (chế độ Edit), điền vào form
   useEffect(() => {
     if (initialData) {
       setEnglish(initialData.english);
@@ -52,11 +51,11 @@ export function WordForm({ onSave, onCancel, initialData }: any) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <h3 className="text-lg font-semibold mb-4">
-        {initialData ? 'Chỉnh sửa từ' : 'Thêm từ mới'}
+        {initialData ? 'Edit words' : 'Add new words'}
       </h3>
 
       <div className="space-y-1">
-        <label className="text-sm font-medium">Tiếng Anh</label>
+        <label className="text-sm font-medium">English</label>
         <Input
           placeholder="Ví dụ: hello"
           value={english}
@@ -91,7 +90,7 @@ export function WordForm({ onSave, onCancel, initialData }: any) {
       </div>
 
       <div className="flex gap-3 mt-4 pt-2">
-        <Button type="submit" className="flex-1">{initialData ? 'Lưu thay đổi' : 'Thêm từ'}</Button>
+        <Button type="submit" className="flex-1">{initialData ? 'Save' : 'Add'}</Button>
         <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>Hủy</Button>
       </div>
     </form>
