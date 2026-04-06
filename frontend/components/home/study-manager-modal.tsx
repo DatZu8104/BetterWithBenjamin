@@ -311,8 +311,8 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                 align="start"
                 message={
                   <div className="space-y-1 max-w-[240px]">
-                    <p className="font-bold text-white flex items-center gap-1.5"> Bản đồ học tập</p>
-                    <p className="text-zinc-200 text-sm font-normal leading-snug">Chuyển đổi giữa <span className="text-blue-300 font-bold">Kho Oxford</span> (tạo bài học mới) và <span className="text-blue-300 font-bold">Thư mục</span> (ôn tập các từ đã lưu).</p>
+                    <p className="font-bold text-white flex items-center gap-1.5">Change tab</p>
+                    <p className="text-zinc-200 text-sm font-normal leading-snug">Switch between <span className="text-blue-300 font-bold">Oxford Warehouse</span> (create new lesson) and <span className="text-blue-300 font-bold">Folder</span> (review saved words).</p>
                   </div>
                 }
               >

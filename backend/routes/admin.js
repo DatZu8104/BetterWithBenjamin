@@ -3,7 +3,7 @@ const router = express.Router();
 const { User, Vocabulary, SystemVocabulary, Folder, GroupSetting } = require('../models');
 const { verifyToken, verifyAdmin } = require('../middleware');
 
- q
+
 router.get('/users', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const users = await User.find().select('-password');
