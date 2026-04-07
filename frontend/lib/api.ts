@@ -262,5 +262,22 @@ getSystemWords: async () => {
         throw new Error(errorData.error || "Lỗi khi import Oxford");
     }
     return res.json();
-  }
+  },
+  // --- THỐNG KÊ TIẾN ĐỘ THƯ MỤC ---
+  
+  getPersonalGroupStats: async () => {
+    const res = await fetch(`${API_URL}/stats/personal-groups-progress`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch personal group stats');
+    return res.json();
+  },
+
+  getSystemGroupStats: async () => {
+    const res = await fetch(`${API_URL}/stats/system-groups-progress`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch system group stats');
+    return res.json();
+  },
 };

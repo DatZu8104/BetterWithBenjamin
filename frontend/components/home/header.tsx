@@ -82,27 +82,37 @@ export function Header({
 
   return (
     <>
-    {/* ĐÃ CHỈNH H-12 VÀ SM:H-14 (Rút gọn chiều cao Header) */}
     <header className="flex items-center justify-between px-3 sm:px-6 py-1.5 sm:py-2 border-b border-zinc-800 bg-black sticky top-0 z-40 text-white shadow-sm relative h-12 sm:h-14">
       <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
 
-      {/* MOBILE SEARCH OVERLAY*/}
+      {/* MOBILE SEARCH OVERLAY (Đã được làm lại) */}
       {isMobileSearchOpen && (
-          <div className="absolute inset-0 bg-black z-50 flex items-center px-4 sm:px-8 animate-in fade-in slide-in-from-top-2 duration-200">
-              <Search className="absolute left-8 sm:left-12 w-4 h-4 text-zinc-400" />
-              <input 
-                  type="text"
-                  autoFocus
-                  placeholder={currentMode === 'global' ? "Search in Oxford 5000..." : "Search vocabulary..."}
-                  className="w-full pl-10 pr-10 py-2 sm:py-2.5 rounded-full border-2 border-blue-500 bg-zinc-900 focus:outline-none text-sm text-white shadow-lg shadow-blue-900/20"
-                  value={searchTerm}
-                  onChange={(e) => onSearchChange(e.target.value)}
-              />
+          <div className="absolute inset-0 bg-black z-50 flex items-center px-4 sm:px-6 gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                  <input 
+                      type="text"
+                      autoFocus
+                      placeholder={currentMode === 'global' ? "Search in Oxford 5000..." : "Search vocabulary..."}
+                      className="w-full pl-9 pr-9 py-2 sm:py-2.5 rounded-full border-2 border-blue-500 bg-zinc-900 focus:outline-none text-sm text-white shadow-lg shadow-blue-900/20"
+                      value={searchTerm}
+                      onChange={(e) => onSearchChange(e.target.value)}
+                  />
+                  {/* Nút X chỉ xuất hiện khi có text và chỉ xóa text */}
+                  {searchTerm && (
+                      <button 
+                          onClick={() => onSearchChange('')} 
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-full transition-colors"
+                      >
+                          <X className="w-4 h-4" />
+                      </button>
+                  )}
+              </div>
               <button 
-                  onClick={() => { setIsMobileSearchOpen(false); onReset(); }} 
-                  className="absolute right-8 sm:right-12 p-1.5 text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-full transition-colors"
+                  onClick={() => { setIsMobileSearchOpen(false); onSearchChange(''); }} 
+                  className="text-sm font-bold text-zinc-400 hover:text-white transition-colors whitespace-nowrap"
               >
-                  <X className="w-4 h-4" />
+                  Cancel
               </button>
           </div>
       )}
@@ -126,7 +136,7 @@ export function Header({
             }
         >
             <div className="inline-block"> 
-                {/* MENU HAMBURGER - Đã thu nhỏ font và padding */}
+                {/* MENU HAMBURGER */}
                 <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetTrigger asChild>
                         <button className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border transition-all outline-none shrink-0 ${currentMode === 'global' ? 'bg-purple-950/30 border-purple-900/50 hover:bg-purple-900/50' : 'bg-blue-950/30 border-blue-900/50 hover:bg-blue-900/50'}`}>
@@ -154,7 +164,7 @@ export function Header({
             </div>
         </FeatureHint>
 
-        {/* LOGO - Đã thu nhỏ Icon và Text */}
+        {/* LOGO - Nút này vẫn giữ tính năng "Back to home" như cũ */}
         <div className="flex items-center gap-2 shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onReset}>
            <div className="p-1 sm:p-1.5 rounded-md bg-white/10 text-white transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -168,17 +178,26 @@ export function Header({
         </div>
       </div>
       
-      {/* --- 2. CỤM GIỮA: THANH TÌM KIẾM - Đã làm mỏng Input --- */}
+      {/* --- 2. CỤM GIỮA: THANH TÌM KIẾM (Đã thêm nút X) --- */}
       <div className="flex justify-center items-center flex-1 px-2">
           <div className="relative hidden md:block w-full max-w-[220px] lg:max-w-[280px] transition-all">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
             <input 
                 type="text"
                 placeholder={currentMode === 'global' ? "Search in Oxford..." : "Search..."}
-                className="w-full pl-8 pr-4 py-1 sm:py-1.5 rounded-full border border-zinc-800 bg-zinc-900 focus:bg-zinc-800 focus:outline-none focus:border-blue-500 transition-all text-xs sm:text-sm text-white"
+                className="w-full pl-8 pr-8 py-1 sm:py-1.5 rounded-full border border-zinc-800 bg-zinc-900 focus:bg-zinc-800 focus:outline-none focus:border-blue-500 transition-all text-xs sm:text-sm text-white"
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
             />
+            {/* Nút X chỉ xuất hiện khi có text và chỉ xóa text */}
+            {searchTerm && (
+                <button 
+                    onClick={() => onSearchChange('')} 
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-full transition-colors"
+                >
+                    <X className="w-3.5 h-3.5" />
+                </button>
+            )}
           </div>
 
           <button 
@@ -190,7 +209,7 @@ export function Header({
       </div>
 
       <div className="flex items-center justify-end gap-2 sm:gap-3 flex-1">
-         {/* AVATAR USER - Đã thu nhỏ Size Avatar */}
+         {/* AVATAR USER */}
          <div className="relative shrink-0">
             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center gap-1.5 hover:bg-zinc-800 p-1 sm:pl-2 sm:pr-1.5 rounded-full transition-colors outline-none border border-transparent hover:border-zinc-700">
                 <span className="text-xs sm:text-sm font-bold hidden sm:block text-zinc-300">{username}</span>

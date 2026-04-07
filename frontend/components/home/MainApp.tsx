@@ -72,6 +72,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
     }
     loadData();
   }, []);
+
   const loadData = async () => {
     try {
       const data = await api.syncData();
@@ -115,7 +116,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       let cachedSysWords = await db.systemWords.toArray();
 
       if (cachedSysWords.length === 0) {
-          setIsSyncingSystem(true); // Hiện cái popup "Đang đồng bộ..." ở góc
+          setIsSyncingSystem(true);
           const sysWordsFromApi = await api.getSystemWords();
           
           if (Array.isArray(sysWordsFromApi)) {
@@ -148,6 +149,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
     return words.filter(w => !w.isGlobal);
   }, [words, viewMode]);
 
+  // ĐÂY LÀ KHU VỰC TRÁI TIM ĐƯỢC CẬP NHẬT ĐỂ TÍNH TIẾN ĐỘ REAL-TIME
   const calculatedGroups = useMemo(() => {
     const relevantSettings = rawGroupSettings.filter(s => {
         const isGlobalGroup = !!s.isGlobal; 
@@ -161,13 +163,27 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
     
     const groupsData = allGroupNames.map(name => {
         const groupWordsList = wordsByMode.filter(w => w.group === name);
+        const count = groupWordsList.length;
+        
+        // --- 2 DÒNG TÍNH TOÁN % ĐỂ TRUYỀN XUỐNG GROUP-LIST ---
+        const learnedWords = groupWordsList.filter(w => w.learned).length;
+        const percentage = count > 0 ? Math.round((learnedWords / count) * 100) : 0;
+        // -----------------------------------------------------
+
         let dateVal = 0;
         const parts = name.split(/[-/]/);
         if (parts.length === 3) {
             const y = parseInt(parts[0]); const m = parseInt(parts[1]); const d = parseInt(parts[2]);
             if (!isNaN(y) && !isNaN(m) && !isNaN(d)) dateVal = new Date(y, m - 1, d).getTime();
         }
-        return { name, count: groupWordsList.length, folder: groupSettings[name] || "", dateVal };
+        return { 
+            name, 
+            count, 
+            folder: groupSettings[name] || "", 
+            dateVal,
+            learnedWords, // Data mới
+            percentage    // Data mới
+        };
     }).filter(g => {
         if (g.count > 0) return true;
         if (canEdit && relevantSettingNames.has(g.name)) return true;
@@ -349,7 +365,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                             updateUrl({ learn: null, sysFolder: null }); 
                             setModalLearnWords(null); 
                             sessionStorage.removeItem('current_learn_words');
-                            loadData(); 
+                            // KHÔNG CẦN gọi loadData() ở đây nữa vì mọi thứ đã đồng bộ Real-time!
                         }}
                         themeColor={viewMode === 'global' ? '#9333ea' : (currentFolder && folderColors[currentFolder] ? undefined : '#2563eb')}
                     />

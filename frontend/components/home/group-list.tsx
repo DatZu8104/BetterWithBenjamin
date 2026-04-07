@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Plus, Trash2, Folder, FolderOpen, MoreVertical, MoveRight, PlayCircle, RotateCcw, GraduationCap, Library, ChevronDown, Check, X, Settings, Pencil } from 'lucide-react';
+import { Plus, Trash2, Folder, FolderOpen, MoreVertical, MoveRight, PlayCircle, RotateCcw, GraduationCap, Library, ChevronDown, Check, X, Settings, Pencil, Loader2, Volume2, BookOpen, ExternalLink } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { cn } from '../../lib/utils';
 import { Input } from '../ui/input'; 
@@ -67,6 +67,44 @@ export function GroupListView({
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [folderNameInput, setFolderNameInput] = useState('');
   const [folderColorInput, setFolderColorInput] = useState('blue');
+  
+  const [detailWord, setDetailWord] = useState<any | null>(null);
+
+  const [displayLimit, setDisplayLimit] = useState(30);
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setDisplayLimit(30);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && searchResults.length > displayLimit) {
+          setDisplayLimit((prev) => prev + 30);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [displayLimit, searchResults.length]);
+
+  const playAudio = (e: React.MouseEvent, url: string | undefined, text: string, type: 'us' | 'uk' = 'us') => {
+    e.stopPropagation(); 
+    if (url && url.startsWith('http')) {
+        new Audio(url).play().catch(err => console.log("Audio play error:", err));
+    } else {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = type === 'uk' ? 'en-GB' : 'en-US';
+        window.speechSynthesis.speak(u);
+    }
+  };
 
   const currentThemeColor = currentFolder && folderColors[currentFolder] ? folderColors[currentFolder] : 'blue';
   const currentTheme = COLORS.find(c => c.id === currentThemeColor)?.style || COLORS[0].style;
@@ -76,6 +114,8 @@ export function GroupListView({
     : groups;
 
   const progressPercent = totalWords > 0 ? Math.round((learnedCount / totalWords) * 100) : 0;
+
+  const displayResults = searchResults.slice(0, displayLimit);
 
   const openCreateModal = () => {
     setModalMode('create');
@@ -166,53 +206,47 @@ export function GroupListView({
             </div>
 
             {totalWords > 0 && (
-    <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto z-10">
-    
-    {!allowAdd ? (
-        <FeatureHint 
-            id={ONBOARDING_IDS.SYSTEM_WORDS_START}
-            side="bottom"
-            align="center"
-            message={
-                <div className="space-y-1.5 w-[220px]">
-                    <p className="font-bold text-white flex items-center gap-1.5">
-                        <PlayCircle className="w-4 h-4 text-emerald-400" />
-                        Get started now!
-                    </p>
-                    <p className="text-zinc-100 text-sm leading-snug font-normal">
-                        Click here to choose a vocabulary library (eg Level A1) and start studying with flashcards!
-                    </p>
-                </div>
-            }
-        >
-            <div className="inline-block w-full">
-                <Button size="lg" onClick={onStartLearn} className={cn("w-full md:w-64 h-14 text-lg font-bold shadow-lg transition-all hover:scale-105 rounded-2xl border-none", currentTheme.button)}>
-                    <PlayCircle className="w-6 h-6 mr-2 fill-current" /> {learnedCount > 0 && learnedCount < totalWords ? "Continue Learning" : "Start Learning"}
-                </Button>
-            </div>
-        </FeatureHint>
-    ) : (
-        <Button size="lg" onClick={onStartLearn} className={cn("w-full md:w-64 h-14 text-lg font-bold shadow-lg transition-all hover:scale-105 rounded-2xl border-none", currentTheme.button)}>
-            <PlayCircle className="w-6 h-6 mr-2 fill-current" /> {learnedCount > 0 && learnedCount < totalWords ? "Continue Learning" : "Start Learning"}
-        </Button>
-    )}
+                <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto z-10">
+                
+                <FeatureHint 
+                    id={ONBOARDING_IDS.SYSTEM_WORDS_START}
+                    side="bottom"
+                    align="center"
+                    message={
+                        <div className="space-y-1.5 w-[220px]">
+                            <p className="font-bold text-white flex items-center gap-1.5">
+                                <PlayCircle className="w-4 h-4 text-emerald-400" />
+                                Get started now!
+                            </p>
+                            <p className="text-zinc-100 text-sm leading-snug font-normal">
+                                Click here to choose a vocabulary library and start studying with flashcards!
+                            </p>
+                        </div>
+                    }
+                >
+                    <div className="inline-block w-full">
+                        <Button size="lg" onClick={onStartLearn} className={cn("w-full md:w-64 h-14 text-lg font-bold shadow-lg transition-all hover:scale-105 rounded-2xl border-none", currentTheme.button)}>
+                            <PlayCircle className="w-6 h-6 mr-2 fill-current" /> {learnedCount > 0 && learnedCount < totalWords ? "Continue Learning" : "Start Learning"}
+                        </Button>
+                    </div>
+                </FeatureHint>
 
-    {learnedCount > 0 && (
-        <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => { 
-                if(confirm("Are you sure you want to reset all progress for this section?")) {
-                    onResetLearn(); 
-                }
-            }} 
-            className={cn("w-full transition-colors", currentTheme.resetBtn)}
-        >
-        <RotateCcw className="w-4 h-4 mr-2" /> Reset Progress
-        </Button>
-    )}
-    </div>
-)}
+                {learnedCount > 0 && (
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => { 
+                            if(confirm("Are you sure you want to reset all progress for this section?")) {
+                                onResetLearn(); 
+                            }
+                        }} 
+                        className={cn("w-full transition-colors", currentTheme.resetBtn)}
+                    >
+                    <RotateCcw className="w-4 h-4 mr-2" /> Reset Progress
+                    </Button>
+                )}
+                </div>
+            )}
           </div>
         )}
 
@@ -223,21 +257,76 @@ export function GroupListView({
                🔍 Search Results ({searchResults.length})
              </h2>
              <div className="grid gap-3">
-               {searchResults.map((word: any) => (
-                 <div key={word.id} className="flex items-center justify-between p-4 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800/80 transition shadow-sm">
-                    <div className="min-w-0 pr-4">
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="font-bold text-lg text-white">{word.english}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 font-medium">{word.group}</span>
+               {displayResults.map((word: any) => {
+                 const displayWord = word.word || word.english;
+                 const displayLevel = word.level || (word.group?.includes('Level') ? word.group.split('Level ')[1] : null);
+                 const displayPhonetic = word.phonetics?.us || word.phonetics?.uk || word.ipa || "";
+
+                 return (
+                 <div key={word.id} 
+                      onClick={() => setDetailWord(word)}
+                      className="group flex items-center justify-between p-3 sm:p-4 rounded-2xl border border-white/5 bg-zinc-900 hover:bg-zinc-800 hover:border-blue-500/30 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer">
+                    
+                    <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-3 pr-2 sm:pr-4">
+                        
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {displayLevel && (
+                                <span className="text-[10px] font-bold bg-yellow-600/20 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-600/30">
+                                    {displayLevel}
+                                </span>
+                            )}
+                            {!displayLevel && word.group && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 font-medium truncate max-w-[100px] sm:max-w-[140px] shrink-0">
+                                    {word.group}
+                                </span>
+                            )}
+                            <span className="font-bold text-base sm:text-lg text-white group-hover:text-blue-400 transition-colors truncate">
+                                {displayWord}
+                            </span>
+                            {word.learned && (
+                                <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
+                                    Learned
+                                </span>
+                            )}
                         </div>
-                        <p className="text-sm text-zinc-400 truncate font-medium">{word.definition}</p>
+
+                        <div className="flex items-center gap-2 mt-1 sm:mt-0">
+                            {word.type && (
+                                <span className="text-[9px] sm:text-[10px] uppercase font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded shrink-0">
+                                    {Array.isArray(word.type) ? word.type.join(', ') : word.type}
+                                </span>
+                            )}
+                            {displayPhonetic && (
+                                <span className="text-[11px] sm:text-xs text-zinc-500 font-mono shrink-0">
+                                    {displayPhonetic}
+                                </span>
+                            )}
+                        </div>
+
                     </div>
-                    {allowAdd && (
-                        <Button variant="ghost" size="icon" onClick={() => { onDeleteWordResult(word.id); if(onUpdate) onUpdate(); }} className="text-zinc-500 hover:text-red-400 hover:bg-red-950/20"><Trash2 className="w-5 h-5"/></Button>
-                    )}
+
+                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                            {allowAdd && (
+                                <button onClick={(e) => { e.stopPropagation(); onDeleteWordResult(word.id); if(onUpdate) onUpdate(); }} className="p-1.5 sm:p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors">
+                                    <Trash2 className="w-4 h-4"/>
+                                </button>
+                            )}
+                        </div>
+                    </div>
                  </div>
-               ))}
+               )})}
              </div>
+             
+             {/* INFINITE SCROLL LOADER */}
+             {searchResults.length > displayLimit && (
+                 <div ref={observerTarget} className="text-center py-6 flex justify-center w-full">
+                    <div className="flex items-center gap-2 text-zinc-500 text-xs font-medium px-4 py-2 bg-zinc-900/50 rounded-full border border-zinc-800">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Loading more...
+                    </div>
+                 </div>
+             )}
            </div>
         )}
 
@@ -317,61 +406,110 @@ export function GroupListView({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in slide-in-from-bottom-4 duration-500">
-              {displayGroups.map((g: any) => {
+              {displayGroups.map((g: any, index: number) => {
                 const cardFolder = g.folder;
                 const cardColor = cardFolder && folderColors[cardFolder] ? folderColors[cardFolder] : null;
                 const cardTheme = cardColor ? COLORS.find(c => c.id === cardColor)?.style : null;
 
-                return (
-                <Card key={g.name} 
-                      className={cn(
-                        "group relative p-5 flex flex-col justify-between border-2 transition-all cursor-pointer min-h-[11rem] rounded-2xl shadow-sm",
-                        cardFolder && cardTheme 
-                            ? `${cardTheme.cardBorder} ${cardTheme.cardBg} ${cardTheme.cardHover}` 
-                            : "border-zinc-800 bg-zinc-900 hover:border-zinc-600 hover:bg-zinc-800/80"
-                      )}
-                      onClick={() => onSelectGroup(g.name)}
-                >
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-3">
-                        <div className={cn("p-2 rounded-lg border mb-3 transition-colors", cardFolder && cardTheme ? `${cardTheme.iconBox} border-transparent` : "bg-zinc-800 border-zinc-700 text-zinc-400")}>
-                            <Folder className="w-5 h-5" />
-                        </div>
-                        {allowAdd && (
-                            <div onClick={(e) => e.stopPropagation()}>
-                                <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:bg-zinc-700 hover:text-white -mr-2 -mt-2">
-                                    <MoreVertical className="w-4 h-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56 bg-neutral-900 border border-zinc-800 text-zinc-300 shadow-2xl p-1 z-50">
-                                    <DropdownMenuLabel className="text-xs text-zinc-500 uppercase tracking-widest pl-2 py-2">Actions</DropdownMenuLabel>
-                                    <DropdownMenuSeparator className="bg-zinc-800" />
-                                    <DropdownMenuItem onSelect={() => setGroupToMove(g.name)} className="rounded-md focus:bg-zinc-800 focus:text-white py-2 px-2 cursor-pointer text-zinc-300">
-                                        <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Move to...</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator className="bg-zinc-800" />
-                                    <DropdownMenuItem onSelect={() => { onDeleteGroup(g.name); if(onUpdate) onUpdate(); }} className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer">
-                                        <Trash2 className="w-4 h-4 mr-2" /> Delete Group
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                                </DropdownMenu>
+                const cardInner = (
+                  <>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start mb-3">
+                          <div className={cn("p-2 rounded-lg border mb-3 transition-colors", cardFolder && cardTheme ? `${cardTheme.iconBox} border-transparent` : "bg-zinc-800 border-zinc-700 text-zinc-400")}>
+                              <Folder className="w-5 h-5" />
+                          </div>
+                          {allowAdd && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-600 hover:bg-zinc-700 hover:text-white -mr-2 -mt-2">
+                                      <MoreVertical className="w-4 h-4" />
+                                      </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-56 bg-neutral-900 border border-zinc-800 text-zinc-300 shadow-2xl p-1 z-50">
+                                      <DropdownMenuLabel className="text-xs text-zinc-500 uppercase tracking-widest pl-2 py-2">Actions</DropdownMenuLabel>
+                                      <DropdownMenuSeparator className="bg-zinc-800" />
+                                      <DropdownMenuItem onSelect={() => setGroupToMove(g.name)} className="rounded-md focus:bg-zinc-800 focus:text-white py-2 px-2 cursor-pointer text-zinc-300">
+                                          <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Move to...</span>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator className="bg-zinc-800" />
+                                      <DropdownMenuItem onSelect={() => { onDeleteGroup(g.name); if(onUpdate) onUpdate(); }} className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer">
+                                          <Trash2 className="w-4 h-4 mr-2" /> Delete Group
+                                      </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                  </DropdownMenu>
+                              </div>
+                          )}
+                      </div>
+                      <h3 className={cn("text-lg font-bold w-full transition-colors line-clamp-2", cardFolder && cardTheme ? "text-white" : "text-white group-hover:text-zinc-300")} title={g.name}>{g.name}</h3>
+                    </div>
+
+                    {g.percentage !== undefined && (
+                        <div className="mt-3 mb-1">
+                            <div className="flex justify-between items-end mb-1.5">
+                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Progress</span>
+                                <span className={cn("text-xs font-bold", cardFolder && cardTheme ? cardTheme.folderText : "text-zinc-300")}>{g.percentage}%</span>
                             </div>
+                            <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+                                <div className={cn("h-full rounded-full transition-all duration-700", cardFolder && cardTheme ? cardTheme.progressFill : "bg-zinc-500")} style={{ width: `${g.percentage}%` }}></div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
+                        <span className={cn("text-xs font-semibold shrink-0", cardFolder && cardTheme ? cardTheme.folderText : "text-zinc-500")}>
+                            {g.learnedWords !== undefined ? `${g.learnedWords}/${g.count} learned` : `${g.count} words`}
+                        </span>
+                        {!currentFolder && g.folder && (
+                          <span className={cn("text-[10px] px-2 py-1 rounded border font-medium max-w-[60%] truncate flex items-center gap-1 ml-2", cardFolder && cardTheme ? `bg-black/20 border-white/10 ${cardTheme.folderText}` : "bg-zinc-950 border-zinc-800 text-zinc-400")}>
+                            <Folder className="w-3 h-3 shrink-0"/> <span className="truncate">{g.folder}</span>
+                          </span>
                         )}
                     </div>
-                    <h3 className={cn("text-lg font-bold w-full transition-colors line-clamp-2", cardFolder && cardTheme ? "text-white" : "text-white group-hover:text-zinc-300")} title={g.name}>{g.name}</h3>
-                  </div>
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
-                      <span className={cn("text-xs font-semibold shrink-0", cardFolder && cardTheme ? cardTheme.folderText : "text-zinc-500")}>{g.count} words</span>
-                      {!currentFolder && g.folder && (
-                        <span className={cn("text-[10px] px-2 py-1 rounded border font-medium max-w-[60%] truncate flex items-center gap-1 ml-2", cardFolder && cardTheme ? `bg-black/20 border-white/10 ${cardTheme.folderText}` : "bg-zinc-950 border-zinc-800 text-zinc-400")}>
-                          <Folder className="w-3 h-3 shrink-0"/> <span className="truncate">{g.folder}</span>
-                        </span>
-                      )}
-                  </div>
-                </Card>
-              )})}
+                  </>
+                );
+
+                const cardClasses = cn(
+                  "group relative p-5 flex flex-col justify-between border-2 transition-all cursor-pointer min-h-[11rem] rounded-2xl shadow-sm w-full",
+                  cardFolder && cardTheme 
+                      ? `${cardTheme.cardBorder} ${cardTheme.cardBg} ${cardTheme.cardHover}` 
+                      : "border-zinc-800 bg-zinc-900 hover:border-zinc-600 hover:bg-zinc-800/80"
+                );
+
+                // NẾU LÀ THẺ ĐẦU TIÊN -> HIỆN TOUR CHỈ ĐIỂM
+                if (index === 0) {
+                    return (
+                        <FeatureHint
+                            key={`tour-${g.name}`}
+                            id={"folder_click_tour" as any}
+                            side="bottom"
+                            align="center"
+                            message={
+                                <div className="space-y-1.5 w-[220px]">
+                                    <p className="font-bold text-white flex items-center gap-1.5">
+                                        <FolderOpen className="w-4 h-4 text-blue-400" />
+                                        Open Folder!
+                                    </p>
+                                    <p className="text-zinc-100 text-sm leading-snug font-normal">
+                                        Click on this card to view the detailed vocabulary list inside.
+                                    </p>
+                                </div>
+                            }
+                        >
+                            <Card className={cardClasses} onClick={() => onSelectGroup(g.name)}>
+                                {cardInner}
+                            </Card>
+                        </FeatureHint>
+                    );
+                }
+
+                // CÁC THẺ CÒN LẠI HIỂN THỊ BÌNH THƯỜNG
+                return (
+                  <Card key={g.name} className={cardClasses} onClick={() => onSelectGroup(g.name)}>
+                      {cardInner}
+                  </Card>
+                );
+              })}
               
               {allowAdd && (
                   <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700" onClick={onAddGroup}>
@@ -461,6 +599,118 @@ export function GroupListView({
         )}
 
       </div>
+
+      {/* --- MODAL HIỂN THỊ CHI TIẾT NGHĨA TỪ --- */}
+      {detailWord && (() => {
+          const actualData = detailWord?.wordId || detailWord || {};
+          const definitions = (actualData.definitions && actualData.definitions.length > 0)
+              ? actualData.definitions
+              : [{
+                  order: 1,
+                  label: 'Definition',
+                  definition: actualData.definition || "There is no definition available.",
+                  examples: actualData.example ? [actualData.example] : []
+              }];
+          const phonetics = actualData.phonetics || {};
+          const displayWord = actualData.word || actualData.english || "Unknown";
+
+          return (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setDetailWord(null)}>
+                  
+                  <div className="w-[95vw] sm:w-[90vw] max-w-5xl h-[95vh] sm:h-[90vh] bg-zinc-800 border-2 border-blue-900/50 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+
+                      {/* Modal Header */}
+                      <div className="p-4 sm:p-5 px-5 sm:px-8 border-b border-zinc-900/50 bg-zinc-900 flex justify-between items-start shrink-0">
+                          
+                          <div className="flex-1 min-w-0 pr-3 sm:pr-4 flex flex-col justify-center">
+                              
+                              <div className="flex items-baseline gap-2 sm:gap-3 flex-wrap">
+                                  <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight break-words">{displayWord}</h2>
+                                  {actualData.type && (
+                                      <span className="text-sm sm:text-base text-blue-400 italic font-serif opacity-90 shrink-0">
+                                          {Array.isArray(actualData.type) ? actualData.type.join(', ') : actualData.type}
+                                      </span>
+                                  )}
+                              </div>
+                              
+                              {(phonetics.us || actualData.audio?.us || phonetics.uk || actualData.audio?.uk) && (
+                                  <div className="flex items-center gap-3 sm:gap-5 mt-1 sm:mt-1.5 w-full flex-nowrap overflow-hidden">
+                                      
+                                      {(phonetics.us || actualData.audio?.us) && (
+                                          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
+                                              <button 
+                                                  onClick={(e) => playAudio(e, actualData.audio?.us, displayWord, 'us')} 
+                                                  className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all text-[9px] sm:text-[10px] font-bold"
+                                                  title="Play US pronunciation"
+                                              >
+                                                  US
+                                              </button>
+                                              {phonetics.us && <span className="text-[10px] sm:text-xs text-zinc-400 font-mono tracking-wide truncate">{phonetics.us}</span>}
+                                          </div>
+                                      )}
+
+                                      {(phonetics.uk || actualData.audio?.uk) && (
+                                          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
+                                              <button 
+                                                  onClick={(e) => playAudio(e, actualData.audio?.uk, displayWord, 'uk')} 
+                                                  className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500 hover:text-white transition-all text-[9px] sm:text-[10px] font-bold"
+                                                  title="Play UK pronunciation"
+                                              >
+                                                  UK
+                                              </button>
+                                              {phonetics.uk && <span className="text-[10px] sm:text-xs text-zinc-400 font-mono tracking-wide truncate">{phonetics.uk}</span>}
+                                          </div>
+                                      )}
+                                  </div>
+                              )}
+                          </div>
+
+                          <button onClick={() => setDetailWord(null)} className="p-1.5 sm:p-2 bg-zinc-800 hover:bg-zinc-700 rounded-full text-zinc-400 hover:text-white transition-colors shrink-0 mt-0.5">
+                              <X className="w-5 h-5"/>
+                          </button>
+                      </div>
+
+                      {/* Modal Body (Definitions) */}
+                      <div className="p-4 sm:p-6 px-5 sm:px-8 overflow-y-auto custom-scrollbar flex-1 bg-zinc-800 text-left relative">
+                          {actualData.href && (
+                              <div className="absolute top-4 sm:top-5 right-4 sm:right-5 z-10">
+                                  <a href={actualData.href} target="_blank" rel="noopener noreferrer" className="text-[10px] sm:text-xs font-bold text-blue-400 flex items-center gap-1.5 hover:bg-blue-600 hover:text-white bg-blue-950/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-blue-900 transition-all">
+                                      View on Oxford <ExternalLink className="w-3 h-3"/>
+                                  </a>
+                              </div>
+                          )}
+
+                          <div className="space-y-5 sm:space-y-6 pb-6 pt-1">
+                              {definitions.map((def: any, idx: number) => (
+                                  <div key={idx} className="relative pl-3 sm:pl-4 border-l-2 sm:border-l-[3px] border-blue-500/30">
+                                      <div className="flex items-center gap-2 mb-1.5">
+                                          <div className="bg-blue-500/10 text-blue-300 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded border border-blue-500/20 uppercase tracking-wider">
+                                              {def.label || `Meaning ${idx + 1}`}
+                                          </div>
+                                      </div>
+                                      
+                                      <h3 className="text-base sm:text-lg text-white font-medium leading-relaxed mb-2 sm:mb-2.5">{def.definition}</h3>
+                                      
+                                      {def.examples && def.examples.length > 0 && (
+                                          <div className="space-y-1.5 sm:space-y-2 bg-black/20 p-3 sm:p-4 rounded-xl border border-white/5">
+                                              {def.examples.map((ex: string, i: number) => (
+                                                  <div key={i} className="flex gap-2 items-start">
+                                                      <span className="text-blue-500/50 text-[10px] sm:text-xs mt-1 sm:mt-1.5">●</span>
+                                                      <p className="text-zinc-300 text-sm italic leading-relaxed">"{ex}"</p>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      )}
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                  </div>
+              </div>
+          );
+      })()}
+
     </div>
   );
 }
