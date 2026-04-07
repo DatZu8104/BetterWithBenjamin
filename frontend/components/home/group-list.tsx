@@ -3,12 +3,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Plus, Trash2, Folder, FolderOpen, MoreVertical, MoveRight, PlayCircle, RotateCcw, GraduationCap, Library, ChevronDown, Check, X, Settings, Pencil, Loader2, Volume2, BookOpen, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Folder, FolderOpen, MoreVertical, MoveRight, PlayCircle, RotateCcw, GraduationCap, Library, ChevronDown, Check, X, Settings, Pencil, Loader2, Volume2, BookOpen, ExternalLink, Calendar, Hash, ArrowDownAZ } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { cn } from '../../lib/utils';
 import { Input } from '../ui/input'; 
 import { FeatureHint } from '../onboarding/FeatureHint';
 import { ONBOARDING_IDS } from '../onboarding/constants';
+import { toast } from 'sonner';
 
 const COLORS = [
   { id: 'blue', name: 'Blue', bg: 'bg-blue-600', style: { bg: "bg-blue-950/20", border: "border-blue-900/50", iconBox: "bg-blue-900/50 text-blue-300", title: "text-blue-300", progressTrack: "bg-blue-950", progressFill: "bg-blue-600", button: "bg-blue-700 hover:bg-blue-600 text-white", resetBtn: "text-blue-400 hover:bg-blue-950/50", cardBorder: "border-blue-800", cardBg: "bg-blue-950/20", folderText: "text-blue-400", cardHover: "hover:border-blue-600" }},
@@ -40,9 +41,9 @@ interface GroupListProps {
   onCreateFolder: (folder: string, color: string) => void;
   onUpdateFolder: (oldName: string, newName: string, newColor: string) => void; 
   onDeleteFolder: (folderName: string) => void;
-  sortOption: 'date' | 'name' | 'size';
+  sortOption: 'date' | 'name' | 'size' | string | null;
   sortDirection: 'asc' | 'desc';
-  onSort: (option: 'date' | 'name' | 'size') => void;
+  onSort: (option: any) => void;
   onStartLearn: () => void;
   onResetLearn: () => void;
 
@@ -137,8 +138,12 @@ export function GroupListView({
     if (modalMode === 'create') {
         onCreateFolder(folderNameInput, folderColorInput);
         if (groupToMove) { onMoveGroup(groupToMove, folderNameInput); setGroupToMove(null); }
+        toast.success(`Folder "${folderNameInput}" created!`);
     } else {
-        if (currentFolder) onUpdateFolder(currentFolder, folderNameInput, folderColorInput);
+        if (currentFolder) {
+            onUpdateFolder(currentFolder, folderNameInput, folderColorInput);
+            toast.success(`Folder updated!`);
+        }
     }
     setIsModalOpen(false);
     if (onUpdate) onUpdate(); 
@@ -175,7 +180,10 @@ export function GroupListView({
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator className="bg-zinc-800"/>
                                 <DropdownMenuItem onClick={() => {
-                                    if(confirm(`Are you sure you want to delete folder "${currentFolder}"?`)) onDeleteFolder(currentFolder);
+                                    if(confirm(`Are you sure you want to delete folder "${currentFolder}"?`)) {
+                                        onDeleteFolder(currentFolder);
+                                        toast.success(`Deleted folder "${currentFolder}"`);
+                                    }
                                 }} className="focus:bg-red-950/30 text-red-500 focus:text-red-400 cursor-pointer py-2 px-3 rounded-md">
                                     <Trash2 className="w-4 h-4 mr-2" /> Delete Folder
                                 </DropdownMenuItem>
@@ -238,6 +246,7 @@ export function GroupListView({
                         onClick={() => { 
                             if(confirm("Are you sure you want to reset all progress for this section?")) {
                                 onResetLearn(); 
+                                toast.success("Progress has been reset!");
                             }
                         }} 
                         className={cn("w-full transition-colors", currentTheme.resetBtn)}
@@ -308,7 +317,12 @@ export function GroupListView({
                     <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                         <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                             {allowAdd && (
-                                <button onClick={(e) => { e.stopPropagation(); onDeleteWordResult(word.id); if(onUpdate) onUpdate(); }} className="p-1.5 sm:p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors">
+                                <button onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    onDeleteWordResult(word.id); 
+                                    if(onUpdate) onUpdate(); 
+                                    toast.success("Word deleted successfully!");
+                                }} className="p-1.5 sm:p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors">
                                     <Trash2 className="w-4 h-4"/>
                                 </button>
                             )}
@@ -372,35 +386,77 @@ export function GroupListView({
                 </DropdownMenu>
               </div>
 
+              {/* CỤM NÚT LỌC (SORT) ĐÃ CẬP NHẬT GIAO DIỆN XỊN */}
               <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 no-scrollbar">
-                <div className="flex items-center bg-zinc-900 p-1 rounded-lg border border-zinc-800 shadow-sm shrink-0">
+                <div className="flex items-center bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 shadow-sm shrink-0 gap-1">
+                  
+                  {/* Nút Calendar */}
                   <Button 
-                    variant="ghost" 
+                    variant={sortOption === 'date' ? "default" : "ghost"}
                     size="sm" 
-                    className={cn("h-8 px-3 rounded transition-all", sortOption === 'date' ? "bg-zinc-700 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-zinc-800")} 
-                    onClick={() => onSort('date')}
+                    className={cn(
+                        "h-9 px-3.5 rounded-lg transition-all flex items-center gap-1.5 font-bold", 
+                        sortOption === 'date' ? "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                    )} 
+                    onClick={() => {
+                        if (sortOption === 'date') {
+                            onSort(null); 
+                            toast.info("Sorting removed");
+                        } else {
+                            onSort('date'); 
+                            toast.success("Sorted by Calendar Date");
+                        }
+                    }}
                   >
-                    Calendar
+                    <Calendar className="w-4 h-4" /> Calendar
                   </Button>
+
+                  {/* Nút Size */}
                   <Button 
-                    variant="ghost" 
+                    variant={sortOption === 'size' ? "default" : "ghost"}
                     size="sm" 
-                    className={cn("h-8 px-3 rounded transition-all", sortOption === 'size' ? "bg-zinc-700 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-zinc-800")} 
-                    onClick={() => onSort('size')}
+                    className={cn(
+                        "h-9 px-3.5 rounded-lg transition-all flex items-center gap-1.5 font-bold", 
+                        sortOption === 'size' ? "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                    )} 
+                    onClick={() => {
+                        if (sortOption === 'size') {
+                            onSort(null); 
+                            toast.info("Sorting removed");
+                        } else {
+                            onSort('size'); 
+                            toast.success("Sorted by Size");
+                        }
+                    }}
                   >
-                    Size
+                    <Hash className="w-4 h-4" /> Size
                   </Button>
+
+                  {/* Nút Name */}
                   <Button 
-                    variant="ghost" 
+                    variant={sortOption === 'name' ? "default" : "ghost"}
                     size="sm" 
-                    className={cn("h-8 px-3 rounded transition-all", sortOption === 'name' ? "bg-zinc-700 text-white shadow-md" : "text-zinc-400 hover:text-white hover:bg-zinc-800")} 
-                    onClick={() => onSort('name')}
+                    className={cn(
+                        "h-9 px-3.5 rounded-lg transition-all flex items-center gap-1.5 font-bold", 
+                        sortOption === 'name' ? "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                    )} 
+                    onClick={() => {
+                        if (sortOption === 'name') {
+                            onSort(null); 
+                            toast.info("Sorting removed");
+                        } else {
+                            onSort('name'); 
+                            toast.success("Sorted by Name (A-Z)");
+                        }
+                    }}
                   >
-                    Name
+                    <ArrowDownAZ className="w-4 h-4" /> Name
                   </Button>
+
                 </div>
+                
                 {allowAdd && (
-                    <Button onClick={onAddGroup} className="shrink-0 h-10 px-4 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> New Group</Button>
+                    <Button onClick={onAddGroup} className="shrink-0 h-11 px-5 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> New Group</Button>
                 )}
               </div>
             </div>
@@ -433,7 +489,11 @@ export function GroupListView({
                                           <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Move to...</span>
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator className="bg-zinc-800" />
-                                      <DropdownMenuItem onSelect={() => { onDeleteGroup(g.name); if(onUpdate) onUpdate(); }} className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer">
+                                      <DropdownMenuItem onSelect={() => { 
+                                          onDeleteGroup(g.name); 
+                                          if(onUpdate) onUpdate(); 
+                                          toast.success(`Deleted group "${g.name}"`);
+                                      }} className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer">
                                           <Trash2 className="w-4 h-4 mr-2" /> Delete Group
                                       </DropdownMenuItem>
                                   </DropdownMenuContent>
@@ -476,12 +536,13 @@ export function GroupListView({
                       : "border-zinc-800 bg-zinc-900 hover:border-zinc-600 hover:bg-zinc-800/80"
                 );
 
-                // NẾU LÀ THẺ ĐẦU TIÊN -> HIỆN TOUR CHỈ ĐIỂM
                 if (index === 0) {
                     return (
                         <FeatureHint
                             key={`tour-${g.name}`}
                             id={"folder_click_tour" as any}
+                            waitFor={ONBOARDING_IDS.SYSTEM_WORDS_START} // BẮT BUỘC PHẢI CHỜ NÚT START LEARNING CHẠY XONG
+                            delay={400} // THÊM ĐỘ TRỄ NHỎ ĐỂ GIAO DIỆN MƯỢT HƠN
                             side="bottom"
                             align="center"
                             message={
@@ -503,7 +564,6 @@ export function GroupListView({
                     );
                 }
 
-                // CÁC THẺ CÒN LẠI HIỂN THỊ BÌNH THƯỜNG
                 return (
                   <Card key={g.name} className={cardClasses} onClick={() => onSelectGroup(g.name)}>
                       {cardInner}
@@ -531,7 +591,7 @@ export function GroupListView({
                     </div>
                     <div className="p-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
                         <p className="text-xs text-zinc-500 font-bold uppercase px-3 py-2 tracking-wider">Select Destination</p>
-                        <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800 transition-colors text-left group" onClick={() => { onMoveGroup(groupToMove, ""); setGroupToMove(null); }}>
+                        <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800 transition-colors text-left group" onClick={() => { onMoveGroup(groupToMove, ""); setGroupToMove(null); toast.success("Moved to Unsorted!"); }}>
                             <div className="p-2 bg-zinc-800 rounded-lg text-zinc-400 group-hover:text-white group-hover:bg-zinc-700 transition-colors"><Folder className="w-5 h-5"/></div>
                             <span className="font-medium text-zinc-300 group-hover:text-white">Unsorted (No Folder)</span>
                         </button>
@@ -541,7 +601,7 @@ export function GroupListView({
                                 const fColor = folderColors[f];
                                 const fStyle = fColor ? COLORS.find(c => c.id === fColor)?.style : null;
                                 return (
-                                <button key={f} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800 transition-colors text-left group" onClick={() => { onMoveGroup(groupToMove, f); setGroupToMove(null); }}>
+                                <button key={f} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800 transition-colors text-left group" onClick={() => { onMoveGroup(groupToMove, f); setGroupToMove(null); toast.success(`Moved to ${f}!`); }}>
                                     <div className={cn("p-2 rounded-lg transition-all", fStyle ? fStyle.iconBox : "bg-zinc-800 text-zinc-400")}><FolderOpen className="w-5 h-5"/></div>
                                     <span className="font-medium text-zinc-300 group-hover:text-white">{f}</span>
                                 </button>

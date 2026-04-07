@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { WordForm } from '../word-form';
 import { ArrowLeft, Plus, Trash2, X, Pencil, PlayCircle, ListPlus, Save, CheckCircle, Loader2, Search, BookOpen, Volume2, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/utils';
-// THÊM IMPORT CHO CÔNG CỤ ONBOARDING TOUR
 import { FeatureHint } from '../onboarding/FeatureHint';
 
 interface WordListViewProps {
@@ -248,7 +247,6 @@ export function WordListView({
                           const displayLevel = word.level || (word.group?.includes('Level') ? word.group.split('Level ')[1] : null);
                           const displayPhonetic = word.phonetics?.us || word.phonetics?.uk || word.ipa || "";
 
-                          // TÁCH PHẦN RUỘT CỦA THẺ RA ĐỂ DÙNG CHUNG
                           const cardInnerContent = (
                             <>
                               <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center sm:gap-3 pr-2 sm:pr-4">
@@ -309,7 +307,6 @@ export function WordListView({
 
                           const cardClasses = "group flex items-center justify-between p-3 sm:p-4 rounded-2xl border border-white/5 bg-zinc-900 hover:bg-zinc-800 hover:border-blue-500/30 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer w-full";
 
-                          // NẾU LÀ THẺ ĐẦU TIÊN -> HIỆN TOUR CHỈ ĐIỂM
                           if (index === 0) {
                               return (
                                   <FeatureHint
@@ -337,7 +334,6 @@ export function WordListView({
                               );
                           }
 
-                          // CÁC THẺ CÒN LẠI HIỂN THỊ BÌNH THƯỜNG
                           return (
                             <div key={word.id} onClick={() => setDetailWord(word)} className={cardClasses}>
                                 {cardInnerContent}
@@ -390,35 +386,54 @@ export function WordListView({
                                   )}
                               </div>
                               
+                              {/* --- BỌC HIỆU ỨNG TOUR CHO CỤM NÚT ÂM THANH --- */}
                               {(phonetics.us || actualData.audio?.us || phonetics.uk || actualData.audio?.uk) && (
-                                  <div className="flex items-center gap-3 sm:gap-5 mt-1 sm:mt-1.5 w-full flex-nowrap overflow-hidden">
-                                      
-                                      {(phonetics.us || actualData.audio?.us) && (
-                                          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
-                                              <button 
-                                                  onClick={(e) => playAudio(e, actualData.audio?.us, displayWord, 'us')} 
-                                                  className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all text-[9px] sm:text-[10px] font-bold"
-                                                  title="Play US pronunciation"
-                                              >
-                                                  US
-                                              </button>
-                                              {phonetics.us && <span className="text-[10px] sm:text-xs text-zinc-400 font-mono tracking-wide truncate">{phonetics.us}</span>}
+                                  <FeatureHint
+                                      id={"modal_audio_tour" as any}
+                                      side="bottom"
+                                      align="start"
+                                      delay={500} // Chờ 0.5s để modal mở xong mới hiện Tour
+                                      message={
+                                          <div className="space-y-1.5 w-[220px]">
+                                              <p className="font-bold text-white flex items-center gap-1.5">
+                                                  <Volume2 className="w-4 h-4 text-blue-400" />
+                                                  Listen to pronunciation!
+                                              </p>
+                                              <p className="text-zinc-100 text-sm leading-snug font-normal">
+                                                  Click the US or UK button to hear the correct pronunciation of this word.
+                                              </p>
                                           </div>
-                                      )}
+                                      }
+                                  >
+                                      <div className="flex items-center gap-3 sm:gap-5 mt-1 sm:mt-1.5 w-full flex-nowrap overflow-hidden">
+                                          
+                                          {(phonetics.us || actualData.audio?.us) && (
+                                              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
+                                                  <button 
+                                                      onClick={(e) => playAudio(e, actualData.audio?.us, displayWord, 'us')} 
+                                                      className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all text-[9px] sm:text-[10px] font-bold"
+                                                      title="Play US pronunciation"
+                                                  >
+                                                      US
+                                                  </button>
+                                                  {phonetics.us && <span className="text-[10px] sm:text-xs text-zinc-400 font-mono tracking-wide truncate">{phonetics.us}</span>}
+                                              </div>
+                                          )}
 
-                                      {(phonetics.uk || actualData.audio?.uk) && (
-                                          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
-                                              <button 
-                                                  onClick={(e) => playAudio(e, actualData.audio?.uk, displayWord, 'uk')} 
-                                                  className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500 hover:text-white transition-all text-[9px] sm:text-[10px] font-bold"
-                                                  title="Play UK pronunciation"
-                                              >
-                                                  UK
-                                              </button>
-                                              {phonetics.uk && <span className="text-[10px] sm:text-xs text-zinc-400 font-mono tracking-wide truncate">{phonetics.uk}</span>}
-                                          </div>
-                                      )}
-                                  </div>
+                                          {(phonetics.uk || actualData.audio?.uk) && (
+                                              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
+                                                  <button 
+                                                      onClick={(e) => playAudio(e, actualData.audio?.uk, displayWord, 'uk')} 
+                                                      className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500 hover:text-white transition-all text-[9px] sm:text-[10px] font-bold"
+                                                      title="Play UK pronunciation"
+                                                  >
+                                                      UK
+                                                  </button>
+                                                  {phonetics.uk && <span className="text-[10px] sm:text-xs text-zinc-400 font-mono tracking-wide truncate">{phonetics.uk}</span>}
+                                              </div>
+                                          )}
+                                      </div>
+                                  </FeatureHint>
                               )}
                           </div>
 

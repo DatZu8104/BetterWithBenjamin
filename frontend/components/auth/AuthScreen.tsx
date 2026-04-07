@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { api, setApiToken } from '../../lib/api'; 
-import { Loader2, User, Lock, ArrowRight, BookOpen, KeyRound } from 'lucide-react';
+import { Loader2, User, Lock, ArrowRight, BookOpen, KeyRound, Eye, EyeOff } from 'lucide-react';
 
 interface AuthScreenProps {
   onLoginSuccess: (token: string, user: string, role: string) => void;
@@ -12,8 +12,11 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  
   const [confirmPassword, setConfirmPassword] = useState('');
+  
+  // State quản lý việc ẩn/hiện mật khẩu
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -27,9 +30,16 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
     e.preventDefault();
     setError('');
 
-    if (!isLogin && password !== confirmPassword) {
-        setError('Passwords do not match!');
-        return;
+    // VALIDATION CHO ĐĂNG KÝ
+    if (!isLogin) {
+        if (password.length < 8) {
+            setError('Password must be at least 8 characters long!');
+            return;
+        }
+        if (password !== confirmPassword) {
+            setError('Passwords do not match!');
+            return;
+        }
     }
 
     setIsLoading(true);
@@ -38,11 +48,16 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
       let data;
       if (isLogin) {
         data = await api.login(username, password);
+        if (data.error) throw new Error(data.error);
       } else {
-        data = await api.register(username, password);
+        // ĐĂNG KÝ
+        const regData = await api.register(username, password);
+        if (regData.error) throw new Error(regData.error);
+        
+        // AUTO-LOGIN: Sau khi đăng ký thành công, tự động đăng nhập ngầm để lấy Token
+        data = await api.login(username, password);
+        if (data.error) throw new Error(data.error);
       }
-
-      if (data.error) throw new Error(data.error);
 
       setApiToken(data.token);
       if (typeof window !== 'undefined') {
@@ -50,17 +65,11 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
           sessionStorage.setItem('user_role', data.role || 'user');
       }
 
-      if (isLogin) {
-        onLoginSuccess(data.token, data.username, data.role);
-      } else {
-        alert('Registration successful! Please login.');
-        setIsLogin(true);
-        setPassword('');
-        setConfirmPassword('');
-      }
+      // Vào thẳng App cho cả 2 trường hợp (Đăng nhập / Đăng ký xong)
+      onLoginSuccess(data.token, data.username, data.role);
 
     } catch (err: any) {
-      setError(err.message || 'An error occurred');
+      setError(err.message || 'An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -71,6 +80,8 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
       setError('');
       setPassword('');
       setConfirmPassword('');
+      setShowPassword(false);
+      setShowConfirmPassword(false);
   };
 
   return (
@@ -92,7 +103,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
             </p>
         </div>
 
-        {/* --- GIAI ĐOẠN 2: Hệ thống Tabs chuyển đổi --- */}
+        {/* Hệ thống Tabs chuyển đổi */}
         <div className="flex bg-black/50 p-1.5 rounded-xl mb-6 border border-white/5 relative z-10">
             <button 
                 type="button"
@@ -133,30 +144,44 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                 <div className="relative">
                     <Lock className="absolute left-4 top-3.5 w-5 h-5 text-zinc-500" />
                     <input 
-                        type="password" 
+                        type={showPassword ? "text" : "password"} 
                         required 
-                        className={`w-full pl-12 pr-4 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:ring-1 transition-all outline-none ${colorFocus}`}
+                        className={`w-full pl-12 pr-12 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:ring-1 transition-all outline-none ${colorFocus}`}
                         placeholder="••••••••"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                     />
+                    <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-3.5 text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
                 </div>
             </div>
 
-            {/* --- GIAI ĐOẠN 1: Input: Confirm Password (Chỉ hiện khi Đăng ký) --- */}
+            {/* Input: Confirm Password (Chỉ hiện khi Đăng ký) */}
             {!isLogin && (
                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
                     <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Confirm Password</label>
                     <div className="relative">
                         <KeyRound className="absolute left-4 top-3.5 w-5 h-5 text-zinc-500" />
                         <input 
-                            type="password" 
+                            type={showConfirmPassword ? "text" : "password"} 
                             required 
-                            className={`w-full pl-12 pr-4 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:ring-1 transition-all outline-none ${colorFocus}`}
+                            className={`w-full pl-12 pr-12 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:ring-1 transition-all outline-none ${colorFocus}`}
                             placeholder="••••••••"
                             value={confirmPassword}
                             onChange={e => setConfirmPassword(e.target.value)}
                         />
+                        <button 
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-4 top-3.5 text-zinc-500 hover:text-zinc-300 transition-colors"
+                        >
+                            {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
                     </div>
                 </div>
             )}
@@ -169,13 +194,18 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                 </div>
             )}
 
-            {/* Nút Submit (Màu đổi tự động) */}
+            {/* Nút Submit & Loading Ui */}
             <button 
                 type="submit" 
                 disabled={isLoading}
-                className={`w-full py-4 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-4 ${colorButton}`}
+                className={`w-full py-4 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 mt-4 ${isLoading ? 'bg-zinc-800 cursor-not-allowed shadow-none' : `${colorButton} active:scale-95`}`}
             >
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : (
+                {isLoading ? (
+                    <span className="flex items-center gap-2 text-sm text-zinc-300">
+                        <Loader2 className="w-5 h-5 animate-spin text-white"/>
+                        Setting up your workspace. This might take a moment...
+                    </span>
+                ) : (
                     <>
                         {isLogin ? 'Login' : 'Create Account'} 
                         <ArrowRight className="w-5 h-5" />

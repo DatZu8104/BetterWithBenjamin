@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FeatureHint } from '../onboarding/FeatureHint';
 import { ONBOARDING_IDS } from '../onboarding/constants';
+import { toast } from 'sonner'; 
+
 interface StudyManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -79,15 +81,17 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     setVisibleCount(30);
   }, [selectedSystemGroup, activeTab]);
 
+  // --- ĐÃ SỬA LỖI HIỂN THỊ SAI SỐ LƯỢNG Ở Ô INPUT ---
   useEffect(() => {
-    if (selectedSystemGroup && availableWords.length > 0) {
+    if (selectedSystemGroup) {
        const countInThisGroup = selectedWordIds.filter(id => 
         availableWords.some((w: any) => (w._id || w.id) === id)
       ).length;
       
+      // Chỉ theo dõi số lượng ở nhóm hiện tại, cập nhật mỗi khi giỏ hàng hoặc nhóm thay đổi
       setQuickSelectInputValue(countInThisGroup > 0 ? countInThisGroup.toString() : "");
     }
-  }, [selectedSystemGroup, availableWords]);
+  }, [selectedSystemGroup, availableWords, selectedWordIds]);
 
   const fetchUserFolders = async () => {
     try {
@@ -125,7 +129,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
       setEditingFolderWords(data.savedWords || []);
       setIsEditModalOpen(true);
     } catch (err) {
-      alert("Unable to load directory details for editing.");
+      toast.error("Unable to load directory details for editing.");
     } finally {
       setIsLoading(false);
     }
@@ -173,7 +177,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
       onStartLearn(folder.name, formattedWords);
       onClose();
     } catch (err) {
-      alert("Unable to load this directory details.");
+      toast.error("Unable to load this directory details.");
     } finally {
       setIsLoading(false);
     }
@@ -187,8 +191,9 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
       fetchUserFolders(); 
       fetchSavedWordIds(); 
       if (onRefreshData) onRefreshData();
+      toast.success("Folder deleted successfully!");
     } catch (err) {
-      alert("Folder deletion failed.");
+      toast.error("Folder deletion failed.");
     }
   };
 
@@ -209,10 +214,14 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
       return;
     }
 
-     const targetCount = count === "ALL" ? availableWords.length : Math.min(count, availableWords.length);
+    const targetCount = count === "ALL" ? availableWords.length : Math.min(count, availableWords.length);
     setQuickSelectInputValue(targetCount.toString());
 
-    const wordsToSelect = availableWords.slice(0, targetCount);
+    const shuffledWords = count === "ALL" 
+      ? availableWords 
+      : [...availableWords].sort(() => 0.5 - Math.random());
+      
+    const wordsToSelect = shuffledWords.slice(0, targetCount);
     const newSelectedIdsForThisGroup = wordsToSelect.map((w: any) => w._id || w.id);
     
     setSelectedWordIds([...idsFromOtherGroups, ...newSelectedIdsForThisGroup]);
@@ -283,10 +292,11 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
           };
         });
 
+      toast.success("Folder created successfully!");
       onStartLearn(newFolder.name, formattedWords);
       onClose();
     } catch (err) {
-      alert("An error occurred while creating the folder. Please try again!");
+      toast.error("An error occurred while creating the folder. Please try again!");
     } finally {
       setIsLoading(false);
     }
@@ -304,7 +314,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
             
             <div className="flex items-end justify-between md:justify-end gap-4 md:gap-8 w-full md:w-auto">
               
-              {/* Cụm Tabs */}
               <FeatureHint
                 id={ONBOARDING_IDS.MODAL_STUDY_TABS}  
                 side="bottom"
@@ -480,11 +489,13 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
 
                       <div className="flex items-center justify-end gap-2 shrink-0">
                         
+                        {/* Giao diện Mobile */}
                         <div className="md:hidden">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button className="flex items-center justify-center gap-1.5 h-9 px-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-blue-400 shadow-sm outline-none transition-colors">
-                                {quickSelectInputValue || (selectedWordIds.length > 0 ? selectedWordIds.length : 0)} / {availableWords.length}
+                                {/* Đã bỏ fallback selectedWordIds.length */}
+                                {quickSelectInputValue || 0} / {availableWords.length}
                                 <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
                               </button>
                             </DropdownMenuTrigger>
@@ -494,13 +505,13 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                                 Quick select (Max: {availableWords.length})
                               </div>
                               <DropdownMenuItem onClick={() => applyWordSelection(10)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-                                ⚡ Select 10 new words
+                                ⚡ Select 10 random words
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => applyWordSelection(20)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-                                ⚡ Select 20 new words
+                                ⚡ Select 20 random words
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => applyWordSelection(50)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-                                ⚡ Select 50 new words
+                                ⚡ Select 50 random words
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => applyWordSelection("ALL")} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white font-bold text-blue-400">
                                 ✨ Select all ({availableWords.length})
@@ -511,9 +522,11 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                           </DropdownMenu>
                         </div>
 
+                        {/* Giao diện Desktop */}
                         <div className="hidden md:flex items-center h-10 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shrink-0 shadow-md focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
                           <Input
-                            value={quickSelectInputValue || (selectedWordIds.length > 0 ? selectedWordIds.length.toString() : "")}
+                            // Đã bỏ fallback selectedWordIds.length
+                            value={quickSelectInputValue}
                             onChange={handleQuickSelectChange}
                             onBlur={handleQuickSelectBlur}
                             onKeyDown={handleQuickSelectKeyDown}
@@ -533,13 +546,13 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                                 Quick select (Max: {availableWords.length})
                               </div>
                               <DropdownMenuItem onClick={() => applyWordSelection(10)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">                             
-                                 Select 10 new words
+                                 Select 10 random words
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => applyWordSelection(20)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-                                 Select 20 new words
+                                 Select 20 random words
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => applyWordSelection(50)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-                                 Select 50 new words
+                                 Select 50 random words
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => applyWordSelection("ALL")} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white font-bold text-blue-400">
                                  Select all ({availableWords.length})
