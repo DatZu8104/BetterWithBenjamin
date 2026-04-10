@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Flashcard } from '../flashcard'; 
-import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw, Check, X, ChevronLeft, ChevronRight, Volume2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw, Check, X, ChevronLeft, ChevronRight, Volume2, MousePointerClick, Hand } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { FeatureHint } from '../onboarding/FeatureHint';
 
 interface LearnModeProps {
   currentWord?: any; 
@@ -29,6 +30,7 @@ export function LearnModeView({
   const [studyQueue, setStudyQueue] = useState<any[]>([]);
   const [localCurrentWord, setLocalCurrentWord] = useState<any | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isMobile, setIsMobile] = useState(false); // Xác định thiết bị để bật Tour 4
 
 
   // Quiz & Typing State
@@ -67,6 +69,14 @@ export function LearnModeView({
     if (preferredVoice) utterance.voice = preferredVoice;
     window.speechSynthesis.speak(utterance);
   };
+
+  // Check Mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
       if (hasInitialized.current && !isResetting) return;
@@ -178,7 +188,6 @@ export function LearnModeView({
     const deltaX = currentX - touchStart.x;
     const deltaY = currentY - touchStart.y;
 
-    // QUAN TRỌNG: Đợi tay nhích 10px để khóa hướng vuốt (Ngang hay Dọc?)
     if (!swipeDirection) {
         if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
             setSwipeDirection(Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical');
@@ -186,10 +195,8 @@ export function LearnModeView({
         return; 
     }
 
-    // Nếu đã khóa là cuộn dọc (đọc nghĩa), TUYỆT ĐỐI KHÔNG xê dịch thẻ ngang
     if (swipeDirection === 'vertical') return;
 
-    // Nếu vuốt ngang, kéo thẻ đi
     setTouchEndX(currentX);
     setSwipeOffset(deltaX * 0.7); 
   };
@@ -317,21 +324,69 @@ export function LearnModeView({
                                     <ChevronLeft className="w-8 h-8" />
                                 </Button>
 
-                                <div 
-                                    className="flex-1 min-w-0 transition-transform duration-200 relative 
-                                              md:[&_h2]:whitespace-normal md:[&_h2]:text-[clamp(1.5rem,8vw,3.5rem)] md:[&_h2]:px-0
-                                              max-md:[&_h2]:!whitespace-nowrap max-md:[&_h2]:!text-[clamp(1.5rem,8vw,3.5rem)] max-md:[&_h2]:!px-2"
-                                    style={{ transform: `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.04}deg)` }}
-                                    onTouchStart={handleTouchStart}
-                                    onTouchMove={handleTouchMove}
-                                    onTouchEnd={handleTouchEnd}
-                                >
-                                    <div className="md:hidden">
-                                        {swipeOffset < -30 && <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
-                                        {swipeOffset > 30 && <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
-                                    </div>
-                                    <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" color={themeColor} volume={volume}/>
-                                </div>
+                                {/* TOUR 1 VÀ TOUR 4 VÙNG CHỨA THẺ */}
+                                {(() => {
+                                    const cardElement = (
+                                        <div 
+                                            className="flex-1 min-w-0 transition-transform duration-200 relative 
+                                                    md:[&_h2]:whitespace-normal md:[&_h2]:text-[clamp(1.5rem,8vw,3.5rem)] md:[&_h2]:px-0
+                                                    max-md:[&_h2]:!whitespace-nowrap max-md:[&_h2]:!text-[clamp(1.5rem,8vw,3.5rem)] max-md:[&_h2]:!px-2"
+                                            style={{ transform: `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.04}deg)` }}
+                                            onTouchStart={handleTouchStart}
+                                            onTouchMove={handleTouchMove}
+                                            onTouchEnd={handleTouchEnd}
+                                        >
+                                            <div className="md:hidden">
+                                                {swipeOffset < -30 && <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
+                                                {swipeOffset > 30 && <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
+                                            </div>
+                                            <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" color={themeColor} volume={volume}/>
+                                        </div>
+                                    );
+
+                                    // Tour 1: Lật thẻ
+                                    const withTour1 = (
+                                        <FeatureHint
+                                            id={"learn_click_flashcard" as any}
+                                            delay={400}
+                                            side="bottom"
+                                            align="center"
+                                            message={
+                                                <div className="space-y-1 max-w-[240px]">
+                                                    <p className="font-bold text-white flex items-center gap-1.5"><MousePointerClick className="w-4 h-4 text-blue-400"/>Flip the flashcard</p>
+                                                    <p className="text-zinc-200 text-sm font-normal leading-snug">Click directly on this card to turn it over and see the meaning of the word!</p>
+                                                </div>
+                                            }
+                                        >
+                                            {cardElement}
+                                        </FeatureHint>
+                                    );
+
+                                    // Tour 4: Hướng dẫn vuốt (Chỉ Mobile)
+                                    if (isMobile) {
+                                        return (
+                                            <FeatureHint
+                                                id={"learn_swipe_mobile" as any}
+                                                waitFor={"learn_unknown_btn" as any}
+                                                delay={400}
+                                                side="bottom"
+                                                align="center"
+                                                message={
+                                                    <div className="space-y-1 max-w-[240px]">
+                                                        <p className="font-bold text-white flex items-center gap-1.5"><Hand className="w-4 h-4 text-violet-400"/>Swipe to learn</p>
+                                                        <p className="text-zinc-200 text-sm font-normal leading-snug">Quick action: Swipe the card to <strong>right</strong> if you already memorized it, swipe to <strong>left</strong> if you don't remember yet!</p>
+                                                    </div>
+                                                }
+                                            >
+                                                <div className="flex-1 flex min-w-0">
+                                                    {withTour1}
+                                                </div>
+                                            </FeatureHint>
+                                        );
+                                    }
+
+                                    return withTour1;
+                                })()}
 
                                 <Button 
                                     variant="ghost" 
@@ -416,7 +471,7 @@ export function LearnModeView({
                         </div>
                         )}
                         
-                        {/* (KNOWN / UNKNOWN) */}
+                        {/* TOUR 2 VÀ 3 (KNOWN / UNKNOWN) */}
                         {mode === 'flashcard' && (
                             <div className="shrink-0 mt-6 pt-4 border-t border-zinc-900/50 flex flex-col gap-4 w-full">
                                 
@@ -432,10 +487,43 @@ export function LearnModeView({
                                     />
                                 </div>
 
-                                {/* 2 NÚT BẤM */}
+                                {/* 2 NÚT BẤM CÓ BỌC TOUR */}
                                 <div className="grid grid-cols-2 gap-3 w-full">
-                                    <Button onClick={handleUnknown} className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white" disabled={isAnimating}><X className="w-5 h-5 mr-2"/> Chưa nhớ</Button>
-                                    <Button onClick={handleKnown} className="h-16 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white" style={{ backgroundColor: themeColor || '#2563eb' }} disabled={isAnimating}>Đã thuộc <Check className="ml-2 w-5 h-5"/></Button>
+                                    <FeatureHint
+                                        id={"learn_unknown_btn" as any}
+                                        waitFor={"learn_known_btn" as any}
+                                        delay={400}
+                                        side="top"
+                                        align="center"
+                                        message={
+                                            <div className="space-y-1 max-w-[240px]">
+                                                <p className="font-bold text-white flex items-center gap-1.5"><X className="w-4 h-4 text-red-400"/>Don't know the words yet</p>
+                                                <p className="text-zinc-200 text-sm font-normal leading-snug">If you don't remember, click here (or left arrow). The system will repeat this word until you remember!</p>
+                                            </div>
+                                        }
+                                    >
+                                        <Button onClick={handleUnknown} className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white" disabled={isAnimating}>
+                                            <X className="w-5 h-5 mr-2"/> Unknown
+                                        </Button>
+                                    </FeatureHint>
+
+                                    <FeatureHint
+                                        id={"learn_known_btn" as any}
+                                        waitFor={"learn_click_flashcard" as any}
+                                        delay={400}
+                                        side="top"
+                                        align="center"
+                                        message={
+                                            <div className="space-y-1 max-w-[240px]">
+                                                <p className="font-bold text-white flex items-center gap-1.5"><Check className="w-4 h-4 text-green-400"/> Already memorized the word</p>
+                                                <p className="text-zinc-200 text-sm font-normal leading-snug">If you already remember this word, click here (or the right arrow) to move to the next word.</p>
+                                            </div>
+                                        }
+                                    >
+                                        <Button onClick={handleKnown} className="h-16 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white" style={{ backgroundColor: themeColor || '#2563eb' }} disabled={isAnimating}>
+                                            Known <Check className="ml-2 w-5 h-5"/>
+                                        </Button>
+                                    </FeatureHint>
                                 </div>
                                 
                             </div>
@@ -444,8 +532,8 @@ export function LearnModeView({
                     ) : (
                     <div className="flex-1 flex flex-col items-center justify-center animate-in zoom-in-95 py-20">
                         <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center mb-6 shadow-inner"><span className="text-5xl">🎉</span></div>
-                        <h3 className="text-2xl font-bold mb-2 text-white">Xuất sắc!</h3>
-                        <p className="text-zinc-500 mb-6 text-center max-w-xs">Bạn đã ôn tập xong thư mục này.</p>
+                        <h3 className="text-2xl font-bold mb-2 text-white">Excellent!</h3>
+                        <p className="text-zinc-500 mb-6 text-center max-w-xs">You have finished reviewing this folder.</p>
                         <Button onClick={handleRestart} size="lg" className="rounded-full px-10 h-12 text-base font-bold shadow-lg bg-white text-black hover:bg-zinc-200">Học lại từ đầu</Button>
                     </div>
                     )}

@@ -1,0 +1,446 @@
+[
+  {
+    "_id": "698ad600c2f35b33ee04c963",
+    "word": "choose",
+    "type": "verb",
+    "definitions_count": 4
+  },
+  {
+    "_id": "698ad600c2f35b33ee04ca53",
+    "word": "consist",
+    "type": "verb",
+    "definitions_count": 1
+  },
+  {
+    "_id": "698ad600c2f35b33ee04cba1",
+    "word": "derive",
+    "type": "verb",
+    "definitions_count": 1
+  },
+  {
+    "_id": "698ad600c2f35b33ee04cb9e",
+    "word": "deprive",
+    "type": "verb",
+    "definitions_count": 1
+  },
+  {
+    "_id": "698ad600c2f35b33ee04cbcb",
+    "word": "devote",
+    "type": "verb",
+    "definitions_count": 0
+  },
+  {
+    "_id": "698ad600c2f35b33ee04cc96",
+    "word": "early",
+    "type": "adjective",
+    "definitions_count": 10
+  },
+  {
+    "_id": "698ad600c2f35b33ee04d0ca",
+    "word": "install",
+    "type": "verb",
+    "definitions_count": 4
+  },
+  {
+    "_id": "698ad600c2f35b33ee04d0cb",
+    "word": "installation",
+    "type": "noun",
+    "definitions_count": 6
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d1f8",
+    "word": "lion",
+    "type": "noun",
+    "definitions_count": 4
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d49b",
+    "word": "park",
+    "type": "noun",
+    "definitions_count": 6
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d56c",
+    "word": "pot",
+    "type": "noun",
+    "definitions_count": 19
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d6f1",
+    "word": "religion",
+    "type": "noun",
+    "definitions_count": 4
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d6f4",
+    "word": "rely",
+    "type": "verb",
+    "definitions_count": 0
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d729",
+    "word": "reservation",
+    "type": "noun",
+    "definitions_count": 4
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d736",
+    "word": "resolution",
+    "type": "noun",
+    "definitions_count": 5
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d73b",
+    "word": "respect",
+    "type": "noun",
+    "definitions_count": 8
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d722",
+    "word": "requirement",
+    "type": "noun",
+    "definitions_count": 2
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d731",
+    "word": "residue",
+    "type": "noun",
+    "definitions_count": 2
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d733",
+    "word": "resignation",
+    "type": "noun",
+    "definitions_count": 3
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d740",
+    "word": "responsibility",
+    "type": "noun",
+    "definitions_count": 3
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d742",
+    "word": "rest",
+    "type": "noun",
+    "definitions_count": 18
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d746",
+    "word": "restore",
+    "type": "verb",
+    "definitions_count": 5
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d757",
+    "word": "revelation",
+    "type": "noun",
+    "definitions_count": 4
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d75f",
+    "word": "revise",
+    "type": "verb",
+    "definitions_count": 3
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d762",
+    "word": "revive",
+    "type": "verb",
+    "definitions_count": 3
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d765",
+    "word": "reward",
+    "type": "noun",
+    "definitions_count": 3
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d76a",
+    "word": "rich",
+    "type": "adjective",
+    "definitions_count": 11
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d777",
+    "word": "risk",
+    "type": "noun",
+    "definitions_count": 9
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d778",
+    "word": "risk",
+    "type": "noun",
+    "definitions_count": 9
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d77a",
+    "word": "ritual",
+    "type": "noun",
+    "definitions_count": 2
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d77d",
+    "word": "river",
+    "type": "noun",
+    "definitions_count": 3
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d780",
+    "word": "robbery",
+    "type": "noun",
+    "definitions_count": 1
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d783",
+    "word": "rock",
+    "type": "noun",
+    "definitions_count": 14
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d784",
+    "word": "rock",
+    "type": "noun",
+    "definitions_count": 14
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d785",
+    "word": "rocket",
+    "type": "noun",
+    "definitions_count": 5
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d786",
+    "word": "rod",
+    "type": "noun",
+    "definitions_count": 7
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d78a",
+    "word": "romance",
+    "type": "noun",
+    "definitions_count": 5
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d78d",
+    "word": "room",
+    "type": "noun",
+    "definitions_count": 11
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d78e",
+    "word": "root",
+    "type": "noun",
+    "definitions_count": 12
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d797",
+    "word": "round",
+    "type": "adjective",
+    "definitions_count": 3
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d79d",
+    "word": "rub",
+    "type": "verb",
+    "definitions_count": 9
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d79e",
+    "word": "rubber",
+    "type": "noun",
+    "definitions_count": 6
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d7a3",
+    "word": "ruin",
+    "type": "verb",
+    "definitions_count": 2
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d7a5",
+    "word": "rule",
+    "type": "noun",
+    "definitions_count": 15
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d743",
+    "word": "rest",
+    "type": "noun",
+    "definitions_count": 18
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d748",
+    "word": "restrict",
+    "type": "verb",
+    "definitions_count": 4
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d74a",
+    "word": "result",
+    "type": "noun",
+    "definitions_count": 8
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d74c",
+    "word": "resume",
+    "type": "verb",
+    "definitions_count": 2
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d754",
+    "word": "return",
+    "type": "verb",
+    "definitions_count": 10
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d75a",
+    "word": "reverse",
+    "type": "verb",
+    "definitions_count": 7
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d75e",
+    "word": "review",
+    "type": "noun",
+    "definitions_count": 5
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d779",
+    "word": "risky",
+    "type": "adjective",
+    "definitions_count": 1
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d77f",
+    "word": "rob",
+    "type": "verb",
+    "definitions_count": 4
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d791",
+    "word": "rotate",
+    "type": "verb",
+    "definitions_count": 2
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d79f",
+    "word": "rubber",
+    "type": "noun",
+    "definitions_count": 6
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d7a0",
+    "word": "rubbish",
+    "type": "noun",
+    "definitions_count": 3
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d7a1",
+    "word": "rude",
+    "type": "adjective",
+    "definitions_count": 5
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d7a4",
+    "word": "ruin",
+    "type": "verb",
+    "definitions_count": 2
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d7aa",
+    "word": "run",
+    "type": "verb",
+    "definitions_count": 39
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d749",
+    "word": "restriction",
+    "type": "noun",
+    "definitions_count": 3
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d75b",
+    "word": "reverse",
+    "type": "verb",
+    "definitions_count": 7
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d75c",
+    "word": "reverse",
+    "type": "verb",
+    "definitions_count": 7
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d760",
+    "word": "revision",
+    "type": "noun",
+    "definitions_count": 3
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d76f",
+    "word": "rifle",
+    "type": "noun",
+    "definitions_count": 1
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d77e",
+    "word": "road",
+    "type": "noun",
+    "definitions_count": 16
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d788",
+    "word": "roll",
+    "type": "verb",
+    "definitions_count": 28
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d789",
+    "word": "roll",
+    "type": "verb",
+    "definitions_count": 28
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d78f",
+    "word": "rope",
+    "type": "noun",
+    "definitions_count": 8
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d7d4",
+    "word": "scan",
+    "type": "verb",
+    "definitions_count": 7
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d7e2",
+    "word": "scholarship",
+    "type": "noun",
+    "definitions_count": 2
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d7e4",
+    "word": "science",
+    "type": "noun",
+    "definitions_count": 5
+  },
+  {
+    "_id": "698ad601c2f35b33ee04d856",
+    "word": "sheet",
+    "type": "noun",
+    "definitions_count": 7
+  },
+  {
+    "_id": "698ad601c2f35b33ee04dac8",
+    "word": "third",
+    "type": "ordinal number",
+    "definitions_count": 2
+  },
+  {
+    "_id": "698ad601c2f35b33ee04db05",
+    "word": "toilet",
+    "type": "noun",
+    "definitions_count": 4
+  }
+]

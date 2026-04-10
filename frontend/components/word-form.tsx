@@ -44,7 +44,8 @@ export function WordForm({ onSave, onCancel, initialData }: any) {
     onSave(
       english.trim().toLowerCase(), 
       definition.trim().toLowerCase(), 
-      types
+      types,
+      initialData?._id || initialData?.id,
     );
   };
 

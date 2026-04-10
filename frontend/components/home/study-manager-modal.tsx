@@ -422,34 +422,55 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
             {activeTab === "system" && (
               <div className="absolute inset-0 flex flex-col p-6 overflow-hidden">
                 {!selectedSystemGroup ? (
-                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-40 md:pb-28">
-                  <FeatureHint
-                      id={ONBOARDING_IDS.MODAL_STUDY_SELECT_FOLDER}
-                      waitFor={ONBOARDING_IDS.MODAL_STUDY_TABS} 
-                      delay={400}
-                      side="bottom"
-                      align="center"
-                      message={
-                        <div className="space-y-1 max-w-[240px]">
-                          <p className="font-bold text-white flex items-center gap-1.5">📦 Start picking words</p>
-                          <p className="text-zinc-200 text-sm font-normal leading-snug">Click on a level (e.g.: <span className="text-blue-300 font-bold">A1</span>) to enter and pick the words you want to learn!</p>
-                        </div>
-                      }
-                    >
-                      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-                        {systemGroups.map(group => (
+                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-40 md:pb-28">
+                    {/* KHÔNG CÒN THẺ FeatureHint BỌC NGOÀI Ở ĐÂY NỮA, CHỈ BẮT ĐẦU BẰNG DIV GRID */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+                      {systemGroups.map((group, index) => {
+                        
+                        // NẾU LÀ FOLDER ĐẦU TIÊN -> BỌC TOUR CHO NÚT BẤM NÀY
+                        if (index === 0) {
+                          return (
+                            <FeatureHint
+                              key={group.name}
+                              id={ONBOARDING_IDS.MODAL_STUDY_SELECT_FOLDER}
+                              waitFor={ONBOARDING_IDS.MODAL_STUDY_TABS} 
+                              delay={400}
+                              side="right" // Sẽ nhảy sang phải nếu màn hình đủ chỗ
+                              align="center"
+                              message={
+                                <div className="space-y-1 max-w-[240px]">
+                                  <p className="font-bold text-white flex items-center gap-1.5">📦 Start picking words</p>
+                                  <p className="text-zinc-200 text-sm font-normal leading-snug">Click on a level (e.g.: <span className="text-blue-300 font-bold">A1</span>) to enter and pick the words you want to learn!</p>
+                                </div>
+                              }
+                            >
+                              <button
+                                onClick={() => startTransition(() => setSelectedSystemGroup(group.name))}
+                                className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-blue-950/30 hover:border-blue-900/50 transition-all group shadow-sm w-full"
+                              >
+                                <FolderOpen className="w-12 h-12 text-zinc-600 group-hover:text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
+                                <span className="font-extrabold text-lg text-white group-hover:text-blue-400 mb-1">{group.name.toUpperCase()}</span>
+                                <span className="text-xs font-semibold text-zinc-500 bg-zinc-950 px-3 py-1 rounded-full">{group.count} words</span>
+                              </button>
+                            </FeatureHint>
+                          );
+                        }
+
+                        // NẾU LÀ CÁC FOLDER KHÁC -> RENDER NÚT BÌNH THƯỜNG (KHÔNG CÓ TOUR)
+                        return (
                           <button
                             key={group.name}
-                          onClick={() => startTransition(() => setSelectedSystemGroup(group.name))}
-                          className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-blue-950/30 hover:border-blue-900/50 transition-all group shadow-sm"
-                        >
-                          <FolderOpen className="w-12 h-12 text-zinc-600 group-hover:text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
-                          <span className="font-extrabold text-lg text-white group-hover:text-blue-400 mb-1">{group.name.toUpperCase()}</span>
-                          <span className="text-xs font-semibold text-zinc-500 bg-zinc-950 px-3 py-1 rounded-full">{group.count} words</span>
-                        </button>
-                      ))}
+                            onClick={() => startTransition(() => setSelectedSystemGroup(group.name))}
+                            className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-blue-950/30 hover:border-blue-900/50 transition-all group shadow-sm w-full"
+                          >
+                            <FolderOpen className="w-12 h-12 text-zinc-600 group-hover:text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
+                            <span className="font-extrabold text-lg text-white group-hover:text-blue-400 mb-1">{group.name.toUpperCase()}</span>
+                            <span className="text-xs font-semibold text-zinc-500 bg-zinc-950 px-3 py-1 rounded-full">{group.count} words</span>
+                          </button>
+                        );
+                        
+                      })}
                     </div>
-                  </FeatureHint>  
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col min-h-0 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-sm">

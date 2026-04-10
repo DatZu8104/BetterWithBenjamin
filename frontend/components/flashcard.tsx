@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Volume2, ExternalLink, RotateCw } from 'lucide-react';
+import { Volume2, ExternalLink, RotateCw, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface FlashcardProps {
@@ -13,6 +13,10 @@ interface FlashcardProps {
 
 export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
+  
+  // STATE MỚI: Quản lý việc ẩn/hiện nghĩa tiếng Việt cho từng dòng định nghĩa
+  const [revealedDefs, setRevealedDefs] = useState<Record<number, boolean>>({});
+  
   const hasPlayedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const actualData = word?.wordId || word || {};
@@ -60,6 +64,7 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
 
   useEffect(() => {
     setIsFlipped(false); 
+    setRevealedDefs({}); // Đặt lại trạng thái che toàn bộ tiếng Việt khi sang từ mới
     hasPlayedRef.current = false;
     
     if (scrollRef.current) {
@@ -83,6 +88,12 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
     playAudioWithFallback(type, textToRead);
   };
 
+  // Hàm chuyển đổi trạng thái xem tiếng việt
+  const toggleReveal = (e: React.MouseEvent, idx: number) => {
+    e.stopPropagation(); // Cực kỳ quan trọng: Ngăn không cho sự kiện click lật thẻ (flip) kích hoạt
+    setRevealedDefs(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
   const displayWord = actualData.word || actualData.english || "Loading...";
   const displayLevel = actualData.level || (actualData.group?.includes('Level') ? actualData.group.split('Level ')[1] : null);
   
@@ -92,6 +103,7 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
           order: 1, 
           label: 'Definition', 
           definition: actualData.definition || "There is no definition.", 
+          definition_vi: actualData.definition_vi || "", // Map data
           examples: actualData.example ? [actualData.example] : [] 
         }];
 
@@ -186,9 +198,44 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
                                  {def.label || `Meaning ${idx + 1}`}
                              </div>
                          </div>
-                         <h3 className="text-lg text-white font-medium leading-snug mb-3">{def.definition}</h3>
+                         
+                         {/* NGHĨA TIẾNG ANH GỐC */}
+                         <h3 className={cn("text-lg text-white font-medium leading-snug", def.definition_vi ? "mb-1.5" : "mb-3")}>
+                           {def.definition}
+                         </h3>
+
+                         {/* NGHĨA TIẾNG VIỆT ẨN/HIỆN */}
+                         {def.definition_vi && (
+                             <div className="flex items-start gap-2.5 mb-3">
+                                 <button
+                                     onClick={(e) => toggleReveal(e, idx)}
+                                     className="mt-0.5 text-zinc-500 hover:text-zinc-300 transition-colors focus:outline-none shrink-0"
+                                     title={revealedDefs[idx] ? "Ẩn nghĩa tiếng Việt" : "Hiện nghĩa tiếng Việt"}
+                                 >
+                                     {revealedDefs[idx] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                 </button>
+                                 <p 
+                                    // Click trực tiếp vào câu bị mờ cũng tự mở ra được
+                                    onClick={(e) => {
+                                        if (!revealedDefs[idx]) {
+                                            e.stopPropagation();
+                                            setRevealedDefs(prev => ({ ...prev, [idx]: true }));
+                                        }
+                                    }}
+                                    className={cn(
+                                     "text-sm font-medium transition-all duration-300 leading-relaxed",
+                                     revealedDefs[idx] 
+                                        ? "text-emerald-400" 
+                                        : "text-zinc-400 blur-[4px] select-none cursor-pointer"
+                                 )}>
+                                     {def.definition_vi}
+                                 </p>
+                             </div>
+                         )}
+
+                         {/* VÍ DỤ TIẾNG ANH */}
                          {def.examples && def.examples.length > 0 && (
-                             <div className="space-y-2 bg-black/20 p-3 rounded-xl border border-white/5">
+                             <div className="space-y-2 bg-black/20 p-3 rounded-xl border border-white/5 mt-2">
                                  {def.examples.map((ex: string, i: number) => (
                                      <div key={i} className="flex gap-2 items-start">
                                          <span className="text-blue-500/50 text-xs mt-1">●</span>

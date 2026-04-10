@@ -67,12 +67,11 @@ export function FeatureHint({
 
   const child = React.isValidElement(children) ? children : <div>{children}</div>;
 
-  // Giữ phần tử con nguyên bản, chỉ âm thầm gắn ID và khóa tương tác click
+  // Xóa bỏ pointerEvents: 'none' đi để bản thân phần tử gốc vẫn giữ được trạng thái bình thường
   const enhancedChild = React.cloneElement(child as React.ReactElement, {
     id: elementId,
     style: {
       ...(child as React.ReactElement).props.style,
-      pointerEvents: 'none' // Khóa click vào phần tử này
     }
   });
 
@@ -99,36 +98,69 @@ export function FeatureHint({
                 height: rect.height,
                 // Đổ bóng khổng lồ để làm mờ toàn bộ phần còn lại của màn hình
                 boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.45)',
-                borderRadius: '0.5rem', // Bo góc nhẹ cho lỗ hổng
-                pointerEvents: 'none'   // Cho phép click "rơi xuyên qua"
+                borderRadius: '0.5rem', 
+                pointerEvents: 'none'   
               }}
             />
           )}
 
-          {/* Lớp Viền Tím Nổi Bật: Đây là thành phần nằm TRÊN CÙNG của mọi thứ */}
+          {/* Lớp Viền Tím Nổi Bật */}
           {rect && (
             <div
-              className="animate-pulse duration-[2000ms]" // Thêm hiệu ứng nhấp nháy nhẹ cho thu hút
+              className="animate-pulse duration-[2000ms]" 
               style={{
                 position: 'absolute',
-                // Nới rộng viền ra một chút so với kích thước thật của nút (mỗi bên 6px)
                 top: rect.top - 6,
                 left: rect.left - 6,
                 width: rect.width + 12,
                 height: rect.height + 12,
-                // Viền màu tím đậm (Violet 600) rực rỡ
                 border: '4px solid #7c3aed', 
-                borderRadius: '0.75rem', // Bo góc lớn hơn cho viền
-                // Bóng đổ màu tím lan tỏa (Purple glow effect)
+                borderRadius: '0.75rem', 
                 boxShadow: '0 0 25px 5px rgba(124, 58, 237, 0.5)', 
-                pointerEvents: 'none',   // Trong suốt với click
-                zIndex: 99991            // Đảm bảo nằm trên lớp màn mờ
+                pointerEvents: 'none',   
+                zIndex: 99991            
               }}
+            />
+          )}
+
+          {/* LỚP MỚI THÊM: Khu vực trong suốt để "hứng" click thay cho nút thật */}
+          {rect && (
+            <div 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                markAsSeen(); // 1. Tắt tour ngay lập tức
+
+                // 2. Tìm phần tử gốc bên dưới và ra lệnh click() mạnh mẽ hơn
+                const targetElement = document.getElementById(elementId);
+                if (targetElement) {
+                  // Cấu hình sự kiện để nó có thể sủi bọt (bubble) lên các component cha của React
+                  const eventConfig = { bubbles: true, cancelable: true, view: window };
+                  
+                  // Bắn một chuỗi sự kiện để bao lô tất cả các thư viện (đặc biệt là Radix UI)
+                  targetElement.dispatchEvent(new PointerEvent('pointerdown', eventConfig));
+                  targetElement.dispatchEvent(new MouseEvent('mousedown', eventConfig));
+                  targetElement.dispatchEvent(new MouseEvent('mouseup', eventConfig));
+                  targetElement.dispatchEvent(new MouseEvent('click', eventConfig));
+                }
+              }}
+              style={{
+                position: 'absolute',
+                top: rect.top,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height,
+                zIndex: 99995, 
+                cursor: 'pointer', 
+                pointerEvents: 'auto' 
+              }}
+              title="Click here to proceed"
             />
           )}
         </div>,
         document.body
       )}
+
 
       <Popover
           open={shouldShow}
@@ -143,7 +175,7 @@ export function FeatureHint({
         <PopoverContent
           side={side}
           align={align}
-          sideOffset={20} // Tăng offset để không đè lên viền tím mới
+          sideOffset={20} 
           onInteractOutside={(e) => e.preventDefault()}
           className="z-[99999] p-4 max-w-xs bg-gradient-to-br from-blue-600 to-blue-800 text-white border-blue-400/50 shadow-2xl rounded-2xl animate-in fade-in zoom-in-95 duration-300"
         >
