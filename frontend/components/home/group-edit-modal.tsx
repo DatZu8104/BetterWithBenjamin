@@ -69,12 +69,12 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
   };
 
   const handleRemoveWord = async (savedWordId: string) => {
-    if (!confirm("Rút từ này khỏi thư mục hiện tại? (Từ gốc vẫn an toàn)")) return;
+    if (!confirm("Remove this word from the current directory?")) return;
     try {
       await api.removeWordFromFolder(savedWordId); 
       onRefreshData();
     } catch (error) {
-      alert("Lỗi khi rút từ vựng! Đảm bảo server đang chạy.");
+      alert("Error when withdrawing vocabulary! Make sure the server is running.");
     }
   };
 
@@ -106,7 +106,7 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
               onClick={onClose} 
               className="w-fit -ml-3 h-8 mb-1 text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" /> Trở về
+              <ArrowLeft className="w-4 h-4 mr-2" /> Return
             </Button>
 
             <div className="flex items-center justify-between w-full">
@@ -139,7 +139,7 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
               </div>
 
               <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest hidden sm:block shrink-0 text-right">
-                Quản lý Thư mục Cá nhân
+                Manage Personal Folders
               </span>
             </div>
           </DialogHeader>
@@ -151,7 +151,7 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <Input 
-                  placeholder="Tìm kiếm từ vựng hoặc định nghĩa..."
+                  placeholder="Search for vocabulary or definitions..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 bg-zinc-900 border-zinc-800 text-white w-full rounded-xl focus-visible:ring-blue-500"
@@ -159,18 +159,18 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
               </div>
               
               <p className="text-sm font-medium text-zinc-400">
-                Đang hiển thị: <span className="text-blue-400 font-bold">{displayedWords.length}</span> / {filteredWords.length} từ vựng
+                Showing: <span className="text-blue-400 font-bold">{displayedWords.length}</span> / {filteredWords.length} vocabulary
               </p>
             </div>
 
             {/* DANH SÁCH TỪ VỰNG */}
             {words.length === 0 ? (
               <div className="text-center py-20 text-zinc-500 flex-1 flex flex-col items-center justify-center">
-                <p>Thư mục này hiện đang trống.</p>
+                <p>This folder is currently empty.</p>
               </div>
             ) : filteredWords.length === 0 ? (
               <div className="text-center py-10 text-zinc-500">
-                <p>Không tìm thấy từ vựng nào khớp với "{searchTerm}".</p>
+                <p>No vocabulary found matching "{searchTerm}".</p>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
@@ -206,7 +206,7 @@ export function GroupEditModal({ isOpen, onClose, folderId, folderName, words, o
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          title="Rút khỏi thư mục"
+                          title="Remove from directory"
                           onClick={() => handleRemoveWord(savedWordId)} 
                           className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10 h-10 w-10 rounded-full"
                         >

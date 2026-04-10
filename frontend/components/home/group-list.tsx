@@ -541,8 +541,8 @@ export function GroupListView({
                         <FeatureHint
                             key={`tour-${g.name}`}
                             id={"folder_click_tour" as any}
-                            waitFor={ONBOARDING_IDS.SYSTEM_WORDS_START} // BẮT BUỘC PHẢI CHỜ NÚT START LEARNING CHẠY XONG
-                            delay={400} // THÊM ĐỘ TRỄ NHỎ ĐỂ GIAO DIỆN MƯỢT HƠN
+                            waitFor={ONBOARDING_IDS.SYSTEM_WORDS_START} 
+                            delay={400} 
                             side="bottom"
                             align="center"
                             message={

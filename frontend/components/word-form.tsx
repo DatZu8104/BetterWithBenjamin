@@ -37,7 +37,7 @@ export function WordForm({ onSave, onCancel, initialData }: any) {
     e.preventDefault();
 
     if (!english || !definition || types.length === 0) {
-      alert("Vui lòng nhập đầy đủ thông tin!");
+      alert("Please enter complete information!");
       return;
     }
 
@@ -92,7 +92,7 @@ export function WordForm({ onSave, onCancel, initialData }: any) {
 
       <div className="flex gap-3 mt-4 pt-2">
         <Button type="submit" className="flex-1">{initialData ? 'Save' : 'Add'}</Button>
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>Hủy</Button>
+        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>Cancel</Button>
       </div>
     </form>
   );

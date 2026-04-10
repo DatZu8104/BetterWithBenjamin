@@ -203,7 +203,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                 {isLoading ? (
                     <span className="flex items-center gap-2 text-sm text-zinc-300">
                         <Loader2 className="w-5 h-5 animate-spin text-white"/>
-                        Setting up your workspace. This might take a moment...
+                        Setting up your workspace. Please wait for the page to load the first time you log in...
                     </span>
                 ) : (
                     <>
