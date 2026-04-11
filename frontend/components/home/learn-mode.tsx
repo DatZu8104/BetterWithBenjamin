@@ -30,7 +30,7 @@ export function LearnModeView({
   const [studyQueue, setStudyQueue] = useState<any[]>([]);
   const [localCurrentWord, setLocalCurrentWord] = useState<any | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [isMobile, setIsMobile] = useState(false); // Xác định thiết bị để bật Tour 4
+  const [isMobile, setIsMobile] = useState(false);
 
 
   // Quiz & Typing State

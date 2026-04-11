@@ -134,7 +134,12 @@ getSystemWords: async () => {
     await fetch(`${API_URL}/folders`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
   },
   deleteFolder: async (name: string) => {
-    await fetch(`${API_URL}/folders/${name}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`${API_URL}/folders/${encodeURIComponent(name)}`, { 
+        method: 'DELETE', 
+        headers: getHeaders() 
+    });
+    // Thêm dòng kiểm tra lỗi này:
+    if (!res.ok) throw new Error("Failed to delete folder"); 
   },
   
   updateGroup: async (groupName: string, folder: string, isGlobal: boolean = false) => {

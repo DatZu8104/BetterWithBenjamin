@@ -10,6 +10,8 @@ import { Input } from '../ui/input';
 import { FeatureHint } from '../onboarding/FeatureHint';
 import { ONBOARDING_IDS } from '../onboarding/constants';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { notify } from '../../lib/notify';
 
 const COLORS = [
   { id: 'blue', name: 'Blue', bg: 'bg-blue-600', style: { bg: "bg-blue-950/20", border: "border-blue-900/50", iconBox: "bg-blue-900/50 text-blue-300", title: "text-blue-300", progressTrack: "bg-blue-950", progressFill: "bg-blue-600", button: "bg-blue-700 hover:bg-blue-600 text-white", resetBtn: "text-blue-400 hover:bg-blue-950/50", cardBorder: "border-blue-800", cardBg: "bg-blue-950/20", folderText: "text-blue-400", cardHover: "hover:border-blue-600" }},
@@ -33,7 +35,7 @@ interface GroupListProps {
   onSearchChange: (val: string) => void;
   onClearSearch: () => void;
   onSelectGroup: (name: string) => void;
-  onAddGroup: () => void;
+  onAddGroup: (name: string) => void;
   onDeleteGroup: (name: string) => void;
   onDeleteWordResult: (id: string) => void;
   onSelectFolder: (f: string | null) => void;
@@ -73,6 +75,48 @@ export function GroupListView({
 
   const [displayLimit, setDisplayLimit] = useState(30);
   const observerTarget = useRef<HTMLDivElement>(null);
+  // STATE CHO BẢNG XÓA (DÙNG CHUNG CHO CẢ FOLDER & GROUP) 
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'Folder' | 'Group' | 'Word', name: string, id?: string } | null>(null);
+
+  // Hàm Mở bảng hỏi 
+  const handleDeleteClick = (e: React.MouseEvent, type: 'Folder' | 'Group' | 'Word', name: string, id?: string) => {
+    e.stopPropagation();
+    setDeleteTarget({ type, name, id });
+  };
+
+  // Hàm thực hiện xóa thật sự dựa trên 'type'
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    
+    // NẾU LÀ FOLDER
+    if (deleteTarget.type === 'Folder') {
+      onDeleteFolder(deleteTarget.name);
+    } 
+    // NẾU LÀ GROUP
+    else if (deleteTarget.type === 'Group') {
+      onDeleteGroup(deleteTarget.name);
+    } 
+    // NẾU LÀ WORD
+    else if (deleteTarget.type === 'Word' && deleteTarget.id) {
+      onDeleteWordResult(deleteTarget.id); // Lệnh xóa thực sự nằm ở đây!
+      if(onUpdate) onUpdate(); 
+      notify.success("Word Deleted", "The word has been removed successfully!");
+    }
+    
+    setDeleteTarget(null); // Đóng Bảng hỏi
+  };
+  // --- STATE CHO BẢNG TẠO GROUP ---
+  const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
+  const [groupNameInput, setGroupNameInput] = useState('');
+
+  // Hàm xử lý khi bấm nút "Create" trên bảng
+  const submitAddGroup = () => {
+    if (groupNameInput.trim()) {
+      onAddGroup(groupNameInput.trim());
+      setIsAddGroupOpen(false);
+      setGroupNameInput('');
+    }
+  };
 
   useEffect(() => {
     setDisplayLimit(30);
@@ -135,18 +179,29 @@ export function GroupListView({
 
   const handleModalSubmit = () => {
     if (!folderNameInput.trim()) return;
+
     if (modalMode === 'create') {
         onCreateFolder(folderNameInput, folderColorInput);
-        if (groupToMove) { onMoveGroup(groupToMove, folderNameInput); setGroupToMove(null); }
-        toast.success(`Folder "${folderNameInput}" created!`);
+        
+        if (groupToMove) { 
+            onMoveGroup(groupToMove, folderNameInput); 
+            setGroupToMove(null); 
+        }
+        
+        // 1. Hiện thông báo tạo thành công bằng tiếng Anh
+        notify.success("Folder Created", `Navigating to "${folderNameInput}"...`);
+        
+        // 2. Tự động chuyển màn hình nhảy vào Folder vừa tạo
+        onSelectFolder(folderNameInput); 
+
     } else {
         if (currentFolder) {
             onUpdateFolder(currentFolder, folderNameInput, folderColorInput);
-            toast.success(`Folder updated!`);
+            notify.success("Folder Updated", "Changes saved successfully.");
         }
     }
+    
     setIsModalOpen(false);
-    if (onUpdate) onUpdate(); 
   };
 
   return (
@@ -179,12 +234,13 @@ export function GroupListView({
                                     <Pencil className="w-4 h-4 mr-2 text-zinc-400" /> Edit Folder
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator className="bg-zinc-800"/>
-                                <DropdownMenuItem onClick={() => {
-                                    if(confirm(`Are you sure you want to delete folder "${currentFolder}"?`)) {
-                                        onDeleteFolder(currentFolder);
-                                        toast.success(`Deleted folder "${currentFolder}"`);
-                                    }
-                                }} className="focus:bg-red-950/30 text-red-500 focus:text-red-400 cursor-pointer py-2 px-3 rounded-md">
+                                <DropdownMenuItem 
+                                    onSelect={(e) => {
+                                        e.preventDefault();
+                                        setDeleteTarget({ type: 'Folder', name: currentFolder || "" });
+                                    }} 
+                                    className="focus:bg-red-950/30 text-red-500 focus:text-red-400 cursor-pointer py-2 px-3 rounded-md"
+                                >
                                     <Trash2 className="w-4 h-4 mr-2" /> Delete Folder
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -317,12 +373,10 @@ export function GroupListView({
                     <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                         <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                             {allowAdd && (
-                                <button onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    onDeleteWordResult(word.id); 
-                                    if(onUpdate) onUpdate(); 
-                                    toast.success("Word deleted successfully!");
-                                }} className="p-1.5 sm:p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors">
+                                <button 
+                                    onClick={(e) => handleDeleteClick(e, 'Word', word.english || 'this word', word.id)} 
+                                    className="p-1.5 sm:p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors"
+                                >
                                     <Trash2 className="w-4 h-4"/>
                                 </button>
                             )}
@@ -369,7 +423,7 @@ export function GroupListView({
                       <Folder className="w-4 h-4 mr-3 text-zinc-500" /> <span className="font-medium">All Groups</span> {!currentFolder && <Check className="w-4 h-4 ml-auto text-white"/>}
                     </DropdownMenuItem>
                     <div className="h-px bg-zinc-800 my-1" />
-                    {folders.map(f => (
+                    {Array.from(new Set(folders)).map(f => (
                       <DropdownMenuItem key={f} onClick={() => onSelectFolder(f)} className="cursor-pointer py-2.5 px-3 rounded-lg focus:bg-zinc-800 focus:text-white">
                         <FolderOpen className={cn("w-4 h-4 mr-3", folderColors[f] ? COLORS.find(c=>c.id===folderColors[f])?.style.folderText : "text-zinc-400")} /> 
                         <span className="font-medium">{f}</span> {currentFolder === f && <Check className="w-4 h-4 ml-auto text-white"/>}
@@ -456,7 +510,7 @@ export function GroupListView({
                 </div>
                 
                 {allowAdd && (
-                    <Button onClick={onAddGroup} className="shrink-0 h-11 px-5 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> New Group</Button>
+                    <Button onClick={() => { setIsAddGroupOpen(true); setGroupNameInput(''); }} className="shrink-0 h-11 px-5 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> New Group</Button>
                 )}
               </div>
             </div>
@@ -489,13 +543,14 @@ export function GroupListView({
                                           <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Move to...</span>
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator className="bg-zinc-800" />
-                                      <DropdownMenuItem onSelect={() => { 
-                                          onDeleteGroup(g.name); 
-                                          if(onUpdate) onUpdate(); 
-                                          toast.success(`Deleted group "${g.name}"`);
-                                      }} className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer">
-                                          <Trash2 className="w-4 h-4 mr-2" /> Delete Group
-                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        onSelect={() => {
+                                            setDeleteTarget({ type: 'Group', name: g.name });
+                                        }} 
+                                        className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer"
+                                    >
+                                        <Trash2 className="w-4 h-4 mr-2" /> Delete Group
+                                    </DropdownMenuItem>
                                   </DropdownMenuContent>
                                   </DropdownMenu>
                               </div>
@@ -572,7 +627,8 @@ export function GroupListView({
               })}
               
               {allowAdd && (
-                  <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700" onClick={onAddGroup}>
+                  <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700" 
+                    onClick={() => { setIsAddGroupOpen(true); setGroupNameInput(''); }}>
                     <Plus className="w-8 h-8 mb-2 opacity-50" />
                     <span className="font-bold text-sm">Add Group</span>
                   </div>
@@ -597,7 +653,7 @@ export function GroupListView({
                         </button>
                         <div className="h-px bg-zinc-800 my-2 mx-3"></div>
                         <div className="space-y-1">
-                            {folders.map(f => {
+                            {Array.from(new Set(folders)).map(f => {
                                 const fColor = folderColors[f];
                                 const fStyle = fColor ? COLORS.find(c => c.id === fColor)?.style : null;
                                 return (
@@ -770,7 +826,43 @@ export function GroupListView({
               </div>
           );
       })()}
-
+      {/* --- MODAL TẠO GROUP MỚI --- */}
+      {isAddGroupOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsAddGroupOpen(false)}>
+              <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+                  <h3 className="text-xl font-bold text-white mb-4">Create New Group</h3>
+                  <div className="space-y-4">
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Group Name</label>
+                          <input 
+                              autoFocus
+                              type="text" 
+                              placeholder="e.g. Lesson 1, Animals, TOEIC..." 
+                              className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-600 transition-colors"
+                              value={groupNameInput}
+                              onChange={(e) => setGroupNameInput(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && submitAddGroup()}
+                          />
+                      </div>
+                      <div className="pt-4 flex gap-3">
+                          <Button className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white h-12 rounded-xl" onClick={() => setIsAddGroupOpen(false)}>Cancel</Button>
+                          <Button className="flex-1 bg-white hover:bg-zinc-200 text-black h-12 rounded-xl font-bold" onClick={submitAddGroup}>
+                              Create Group
+                          </Button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+    <ConfirmDialog 
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title={`Delete ${deleteTarget?.type}`}
+        description={`Are you sure you want to delete this ${deleteTarget?.type?.toLowerCase()}? This action cannot be undone.`}
+        confirmText="Delete"
+        variant="danger"
+      />
     </div>
   );
 }

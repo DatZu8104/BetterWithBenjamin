@@ -7,6 +7,8 @@ import { GroupListView } from '@/components/home/group-list';
 import { WordListView } from '@/components/home/word-list';
 import { LearnModeView } from '@/components/home/learn-mode';
 import { StudyManagerModal } from '@/components/home/study-manager-modal'; 
+import { notify } from '../../lib/notify';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 
@@ -309,14 +311,51 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const handleAddWord = !canEdit ? async () => {} : async (e: string, d: string, t: string[]) => { 
       if(selectedGroup) { await api.addWord({ english: e, definition: d, type: t, group: selectedGroup, isGlobal: viewMode === 'global' }); loadData(); }
   };
-  const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => { await api.deleteWord(id); loadData(); };
+  const handleEditWord = !canEdit ? async () => {} : async (id: string, english: string, definition: string, type: string[]) => {
+      try {
+          await api.updateWord(id, { english, definition, type });
+          loadData(); // <--- Đổi fetchData() thành loadData()
+      } catch (error) {
+          console.error("Lỗi khi cập nhật từ:", error);
+          alert("Failed to update word.");
+      }
+  };
+  const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => {
+  try {
+    await api.deleteWord(id);
+    loadData();
+    notify.success("Deleted!", "The word has been removed from your list."); // Thay alert
+  } catch (error) {
+    notify.error("Error", "Failed to delete the word.");
+  }
+};
   const handleCreateFolder = async (n: string, c: string) => { if(canEdit) { await api.addFolder({ name: n, color: c }); loadData(); } };
   const handleUpdateFolder = async (o: string, n: string, c: string) => { if(canEdit) { if(o!==n) await api.deleteFolder(o); await api.addFolder({name:n, color:c}); loadData(); } };
-  const handleDeleteFolder = async (n: string) => { if(canEdit) { await api.deleteFolder(n); loadData(); } };
+  const handleDeleteFolder = async (n: string) => { 
+      if(canEdit) { 
+          try {
+              await api.deleteFolder(n); 
+              loadData(); 
+              notify.success("Folder Deleted", `The folder has been removed.`);
+              
+              // THÊM DÒNG NÀY: Xóa xong thì tự động đẩy người dùng về màn hình All Groups
+              updateUrl({ folder: null, group: null }); 
+              
+          } catch(e) { 
+              notify.error("Error", "Failed to delete folder."); 
+          }
+      } 
+  };
+
   const handleMoveGroup = async (g: string, f: string) => { if(canEdit) { await api.updateGroup(g, f); loadData(); } };
-  const handleAddGroup = !canEdit ? () => {} : () => { 
-      const n = prompt("Nhập tên nhóm mới:"); 
-      if(n) { api.updateGroup(n, currentFolder||"", viewMode === 'global').then(loadData); }
+  const handleAddGroup = !canEdit ? async (n: string) => {} : async (n: string) => { 
+      try {
+          await api.updateGroup(n, currentFolder || "", viewMode === 'global');
+          loadData();
+          notify.success("Group Created", `Group "${n}" is ready.`);
+      } catch(e) { 
+          notify.error("Error", "Failed to create group."); 
+      }
   };
   const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => { await api.deleteGroup(n); loadData(); };
 
@@ -377,6 +416,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                     onBack={() => updateUrl({ group: null })}
                     onUpdate={loadData} onAddWord={handleAddWord} onDeleteWord={handleDeleteWord}
                     onLearn={handleStartLearn} allowEdit={canEdit}
+                    onEditWord={handleEditWord}
                 />
             ) : (
                 <GroupListView 

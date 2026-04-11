@@ -5,6 +5,8 @@ import { WordForm } from '../word-form';
 import { ArrowLeft, Plus, Trash2, X, Pencil, PlayCircle, ListPlus, Save, CheckCircle, Loader2, Search, BookOpen, Volume2, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { FeatureHint } from '../onboarding/FeatureHint';
+import { notify } from '../../lib/notify';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 interface WordListViewProps {
   groupName: string;
@@ -37,6 +39,25 @@ export function WordListView({
 
   // Infinite Scroll State & Ref
   const [visibleCount, setVisibleCount] = useState(50);
+  // --- STATE CHO XÓA TỪ ---
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [wordToDelete, setWordToDelete] = useState<string | null>(null);
+
+  // Hàm 1: Khi bấm vào thùng rác -> Chưa xóa vội, chỉ lưu ID lại và mở bảng hỏi
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setWordToDelete(id);
+    setIsConfirmOpen(true);
+  };
+
+  // Hàm 2: Khi người dùng chọn "Delete" trên bảng hỏi -> Mới thực sự xóa
+  const confirmDelete = () => {
+    if (wordToDelete) {
+      onDeleteWord(wordToDelete); // Gọi hàm xóa thật sự
+      setIsConfirmOpen(false);    // Đóng bảng
+      setWordToDelete(null);      // Xóa ID tạm
+    }
+  };
   const loaderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,7 +109,7 @@ export function WordListView({
 
   const startEdit = (word: any) => {
     if (word.isGlobal && !allowEdit) {
-        alert("Bạn không thể sửa từ vựng hệ thống Oxford.");
+        alert("You cannot edit Oxford system vocabulary.");
         return;
     }
     setEditingWord(word);
@@ -296,7 +317,7 @@ export function WordListView({
                                     </button>
                                   )}
                                   {allowEdit && (
-                                    <button onClick={(e) => { e.stopPropagation(); onDeleteWord(word.id); }} className="p-1.5 sm:p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors">
+                                    <button onClick={(e) => handleDeleteClick(e, word.id)} className="p-1.5 sm:p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-colors">
                                         <Trash2 className="w-4 h-4"/>
                                     </button>
                                   )}
@@ -482,7 +503,16 @@ export function WordListView({
               </div>
           );
       })()}
-
+      <ConfirmDialog 
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Word"
+        description="Are you sure you want to delete this word? This action cannot be undone."
+        confirmText="Delete"
+        variant="danger"
+      />
+    
     </div>
   );
 }

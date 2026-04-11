@@ -167,17 +167,22 @@ router.delete('/groups/:groupName', verifyToken, async (req, res) => {
     try {
         const groupName = decodeURIComponent(req.params.groupName);
         const isAdmin = await checkAdmin(req.userId);
+
         const personalGroup = await GroupSetting.findOneAndDelete({ 
             userId: req.userId, groupName: groupName, $or: [{ isGlobal: false }, { isGlobal: { $exists: false } }]
         });
-        if (personalGroup) {
-            await Vocabulary.deleteMany({ userId: req.userId, group: groupName });
+
+        // LUÔN LUÔN XÓA TỪ VỰNG DÙ CHO CÓ TÌM THẤY SETTING HAY KHÔNG
+        const deletedWords = await Vocabulary.deleteMany({ userId: req.userId, group: groupName });
+
+        if (personalGroup || deletedWords.deletedCount > 0) {
             return res.json({ success: true, type: 'personal' });
         }
+
         if (isAdmin) {
             const globalGroup = await GroupSetting.findOneAndDelete({ groupName: groupName, isGlobal: true });
-            if (globalGroup) {
-                await SystemVocabulary.deleteMany({ group: groupName });
+            const deletedSys = await SystemVocabulary.deleteMany({ group: groupName });
+            if (globalGroup || deletedSys.deletedCount > 0) {
                 return res.json({ success: true, type: 'system' });
             }
         }
@@ -240,22 +245,35 @@ router.post('/folders', verifyToken, async (req, res) => {
 
 router.delete('/folders/:id', verifyToken, async (req, res) => {
     try {
-        const folderId = req.params.id;
+        const identifier = req.params.id;
 
+        // Hỗ trợ tìm bằng _id hoặc bằng tên Folder
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(identifier);
+        const folder = await Folder.findOne({
+            userId: req.userId,
+            ...(isObjectId ? { _id: identifier } : { name: identifier })
+        });
+
+        if (!folder) return res.status(404).json({ error: 'Folder not found' });
+
+        const folderId = folder._id;
+
+        // 1. Xóa các từ vựng đã lưu và tiến độ học trong folder này
         const savedWords = await SavedWord.find({ folderId, userId: req.userId });
         const wordIds = savedWords.map(sw => sw.wordId);
 
         if (wordIds.length > 0) {
-            await UserProgress.deleteMany({ 
-                userId: req.userId, 
-                wordId: { $in: wordIds } 
-            });
+            await UserProgress.deleteMany({ userId: req.userId, wordId: { $in: wordIds } });
         }
-
         await SavedWord.deleteMany({ folderId, userId: req.userId });
-        await Folder.findOneAndDelete({ _id: folderId, userId: req.userId });
 
-        res.json({ message: 'Deleted folder and updated study progress' });
+        // 2. Xóa các Group (Nhóm từ) nằm bên trong Folder này
+        await GroupSetting.deleteMany({ userId: req.userId, folder: folder.name });
+
+        // 3. Cuối cùng xóa chính Folder đó
+        await Folder.findByIdAndDelete(folderId);
+
+        res.json({ message: 'Deleted folder completely' });
     } catch (err) {
         console.error("Error deleting folder:", err);
         res.status(500).json({ error: 'Error deleting folder' });

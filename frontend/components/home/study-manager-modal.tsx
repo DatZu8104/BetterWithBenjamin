@@ -18,6 +18,8 @@ import {
 import { FeatureHint } from '../onboarding/FeatureHint';
 import { ONBOARDING_IDS } from '../onboarding/constants';
 import { toast } from 'sonner'; 
+import { notify } from "@/lib/notify";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 interface StudyManagerModalProps {
   isOpen: boolean;
@@ -43,6 +45,10 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const [editingFolderData, setEditingFolderData] = useState<{ id: string, name: string } | null>(null);
   const [editingFolderWords, setEditingFolderWords] = useState<any[]>([]);
   const [visibleCount, setVisibleCount] = useState(30);
+
+  // --- STATE CHO XÓA FOLDER ---
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [folderToDeleteId, setFolderToDeleteId] = useState<string | null>(null);
 
   const systemGroups = useMemo(() => {
     const groupsMap = new Map<string, number>();
@@ -183,17 +189,32 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     }
   };
 
-  const handleDeleteFolder = async (e: React.MouseEvent, id: string) => {
+  // Hàm 1: Khi bấm nút thùng rác -> Chỉ mở bảng hỏi và lưu ID folder lại
+  const handleDeleteFolderClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation(); 
-    if (!confirm("Are you sure you want to delete this folder?")) return;
+    setFolderToDeleteId(id);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  // Hàm 2: Khi người dùng bấm "Delete" trên bảng hỏi
+  const handleConfirmDeleteFolder = async () => {
+    if (!folderToDeleteId) return;
+    
+    setIsLoading(true);
     try {
-      await api.deleteFolderById(id);
+      await api.deleteFolderById(folderToDeleteId);
       fetchUserFolders(); 
       fetchSavedWordIds(); 
       if (onRefreshData) onRefreshData();
-      toast.success("Folder deleted successfully!");
+      
+      // Sử dụng notify thay vì toast mặc định
+      notify.success("Folder Deleted", "The folder and its contents have been removed.");
     } catch (err) {
-      toast.error("Folder deletion failed.");
+      notify.error("Error", "Failed to delete folder. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setIsDeleteConfirmOpen(false);
+      setFolderToDeleteId(null);
     }
   };
 
@@ -398,7 +419,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            onClick={(e) => handleDeleteFolder(e, folder._id)}
+                            onClick={(e) => handleDeleteFolderClick(e, folder._id)}
                             className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10 h-8 w-8 rounded-full"
                             title="Delete folder"
                           >
@@ -710,6 +731,15 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
           onRefreshData={handleRefreshEditModal}
         />
       )}
+      <ConfirmDialog 
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDeleteFolder}
+        title="Delete Folder"
+        description="Are you sure you want to delete this folder? All words inside will be removed from this folder. This action cannot be undone."
+        confirmText="Delete Folder"
+        variant="danger"
+      />
     </>
   );
 }
