@@ -1,3 +1,4 @@
+// Kéo data từ DB xuống
 require('dotenv').config();
 const mongoose = require('mongoose');
 const fs = require('fs');

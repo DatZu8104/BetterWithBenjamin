@@ -1,10 +1,10 @@
 // backend/seed_oxford.js
-
+//File mồi dữ liệu chuẩn bị cho hệ thống
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
-const { User, SystemVocabulary, Folder, GroupSetting } = require('./models'); // Đảm bảo đường dẫn đúng tới models
+const { User, SystemVocabulary, Folder, GroupSetting } = require('../models'); // Đảm bảo đường dẫn đúng tới models
 
 // Load biến môi trường
 dotenv.config();

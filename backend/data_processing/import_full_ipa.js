@@ -1,3 +1,4 @@
+// Bóc tách dữ liệu gốc từ Anki
 require('dotenv').config();
 const mongoose = require('mongoose');
 const AdmZip = require('adm-zip');

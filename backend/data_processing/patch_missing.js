@@ -1,3 +1,4 @@
+//Vá lỗi từ bị thiếu
 const fs = require('fs');
 const path = require('path');
 const translate = require('@iamtraction/google-translate');
