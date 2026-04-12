@@ -3,15 +3,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Plus, Trash2, Folder, FolderOpen, MoreVertical, MoveRight, PlayCircle, RotateCcw, GraduationCap, Library, ChevronDown, Check, X, Settings, Pencil, Loader2, Volume2, BookOpen, ExternalLink, Calendar, Hash, ArrowDownAZ } from 'lucide-react';
+import { Plus, Trash2, Folder, FolderOpen, MoreVertical, MoveRight, PlayCircle, RotateCcw, GraduationCap, Library, ChevronDown, ChevronRight, Check, X, Settings, Pencil, Loader2, Calendar, Hash, ArrowDownAZ, ExternalLink } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { cn } from '../../lib/utils';
-import { Input } from '../ui/input'; 
 import { FeatureHint } from '../onboarding/FeatureHint';
 import { ONBOARDING_IDS } from '../onboarding/constants';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { notify } from '../../lib/notify';
+import { checkDuplicateName } from '../../lib/validators';
 
 const COLORS = [
   { id: 'blue', name: 'Blue', bg: 'bg-blue-600', style: { bg: "bg-blue-950/20", border: "border-blue-900/50", iconBox: "bg-blue-900/50 text-blue-300", title: "text-blue-300", progressTrack: "bg-blue-950", progressFill: "bg-blue-600", button: "bg-blue-700 hover:bg-blue-600 text-white", resetBtn: "text-blue-400 hover:bg-blue-950/50", cardBorder: "border-blue-800", cardBg: "bg-blue-950/20", folderText: "text-blue-400", cardHover: "hover:border-blue-600" }},
@@ -22,7 +22,7 @@ const COLORS = [
   { id: 'cyan', name: 'Cyan', bg: 'bg-cyan-600', style: { bg: "bg-cyan-950/20", border: "border-cyan-900/50", iconBox: "bg-cyan-900/50 text-cyan-300", title: "text-cyan-300", progressTrack: "bg-cyan-950", progressFill: "bg-cyan-600", button: "bg-cyan-700 hover:bg-cyan-600 text-white", resetBtn: "text-cyan-400 hover:bg-cyan-950/50", cardBorder: "border-cyan-800", cardBg: "bg-cyan-950/10", folderText: "text-cyan-400", cardHover: "hover:border-cyan-600" }}
 ];
 
-interface GroupListProps {
+interface PersonalGroupListProps {
   groups: any[]; 
   searchResults: any[];
   searchTerm: string;
@@ -50,11 +50,10 @@ interface GroupListProps {
   onResetLearn: () => void;
 
   onUpdate?: () => void; 
-  words?: any[];
   allowAdd?: boolean;
 }
 
-export function GroupListView({
+export function PersonalGroupListView({
   groups, searchResults, searchTerm, onSearchChange, onClearSearch,
   onSelectGroup, onAddGroup, onDeleteGroup, onDeleteWordResult,
   sortOption, sortDirection, onSort,
@@ -63,59 +62,41 @@ export function GroupListView({
   folderColors, 
   onUpdate,
   allowAdd = true
-}: GroupListProps) {
+}: PersonalGroupListProps) {
   
   const [groupToMove, setGroupToMove] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [modalMode, setModalMode] = useState<'create_folder' | 'edit_folder' | 'create_group'>('create_folder');
+  const [editingFolder, setEditingFolder] = useState<string | null>(null); 
   const [folderNameInput, setFolderNameInput] = useState('');
   const [folderColorInput, setFolderColorInput] = useState('blue');
   
+  // STATE CÂY THƯ MỤC TRONG MENU DROPDOWN
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+
   const [detailWord, setDetailWord] = useState<any | null>(null);
 
   const [displayLimit, setDisplayLimit] = useState(30);
   const observerTarget = useRef<HTMLDivElement>(null);
-  // STATE CHO BẢNG XÓA (DÙNG CHUNG CHO CẢ FOLDER & GROUP) 
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'Folder' | 'Group' | 'Word', name: string, id?: string } | null>(null);
 
-  // Hàm Mở bảng hỏi 
   const handleDeleteClick = (e: React.MouseEvent, type: 'Folder' | 'Group' | 'Word', name: string, id?: string) => {
     e.stopPropagation();
     setDeleteTarget({ type, name, id });
   };
 
-  // Hàm thực hiện xóa thật sự dựa trên 'type'
   const confirmDelete = () => {
     if (!deleteTarget) return;
-    
-    // NẾU LÀ FOLDER
     if (deleteTarget.type === 'Folder') {
       onDeleteFolder(deleteTarget.name);
-    } 
-    // NẾU LÀ GROUP
-    else if (deleteTarget.type === 'Group') {
+    } else if (deleteTarget.type === 'Group') {
       onDeleteGroup(deleteTarget.name);
-    } 
-    // NẾU LÀ WORD
-    else if (deleteTarget.type === 'Word' && deleteTarget.id) {
-      onDeleteWordResult(deleteTarget.id); // Lệnh xóa thực sự nằm ở đây!
+    } else if (deleteTarget.type === 'Word' && deleteTarget.id) {
+      onDeleteWordResult(deleteTarget.id); 
       if(onUpdate) onUpdate(); 
       notify.success("Word Deleted", "The word has been removed successfully!");
     }
-    
-    setDeleteTarget(null); // Đóng Bảng hỏi
-  };
-  // --- STATE CHO BẢNG TẠO GROUP ---
-  const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
-  const [groupNameInput, setGroupNameInput] = useState('');
-
-  // Hàm xử lý khi bấm nút "Create" trên bảng
-  const submitAddGroup = () => {
-    if (groupNameInput.trim()) {
-      onAddGroup(groupNameInput.trim());
-      setIsAddGroupOpen(false);
-      setGroupNameInput('');
-    }
+    setDeleteTarget(null); 
   };
 
   useEffect(() => {
@@ -154,50 +135,104 @@ export function GroupListView({
   const currentThemeColor = currentFolder && folderColors[currentFolder] ? folderColors[currentFolder] : 'blue';
   const currentTheme = COLORS.find(c => c.id === currentThemeColor)?.style || COLORS[0].style;
 
-  const displayGroups = currentFolder 
-    ? groups.filter(g => g.folder === currentFolder)
-    : groups;
+  const folderCards = Array.from(new Set(folders)).map(folderName => {
+    const groupsInFolder = groups.filter(g => g.folder === folderName);
+    const groupCount = groupsInFolder.length;
+    const count = groupsInFolder.reduce((acc, g) => acc + g.count, 0);
+    const learnedWords = groupsInFolder.reduce((acc, g) => acc + (g.learnedWords || 0), 0);
+    const percentage = count > 0 ? Math.round((learnedWords / count) * 100) : 0;
+    return {
+        isFolder: true as const,
+        name: folderName,
+        groupCount,
+        count,
+        learnedWords,
+        percentage
+    };
+  });
+
+  let sortedFolderCards = [...folderCards];
+  sortedFolderCards.sort((a, b) => {
+    let res = 0;
+    if (sortOption === 'name') res = a.name.localeCompare(b.name);
+    else if (sortOption === 'size') res = a.count - b.count;
+    else res = a.name.localeCompare(b.name); 
+    return sortDirection === 'asc' ? res : -res;
+  });
+
+  const displayItems = currentFolder 
+    ? groups.filter(g => g.folder === currentFolder) 
+    : [...sortedFolderCards, ...groups.filter(g => !g.folder)]; 
 
   const progressPercent = totalWords > 0 ? Math.round((learnedCount / totalWords) * 100) : 0;
-
   const displayResults = searchResults.slice(0, displayLimit);
 
-  const openCreateModal = () => {
-    setModalMode('create');
+  // MỞ MODAL TẠO FOLDER
+  const openCreateFolderModal = () => {
+    setModalMode('create_folder');
+    setEditingFolder(null);
     setFolderNameInput('');
     setFolderColorInput('blue');
     setIsModalOpen(true);
   };
 
-  const openEditModal = () => {
-    if (!currentFolder) return;
-    setModalMode('edit');
-    setFolderNameInput(currentFolder);
-    setFolderColorInput(folderColors[currentFolder] || 'blue');
+  // MỞ MODAL TẠO GROUP TRONG FOLDER
+  const openCreateGroupModal = () => {
+    setModalMode('create_group');
+    setEditingFolder(null);
+    setFolderNameInput('');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (fName: string) => {
+    setModalMode('edit_folder');
+    setEditingFolder(fName);
+    setFolderNameInput(fName);
+    setFolderColorInput(folderColors[fName] || 'blue');
     setIsModalOpen(true);
   };
 
   const handleModalSubmit = () => {
     if (!folderNameInput.trim()) return;
 
-    if (modalMode === 'create') {
+    // --- KIỂM TRA TRÙNG LẶP KHI TẠO GROUP ---
+    if (modalMode === 'create_group') {
+        const existingGroupNames = groups.map(g => g.name);
+        // Gọi file validator: Nếu false (trùng), lập tức dừng (return) không cho chạy tiếp
+        if (!checkDuplicateName(folderNameInput, existingGroupNames, 'Group')) return; 
+
+        onAddGroup(folderNameInput);
+        setIsModalOpen(false);
+        return;
+    }
+
+    // --- KIỂM TRA TRÙNG LẶP KHI TẠO FOLDER MỚI ---
+    if (modalMode === 'create_folder') {
+        // Gọi file validator kiểm tra mảng 'folders'
+        if (!checkDuplicateName(folderNameInput, folders, 'Folder')) return;
+
         onCreateFolder(folderNameInput, folderColorInput);
-        
         if (groupToMove) { 
             onMoveGroup(groupToMove, folderNameInput); 
             setGroupToMove(null); 
         }
-        
-        // 1. Hiện thông báo tạo thành công bằng tiếng Anh
         notify.success("Folder Created", `Navigating to "${folderNameInput}"...`);
-        
-        // 2. Tự động chuyển màn hình nhảy vào Folder vừa tạo
         onSelectFolder(folderNameInput); 
+    } 
+    
+    // --- XỬ LÝ KHI EDIT FOLDER CŨ ---
+    else {
+        if (editingFolder) {
+            // Khi đổi tên folder cũ sang tên mới, cũng phải kiểm tra xem tên mới có trùng với folder nào khác không
+            if (editingFolder !== folderNameInput) {
+                 if (!checkDuplicateName(folderNameInput, folders, 'Folder')) return;
+            }
 
-    } else {
-        if (currentFolder) {
-            onUpdateFolder(currentFolder, folderNameInput, folderColorInput);
+            onUpdateFolder(editingFolder, folderNameInput, folderColorInput);
             notify.success("Folder Updated", "Changes saved successfully.");
+            if (currentFolder === editingFolder && currentFolder !== folderNameInput) {
+                onSelectFolder(folderNameInput);
+            }
         }
     }
     
@@ -219,7 +254,7 @@ export function GroupListView({
                 
                 <div className="flex items-center gap-3">
                     <h2 className={cn("text-2xl md:text-3xl font-bold transition-colors", currentTheme.title)}>
-                    {currentFolder ? currentFolder : "Master Library"}
+                    {currentFolder ? currentFolder : "Personal Master Library"}
                     </h2>
                     
                     {currentFolder && allowAdd && (
@@ -230,13 +265,12 @@ export function GroupListView({
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="bg-zinc-900 border border-zinc-800 text-white p-1 shadow-xl z-50">
-                                <DropdownMenuItem onClick={openEditModal} className="focus:bg-zinc-800 focus:text-white cursor-pointer py-2 px-3 rounded-md">
+                                <DropdownMenuItem onClick={() => openEditModal(currentFolder!)} className="focus:bg-zinc-800 focus:text-white cursor-pointer py-2 px-3 rounded-md">
                                     <Pencil className="w-4 h-4 mr-2 text-zinc-400" /> Edit Folder
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator className="bg-zinc-800"/>
                                 <DropdownMenuItem 
-                                    onSelect={(e) => {
-                                        e.preventDefault();
+                                    onClick={() => {
                                         setDeleteTarget({ type: 'Folder', name: currentFolder || "" });
                                     }} 
                                     className="focus:bg-red-950/30 text-red-500 focus:text-red-400 cursor-pointer py-2 px-3 rounded-md"
@@ -250,8 +284,8 @@ export function GroupListView({
               </div>
               <p className="text-zinc-400 mb-6 text-base max-w-xl">
                 {currentFolder 
-                    ? (totalWords > 0 ? `This folder contains ${displayGroups.length} groups. Total ${totalWords} words.` : "This folder is empty.")
-                    : `Your complete collection of ${totalWords} words.`
+                    ? (totalWords > 0 ? `This folder contains ${displayItems.length} groups. Total ${totalWords} words.` : "This folder is empty.")
+                    : `Your complete personal collection of ${totalWords} words.`
                 }
               </p>
               
@@ -403,6 +437,7 @@ export function GroupListView({
           <>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
               <div className="flex items-center">
+                
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className={cn("flex items-center gap-3 px-5 py-2.5 rounded-xl border-2 transition-all duration-200 outline-none group shadow-sm", currentFolder ? "bg-zinc-900 border-zinc-700 hover:bg-zinc-800" : "bg-zinc-900 border-zinc-800 hover:bg-zinc-800")}>
@@ -412,39 +447,84 @@ export function GroupListView({
                         <div className="text-left">
                             <p className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Folders</p>
                             <div className="flex items-center gap-2">
-                                <span className={cn("text-base font-bold max-w-[150px] truncate", currentFolder ? "text-white" : "text-white")}>{currentFolder || "All Groups"}</span>
+                                <span className={cn("text-base font-bold max-w-[150px] truncate", currentFolder ? "text-white" : "text-white")}>{currentFolder || "All Folders"}</span>
                                 <ChevronDown className="w-4 h-4 text-zinc-500" />
                             </div>
                         </div>
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-64 p-2 bg-neutral-900 border border-zinc-800 text-zinc-300 shadow-2xl z-50">
+                  <DropdownMenuContent align="start" className="w-72 p-2 bg-neutral-900 border border-zinc-800 text-zinc-300 shadow-2xl z-50 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    
                     <DropdownMenuItem onClick={() => onSelectFolder(null)} className="cursor-pointer py-2.5 px-3 rounded-lg focus:bg-zinc-800 focus:text-white">
-                      <Folder className="w-4 h-4 mr-3 text-zinc-500" /> <span className="font-medium">All Groups</span> {!currentFolder && <Check className="w-4 h-4 ml-auto text-white"/>}
+                      <Folder className="w-4 h-4 mr-3 text-zinc-500" /> <span className="font-medium">All Folders</span> {!currentFolder && <Check className="w-4 h-4 ml-auto text-white"/>}
                     </DropdownMenuItem>
                     <div className="h-px bg-zinc-800 my-1" />
-                    {Array.from(new Set(folders)).map(f => (
-                      <DropdownMenuItem key={f} onClick={() => onSelectFolder(f)} className="cursor-pointer py-2.5 px-3 rounded-lg focus:bg-zinc-800 focus:text-white">
-                        <FolderOpen className={cn("w-4 h-4 mr-3", folderColors[f] ? COLORS.find(c=>c.id===folderColors[f])?.style.folderText : "text-zinc-400")} /> 
-                        <span className="font-medium">{f}</span> {currentFolder === f && <Check className="w-4 h-4 ml-auto text-white"/>}
-                      </DropdownMenuItem>
-                    ))}
+
+                    {/* MENU CÂY THƯ MỤC */}
+                    {Array.from(new Set(folders)).map(f => {
+                        const folderGroups = groups.filter(g => g.folder === f);
+                        const isExpanded = expandedFolders[f];
+
+                        return (
+                            <div key={f} className="mb-1">
+                                <div className="flex items-stretch rounded-lg hover:bg-zinc-800 focus-within:bg-zinc-800 group transition-colors">
+                                    <DropdownMenuItem onClick={() => onSelectFolder(f)} className="flex-1 cursor-pointer py-2.5 px-3 focus:bg-transparent focus:text-white">
+                                        <FolderOpen className={cn("w-4 h-4 mr-3", folderColors[f] ? COLORS.find(c=>c.id===folderColors[f])?.style.folderText : "text-zinc-400")} />
+                                        <span className="font-medium flex-1">{f}</span>
+                                        {currentFolder === f && <Check className="w-4 h-4 ml-2 text-white shrink-0"/>}
+                                    </DropdownMenuItem>
+
+                                    {folderGroups.length > 0 && (
+                                        <div className="flex items-center justify-center px-1">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setExpandedFolders(prev => ({...prev, [f]: !prev[f]}));
+                                                }}
+                                                className="p-1.5 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-700 transition-colors"
+                                            >
+                                                {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {isExpanded && folderGroups.length > 0 && (
+                                    <div className="pl-7 pr-2 mt-1 mb-2 space-y-1 border-l border-zinc-800 ml-5">
+                                        {folderGroups.map(g => (
+                                            <DropdownMenuItem
+                                                key={g.name}
+                                                onClick={() => {
+                                                    onSelectFolder(f); // Cập nhật folder
+                                                    onSelectGroup(g.name); // Đi vào trực tiếp Group luôn
+                                                }}
+                                                className="cursor-pointer py-2 px-3 rounded-md text-sm text-zinc-400 hover:text-white focus:bg-zinc-800 focus:text-white flex items-center"
+                                            >
+                                                <div className="w-1.5 h-1.5 rounded-full bg-zinc-600 mr-3 shrink-0" />
+                                                <span className="truncate">{g.name}</span>
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+
                     <div className="h-px bg-zinc-800 my-1" />
-                    {}
                     {allowAdd && (
-                        <DropdownMenuItem onClick={openCreateModal} className="cursor-pointer py-2.5 px-3 rounded-lg text-white focus:bg-zinc-800 font-bold">
+                        <DropdownMenuItem onClick={openCreateFolderModal} className="cursor-pointer py-2.5 px-3 rounded-lg text-white focus:bg-zinc-800 font-bold">
                         <Plus className="w-4 h-4 mr-3" /> <span className="font-bold">New Folder</span>
                         </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
+
               </div>
 
-              {/* CỤM NÚT LỌC (SORT) ĐÃ CẬP NHẬT GIAO DIỆN XỊN */}
               <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 no-scrollbar">
                 <div className="flex items-center bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 shadow-sm shrink-0 gap-1">
                   
-                  {/* Nút Calendar */}
                   <Button 
                     variant={sortOption === 'date' ? "default" : "ghost"}
                     size="sm" 
@@ -465,7 +545,6 @@ export function GroupListView({
                     <Calendar className="w-4 h-4" /> Calendar
                   </Button>
 
-                  {/* Nút Size */}
                   <Button 
                     variant={sortOption === 'size' ? "default" : "ghost"}
                     size="sm" 
@@ -486,7 +565,6 @@ export function GroupListView({
                     <Hash className="w-4 h-4" /> Size
                   </Button>
 
-                  {/* Nút Name */}
                   <Button 
                     variant={sortOption === 'name' ? "default" : "ghost"}
                     size="sm" 
@@ -510,13 +588,120 @@ export function GroupListView({
                 </div>
                 
                 {allowAdd && (
-                    <Button onClick={() => { setIsAddGroupOpen(true); setGroupNameInput(''); }} className="shrink-0 h-11 px-5 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none"><Plus className="w-5 h-5 mr-1.5"/> New Group</Button>
+                    <Button onClick={currentFolder ? openCreateGroupModal : openCreateFolderModal} className="shrink-0 h-11 px-5 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none">
+                      <Plus className="w-5 h-5 mr-1.5"/> {currentFolder ? "New Group" : "New Folder"}
+                    </Button>
                 )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in slide-in-from-bottom-4 duration-500">
-              {displayGroups.map((g: any, index: number) => {
+              {displayItems.map((item: any, index: number) => {
+                
+                // NẾU ITEM LÀ FOLDER
+                if (item.isFolder) {
+                    const cardColor = folderColors[item.name] || 'blue';
+                    const cardTheme = COLORS.find(c => c.id === cardColor)?.style || COLORS[0].style;
+                    const cardClasses = cn(
+                        "group relative p-5 flex flex-col justify-between border-2 transition-all cursor-pointer min-h-[11rem] rounded-2xl shadow-sm w-full",
+                        `${cardTheme.cardBorder} ${cardTheme.cardBg} ${cardTheme.cardHover}` 
+                    );
+
+                    const folderCardInner = (
+                        <>
+                            <div className="flex-1">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className={cn("p-2.5 rounded-xl border-2 mb-3 transition-colors bg-opacity-50", cardTheme.iconBox, "border-transparent")}>
+                                        <Folder className="w-7 h-7" />
+                                    </div>
+                                    {allowAdd && (
+                                        <div onClick={(e) => e.stopPropagation()}>
+                                            <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:bg-zinc-700 hover:text-white -mr-2 -mt-2">
+                                                <MoreVertical className="w-4 h-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-56 bg-neutral-900 border border-zinc-800 text-zinc-300 shadow-2xl p-1 z-50">
+                                                <DropdownMenuLabel className="text-xs text-zinc-500 uppercase tracking-widest pl-2 py-2">Folder Actions</DropdownMenuLabel>
+                                                <DropdownMenuSeparator className="bg-zinc-800" />
+                                                <DropdownMenuItem onSelect={() => openEditModal(item.name)} className="rounded-md focus:bg-zinc-800 focus:text-white py-2 px-2 cursor-pointer text-zinc-300">
+                                                    <Pencil className="w-4 h-4 mr-2 text-zinc-500" /> <span>Edit Folder</span>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator className="bg-zinc-800" />
+                                                <DropdownMenuItem 
+                                                    onClick={() => {
+                                                        setDeleteTarget({ type: 'Folder', name: item.name });
+                                                    }} 
+                                                    className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer"
+                                                >
+                                                    <Trash2 className="w-4 h-4 mr-2" /> Delete Folder
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    )}
+                                </div>
+                                <h3 className={cn("text-xl font-bold w-full transition-colors line-clamp-2 text-white")} title={item.name}>{item.name}</h3>
+                                <p className="text-sm text-zinc-400 font-medium mt-1">{item.groupCount} Groups</p>
+                            </div>
+
+                            {item.percentage !== undefined && (
+                                <div className="mt-3 mb-1">
+                                    <div className="flex justify-between items-end mb-1.5">
+                                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Progress</span>
+                                        <span className={cn("text-xs font-bold", cardTheme.folderText)}>{item.percentage}%</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+                                        <div className={cn("h-full rounded-full transition-all duration-700", cardTheme.progressFill)} style={{ width: `${item.percentage}%` }}></div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
+                                <span className={cn("text-xs font-semibold shrink-0", cardTheme.folderText)}>
+                                    {item.learnedWords !== undefined ? `${item.learnedWords}/${item.count} learned` : `${item.count} words`}
+                                </span>
+                            </div>
+                        </>
+                    );
+
+                    if (index === 0) {
+                        return (
+                            <FeatureHint
+                                key={`tour-${item.name}`}
+                                id={"folder_click_tour" as any}
+                                waitFor={ONBOARDING_IDS.SYSTEM_WORDS_START} 
+                                delay={400} 
+                                side="bottom"
+                                align="center"
+                                message={
+                                    <div className="space-y-1.5 w-[220px]">
+                                        <p className="font-bold text-white flex items-center gap-1.5">
+                                            <FolderOpen className="w-4 h-4 text-blue-400" /> Open Folder!
+                                        </p>
+                                        <p className="text-zinc-100 text-sm leading-snug font-normal">
+                                            Click on this folder to view the vocabulary groups inside.
+                                        </p>
+                                    </div>
+                                }
+                            >
+                                <Card className={cardClasses} onClick={() => onSelectFolder(item.name)}>
+                                    {folderCardInner}
+                                </Card>
+                            </FeatureHint>
+                        );
+                    }
+
+                    return (
+                        <Card key={`folder-${item.name}`} className={cardClasses} onClick={() => onSelectFolder(item.name)}>
+                            {folderCardInner}
+                        </Card>
+                    );
+                }
+
+                // NẾU ITEM LÀ GROUP BÌNH THƯỜNG
+                const g = item;
                 const cardFolder = g.folder;
                 const cardColor = cardFolder && folderColors[cardFolder] ? folderColors[cardFolder] : null;
                 const cardTheme = cardColor ? COLORS.find(c => c.id === cardColor)?.style : null;
@@ -544,7 +729,7 @@ export function GroupListView({
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator className="bg-zinc-800" />
                                       <DropdownMenuItem 
-                                        onSelect={() => {
+                                        onClick={() => {
                                             setDeleteTarget({ type: 'Group', name: g.name });
                                         }} 
                                         className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer"
@@ -591,7 +776,7 @@ export function GroupListView({
                       : "border-zinc-800 bg-zinc-900 hover:border-zinc-600 hover:bg-zinc-800/80"
                 );
 
-                if (index === 0) {
+                if (index === 0 && !item.isFolder) {
                     return (
                         <FeatureHint
                             key={`tour-${g.name}`}
@@ -603,8 +788,7 @@ export function GroupListView({
                             message={
                                 <div className="space-y-1.5 w-[220px]">
                                     <p className="font-bold text-white flex items-center gap-1.5">
-                                        <FolderOpen className="w-4 h-4 text-blue-400" />
-                                        Open Folder!
+                                        <FolderOpen className="w-4 h-4 text-blue-400" /> Open Group!
                                     </p>
                                     <p className="text-zinc-100 text-sm leading-snug font-normal">
                                         Click on this card to view the detailed vocabulary list inside.
@@ -620,7 +804,7 @@ export function GroupListView({
                 }
 
                 return (
-                  <Card key={g.name} className={cardClasses} onClick={() => onSelectGroup(g.name)}>
+                  <Card key={`group-${g.name}`} className={cardClasses} onClick={() => onSelectGroup(g.name)}>
                       {cardInner}
                   </Card>
                 );
@@ -628,9 +812,9 @@ export function GroupListView({
               
               {allowAdd && (
                   <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700" 
-                    onClick={() => { setIsAddGroupOpen(true); setGroupNameInput(''); }}>
+                    onClick={currentFolder ? openCreateGroupModal : openCreateFolderModal}>
                     <Plus className="w-8 h-8 mb-2 opacity-50" />
-                    <span className="font-bold text-sm">Add Group</span>
+                    <span className="font-bold text-sm">{currentFolder ? "New Group" : "New Folder"}</span>
                   </div>
               )}
             </div>
@@ -668,45 +852,51 @@ export function GroupListView({
             </div>
         )}
 
-        {/* MODAL TẠO/SỬA FOLDER */}
+        {/* MODAL TẠO/SỬA FOLDER/GROUP */}
         {isModalOpen && (
             <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsModalOpen(false)}>
                 <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-                    <h3 className="text-xl font-bold text-white mb-4">{modalMode === 'create' ? "Create New Folder" : "Edit Folder"}</h3>
+                    <h3 className="text-xl font-bold text-white mb-4">
+                        {modalMode === 'create_group' ? "Create New Group" : modalMode === 'create_folder' ? "Create New Folder" : "Edit Folder"}
+                    </h3>
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Folder Name</label>
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                                {modalMode === 'create_group' ? "Group Name" : "Folder Name"}
+                            </label>
                             <input 
                                 autoFocus
                                 type="text" 
-                                placeholder="e.g. TOEIC Preparation" 
+                                placeholder={modalMode === 'create_group' ? "e.g. Lesson 1" : "e.g. TOEIC Preparation"} 
                                 className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-600 transition-colors"
                                 value={folderNameInput}
                                 onChange={(e) => setFolderNameInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleModalSubmit()}
                             />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Select Color</label>
-                            <div className="flex flex-wrap gap-3">
-                                {COLORS.map((color) => (
-                                    <button
-                                        key={color.id}
-                                        onClick={() => setFolderColorInput(color.id)}
-                                        className={cn(
-                                            "w-10 h-10 rounded-full transition-all border-2",
-                                            color.bg,
-                                            folderColorInput === color.id ? "border-white scale-110 shadow-lg ring-2 ring-white/20" : "border-transparent opacity-50 hover:opacity-100 hover:scale-105"
-                                        )}
-                                        title={color.name}
-                                    />
-                                ))}
+                        {modalMode !== 'create_group' && (
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Select Color</label>
+                                <div className="flex flex-wrap gap-3">
+                                    {COLORS.map((color) => (
+                                        <button
+                                            key={color.id}
+                                            onClick={() => setFolderColorInput(color.id)}
+                                            className={cn(
+                                                "w-10 h-10 rounded-full transition-all border-2",
+                                                color.bg,
+                                                folderColorInput === color.id ? "border-white scale-110 shadow-lg ring-2 ring-white/20" : "border-transparent opacity-50 hover:opacity-100 hover:scale-105"
+                                            )}
+                                            title={color.name}
+                                        />
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
                         <div className="pt-4 flex gap-3">
                             <Button className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white h-12 rounded-xl" onClick={() => setIsModalOpen(false)}>Cancel</Button>
                             <Button className="flex-1 bg-white hover:bg-zinc-200 text-black h-12 rounded-xl font-bold" onClick={handleModalSubmit}>
-                                {modalMode === 'create' ? (groupToMove ? "Create & Move" : "Create") : "Save Changes"}
+                                {modalMode === 'create_group' || modalMode === 'create_folder' ? (groupToMove && modalMode === 'create_folder' ? "Create & Move" : "Create") : "Save Changes"}
                             </Button>
                         </div>
                     </div>
@@ -735,11 +925,8 @@ export function GroupListView({
                   
                   <div className="w-[95vw] sm:w-[90vw] max-w-5xl h-[95vh] sm:h-[90vh] bg-zinc-800 border-2 border-blue-900/50 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
 
-                      {/* Modal Header */}
                       <div className="p-4 sm:p-5 px-5 sm:px-8 border-b border-zinc-900/50 bg-zinc-900 flex justify-between items-start shrink-0">
-                          
                           <div className="flex-1 min-w-0 pr-3 sm:pr-4 flex flex-col justify-center">
-                              
                               <div className="flex items-baseline gap-2 sm:gap-3 flex-wrap">
                                   <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight break-words">{displayWord}</h2>
                                   {actualData.type && (
@@ -751,13 +938,11 @@ export function GroupListView({
                               
                               {(phonetics.us || actualData.audio?.us || phonetics.uk || actualData.audio?.uk) && (
                                   <div className="flex items-center gap-3 sm:gap-5 mt-1 sm:mt-1.5 w-full flex-nowrap overflow-hidden">
-                                      
                                       {(phonetics.us || actualData.audio?.us) && (
                                           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
                                               <button 
                                                   onClick={(e) => playAudio(e, actualData.audio?.us, displayWord, 'us')} 
                                                   className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all text-[9px] sm:text-[10px] font-bold"
-                                                  title="Play US pronunciation"
                                               >
                                                   US
                                               </button>
@@ -770,7 +955,6 @@ export function GroupListView({
                                               <button 
                                                   onClick={(e) => playAudio(e, actualData.audio?.uk, displayWord, 'uk')} 
                                                   className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500 hover:text-white transition-all text-[9px] sm:text-[10px] font-bold"
-                                                  title="Play UK pronunciation"
                                               >
                                                   UK
                                               </button>
@@ -786,7 +970,6 @@ export function GroupListView({
                           </button>
                       </div>
 
-                      {/* Modal Body (Definitions) */}
                       <div className="p-4 sm:p-6 px-5 sm:px-8 overflow-y-auto custom-scrollbar flex-1 bg-zinc-800 text-left relative">
                           {actualData.href && (
                               <div className="absolute top-4 sm:top-5 right-4 sm:right-5 z-10">
@@ -826,34 +1009,7 @@ export function GroupListView({
               </div>
           );
       })()}
-      {/* --- MODAL TẠO GROUP MỚI --- */}
-      {isAddGroupOpen && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsAddGroupOpen(false)}>
-              <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-                  <h3 className="text-xl font-bold text-white mb-4">Create New Group</h3>
-                  <div className="space-y-4">
-                      <div className="space-y-2">
-                          <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Group Name</label>
-                          <input 
-                              autoFocus
-                              type="text" 
-                              placeholder="e.g. Lesson 1, Animals, TOEIC..." 
-                              className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-600 transition-colors"
-                              value={groupNameInput}
-                              onChange={(e) => setGroupNameInput(e.target.value)}
-                              onKeyDown={(e) => e.key === 'Enter' && submitAddGroup()}
-                          />
-                      </div>
-                      <div className="pt-4 flex gap-3">
-                          <Button className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white h-12 rounded-xl" onClick={() => setIsAddGroupOpen(false)}>Cancel</Button>
-                          <Button className="flex-1 bg-white hover:bg-zinc-200 text-black h-12 rounded-xl font-bold" onClick={submitAddGroup}>
-                              Create Group
-                          </Button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
+
     <ConfirmDialog 
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}

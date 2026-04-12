@@ -534,7 +534,7 @@ export function LearnModeView({
                         <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center mb-6 shadow-inner"><span className="text-5xl">🎉</span></div>
                         <h3 className="text-2xl font-bold mb-2 text-white">Excellent!</h3>
                         <p className="text-zinc-500 mb-6 text-center max-w-xs">You have finished reviewing this folder.</p>
-                        <Button onClick={handleRestart} size="lg" className="rounded-full px-10 h-12 text-base font-bold shadow-lg bg-white text-black hover:bg-zinc-200">Học lại từ đầu</Button>
+                        <Button onClick={handleRestart} size="lg" className="rounded-full px-10 h-12 text-base font-bold shadow-lg bg-white text-black hover:bg-zinc-200">Learn again</Button>
                     </div>
                     )}
                 </div> 

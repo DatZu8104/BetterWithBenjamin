@@ -130,8 +130,12 @@ getSystemWords: async () => {
   },
 
   // --- FOLDERS & GROUPS  ---
-  addFolder: async (data: any) => {
-    await fetch(`${API_URL}/folders`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+  addFolder: async (data: { name: string, color?: string, isGlobal?: boolean }) => {
+    await fetch(`${API_URL}/folders`, { 
+      method: 'POST', 
+      headers: getHeaders(), 
+      body: JSON.stringify(data) 
+    });
   },
   deleteFolder: async (name: string) => {
     const res = await fetch(`${API_URL}/folders/${encodeURIComponent(name)}`, { 
@@ -166,11 +170,11 @@ getSystemWords: async () => {
     return res.json();
   },
 
-  createFolderAndGetId: async (name: string, color?: string) => {
+  createFolderAndGetId: async (name: string, color?: string, isGlobal: boolean = false) => {
     const res = await fetch(`${API_URL}/folders`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ name, color })
+      body: JSON.stringify({ name, color, isGlobal }) // Truyền isGlobal xuống
     });
     if (!res.ok) throw new Error("Lỗi tạo thư mục mới");
     return res.json();

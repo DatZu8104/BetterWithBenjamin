@@ -87,14 +87,12 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     setVisibleCount(30);
   }, [selectedSystemGroup, activeTab]);
 
-  // --- ĐÃ SỬA LỖI HIỂN THỊ SAI SỐ LƯỢNG Ở Ô INPUT ---
   useEffect(() => {
     if (selectedSystemGroup) {
        const countInThisGroup = selectedWordIds.filter(id => 
         availableWords.some((w: any) => (w._id || w.id) === id)
       ).length;
       
-      // Chỉ theo dõi số lượng ở nhóm hiện tại, cập nhật mỗi khi giỏ hàng hoặc nhóm thay đổi
       setQuickSelectInputValue(countInThisGroup > 0 ? countInThisGroup.toString() : "");
     }
   }, [selectedSystemGroup, availableWords, selectedWordIds]);
@@ -102,7 +100,9 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const fetchUserFolders = async () => {
     try {
       const data = await api.getFoldersList();
-      setUserFolders(data);
+      // ĐÃ SỬA: Lọc ra CHỈ hiển thị các folder của hệ thống (isGlobal === true)
+      const systemFolders = data.filter((f: any) => f.isGlobal === true);
+      setUserFolders(systemFolders);
     } catch (err) {
       console.error("Error loading folders", err);
     }
@@ -150,7 +150,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
          const data = await api.getFolderDetail(editingFolderData.id);
          setEditingFolderWords(data.savedWords || []);
          
-          const newFolders = await api.getFoldersList();
+         const newFolders = await api.getFoldersList();
          const updated = newFolders.find((f: any) => f._id === editingFolderData.id);
          if (updated) {
            setEditingFolderData({ id: updated._id, name: updated.name });
@@ -189,14 +189,12 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     }
   };
 
-  // Hàm 1: Khi bấm nút thùng rác -> Chỉ mở bảng hỏi và lưu ID folder lại
   const handleDeleteFolderClick = (e: React.MouseEvent, id: string) => {
     e.stopPropagation(); 
     setFolderToDeleteId(id);
     setIsDeleteConfirmOpen(true);
   };
 
-  // Hàm 2: Khi người dùng bấm "Delete" trên bảng hỏi
   const handleConfirmDeleteFolder = async () => {
     if (!folderToDeleteId) return;
     
@@ -207,7 +205,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
       fetchSavedWordIds(); 
       if (onRefreshData) onRefreshData();
       
-      // Sử dụng notify thay vì toast mặc định
       notify.success("Folder Deleted", "The folder and its contents have been removed.");
     } catch (err) {
       notify.error("Error", "Failed to delete folder. Please try again.");
@@ -289,7 +286,8 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     setIsLoading(true);
 
     try {
-      const newFolder = await api.createFolderAndGetId(newFolderName);
+      // ĐÃ SỬA: Thêm tham số `true` ở cuối để đánh dấu đây là thao tác tạo Folder Hệ thống
+      const newFolder = await api.createFolderAndGetId(newFolderName, '#9333ea', true);
       const folderId = newFolder._id;
 
       await api.addWordsToFolder(folderId, selectedWordIds);
@@ -313,7 +311,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
           };
         });
 
-      toast.success("Folder created successfully!");
+      toast.success("System folder created successfully!");
       onStartLearn(newFolder.name, formattedWords);
       onClose();
     } catch (err) {
@@ -358,7 +356,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                     onClick={() => startTransition(() => setActiveTab("existing"))}
                     className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "existing" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
                   >
-                    <FolderOpen className="w-4 h-4" /> Your folders
+                    <FolderOpen className="w-4 h-4" /> System Folders
                   </button>
                 </div>
               </FeatureHint>
@@ -381,7 +379,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {userFolders.length === 0 ? (
                     <div className="col-span-full py-12 text-center text-zinc-500">
-                      You don't have any folders yet. Please go to the Vocabulary Tab to create lessons!
+                      You don't have any system folders yet.
                     </div>
                   ) : (
                     userFolders.map((folder) => (
@@ -448,7 +446,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
                       {systemGroups.map((group, index) => {
                         
-                        // NẾU LÀ FOLDER ĐẦU TIÊN -> BỌC TOUR CHO NÚT BẤM NÀY
                         if (index === 0) {
                           return (
                             <FeatureHint
@@ -456,7 +453,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                               id={ONBOARDING_IDS.MODAL_STUDY_SELECT_FOLDER}
                               waitFor={ONBOARDING_IDS.MODAL_STUDY_TABS} 
                               delay={400}
-                              side="right" // Sẽ nhảy sang phải nếu màn hình đủ chỗ
+                              side="right" 
                               align="center"
                               message={
                                 <div className="space-y-1 max-w-[240px]">
@@ -477,7 +474,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                           );
                         }
 
-                        // NẾU LÀ CÁC FOLDER KHÁC -> RENDER NÚT BÌNH THƯỜNG (KHÔNG CÓ TOUR)
                         return (
                           <button
                             key={group.name}
@@ -536,7 +532,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button className="flex items-center justify-center gap-1.5 h-9 px-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-blue-400 shadow-sm outline-none transition-colors">
-                                {/* Đã bỏ fallback selectedWordIds.length */}
                                 {quickSelectInputValue || 0} / {availableWords.length}
                                 <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
                               </button>
@@ -567,7 +562,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                         {/* Giao diện Desktop */}
                         <div className="hidden md:flex items-center h-10 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shrink-0 shadow-md focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
                           <Input
-                            // Đã bỏ fallback selectedWordIds.length
                             value={quickSelectInputValue}
                             onChange={handleQuickSelectChange}
                             onBlur={handleQuickSelectBlur}

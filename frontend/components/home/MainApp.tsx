@@ -3,12 +3,15 @@ import { db } from '../../lib/db';
 import { useState, useEffect, useMemo } from 'react';
 import { api } from '../../lib/api'; 
 import { Header } from '@/components/home/header';
-import { GroupListView } from '@/components/home/group-list';
 import { WordListView } from '@/components/home/word-list';
 import { LearnModeView } from '@/components/home/learn-mode';
 import { StudyManagerModal } from '@/components/home/study-manager-modal'; 
 import { notify } from '../../lib/notify';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+
+// IMPORT 2 COMPONENT VỪA TÁCH:
+import { PersonalGroupListView } from '@/components/home/personal-group-list';
+import { SystemGroupListView } from '@/components/home/system-group-list';
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 
@@ -31,9 +34,12 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
 
   const [words, setWords] = useState<any[]>([]);
   const [rawGroupSettings, setRawGroupSettings] = useState<any[]>([]); 
-  const [dbFolders, setDbFolders] = useState<string[]>([]); 
+  
+  const [personalFolders, setPersonalFolders] = useState<string[]>([]);
+  const [systemFolders, setSystemFolders] = useState<string[]>([]);
+  const [personalGroupSettings, setPersonalGroupSettings] = useState<Record<string, string>>({});
+  const [systemGroupSettings, setSystemGroupSettings] = useState<Record<string, string>>({});
   const [folderColors, setFolderColors] = useState<Record<string, string>>({});
-  const [groupSettings, setGroupSettings] = useState<Record<string, string>>({});
 
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -88,18 +94,33 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                 ...w, id: w.id || w._id, learned: w.learned || false, isGlobal: false
               }));
           }
-          if(data.folders) {
-              setDbFolders(data.folders.map((f: any) => f.name));
-              const colors: Record<string, string> = {};
-              data.folders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
-              setFolderColors(colors);
+          
+          // Xử lý màu sắc (gom chung màu của cả 2)
+          const colors: Record<string, string> = {};
+          if(data.personalFolders) data.personalFolders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
+          if(data.systemFolders) data.systemFolders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
+          setFolderColors(colors);
+
+          // Tách riêng danh sách tên Folder
+          if(data.personalFolders) setPersonalFolders(data.personalFolders.map((f: any) => f.name));
+          if(data.systemFolders) setSystemFolders(data.systemFolders.map((f: any) => f.name));
+
+          // Tách riêng Group Settings (Nhóm nào nằm trong Folder nào)
+          const pSettings: Record<string, string> = {};
+          const sSettings: Record<string, string> = {};
+          
+          if(data.personalGroupSettings) {
+             data.personalGroupSettings.forEach((s: any) => { pSettings[s.groupName] = s.folder; });
           }
-          if(data.groupSettings) {
-              setRawGroupSettings(data.groupSettings);
-              const settings: Record<string, string> = {};
-              data.groupSettings.forEach((s: any) => { settings[s.groupName] = s.folder; });
-              setGroupSettings(settings);
+          if(data.systemGroupSettings) {
+             data.systemGroupSettings.forEach((s: any) => { sSettings[s.groupName] = s.folder; });
           }
+          
+          setPersonalGroupSettings(pSettings);
+          setSystemGroupSettings(sSettings);
+          
+          // Gộp raw lại để hệ thống tính toán logic tiến độ (như cũ)
+          setRawGroupSettings([...(data.personalGroupSettings || []), ...(data.systemGroupSettings || [])]);
       }
 
       setWords(personalWords);
@@ -146,12 +167,14 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
     }
   };
 
+  const activeFolders = viewMode === 'global' ? systemFolders : personalFolders;
+  const activeGroupSettings = viewMode === 'global' ? systemGroupSettings : personalGroupSettings;
+
   const wordsByMode = useMemo(() => {
     if (viewMode === 'global') return words.filter(w => w.isGlobal === true);
     return words.filter(w => !w.isGlobal);
   }, [words, viewMode]);
 
-  // ĐÂY LÀ KHU VỰC TRÁI TIM ĐƯỢC CẬP NHẬT ĐỂ TÍNH TIẾN ĐỘ REAL-TIME
   const calculatedGroups = useMemo(() => {
     const relevantSettings = rawGroupSettings.filter(s => {
         const isGlobalGroup = !!s.isGlobal; 
@@ -167,10 +190,8 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
         const groupWordsList = wordsByMode.filter(w => w.group === name);
         const count = groupWordsList.length;
         
-        // --- 2 DÒNG TÍNH TOÁN % ĐỂ TRUYỀN XUỐNG GROUP-LIST ---
         const learnedWords = groupWordsList.filter(w => w.learned).length;
         const percentage = count > 0 ? Math.round((learnedWords / count) * 100) : 0;
-        // -----------------------------------------------------
 
         let dateVal = 0;
         const parts = name.split(/[-/]/);
@@ -181,10 +202,10 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
         return { 
             name, 
             count, 
-            folder: groupSettings[name] || "", 
+            folder: activeGroupSettings[name] || "", 
             dateVal,
-            learnedWords, // Data mới
-            percentage    // Data mới
+            learnedWords, 
+            percentage    
         };
     }).filter(g => {
         if (g.count > 0) return true;
@@ -199,7 +220,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
         else res = a.dateVal - b.dateVal; 
         return sortDirection === 'asc' ? res : -res;
     });
-  }, [wordsByMode, rawGroupSettings, groupSettings, sortOption, sortDirection, viewMode, canEdit]);
+  }, [wordsByMode, rawGroupSettings, activeGroupSettings, sortOption, sortDirection, viewMode, canEdit]);
 
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return [];
@@ -209,9 +230,9 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
 
   const currentViewWords = useMemo(() => {
       if (selectedGroup) return wordsByMode.filter(w => w.group === selectedGroup);
-      if (currentFolder) return wordsByMode.filter(w => groupSettings[w.group] === currentFolder);
+      if (currentFolder) return wordsByMode.filter(w => activeGroupSettings[w.group] === currentFolder);
       return wordsByMode;
-  }, [wordsByMode, selectedGroup, currentFolder, groupSettings]);
+  }, [wordsByMode, selectedGroup, currentFolder, activeGroupSettings]);
 
   const pickRandomWord = (list: any[] = currentViewWords) => {
       const unlearned = list.filter(w => modalLearnWords ? !w.isMastered : !w.learned);
@@ -314,33 +335,42 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const handleEditWord = !canEdit ? async () => {} : async (id: string, english: string, definition: string, type: string[]) => {
       try {
           await api.updateWord(id, { english, definition, type });
-          loadData(); // <--- Đổi fetchData() thành loadData()
+          loadData(); 
       } catch (error) {
           console.error("Lỗi khi cập nhật từ:", error);
           alert("Failed to update word.");
       }
   };
   const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => {
-  try {
-    await api.deleteWord(id);
-    loadData();
-    notify.success("Deleted!", "The word has been removed from your list."); // Thay alert
-  } catch (error) {
-    notify.error("Error", "Failed to delete the word.");
-  }
-};
-  const handleCreateFolder = async (n: string, c: string) => { if(canEdit) { await api.addFolder({ name: n, color: c }); loadData(); } };
-  const handleUpdateFolder = async (o: string, n: string, c: string) => { if(canEdit) { if(o!==n) await api.deleteFolder(o); await api.addFolder({name:n, color:c}); loadData(); } };
+      try {
+        await api.deleteWord(id);
+        loadData();
+        notify.success("Deleted!", "The word has been removed from your list."); 
+      } catch (error) {
+        notify.error("Error", "Failed to delete the word.");
+      }
+  };
+
+  const handleCreateFolder = async (n: string, c: string) => { 
+      if(canEdit) { 
+          await api.addFolder({ name: n, color: c, isGlobal: viewMode === 'global' }); 
+          loadData(); 
+      } 
+  };
+  const handleUpdateFolder = async (o: string, n: string, c: string) => { 
+      if(canEdit) { 
+          if(o!==n) await api.deleteFolder(o); 
+          await api.addFolder({name: n, color: c, isGlobal: viewMode === 'global'}); 
+          loadData(); 
+      } 
+  };
   const handleDeleteFolder = async (n: string) => { 
       if(canEdit) { 
           try {
               await api.deleteFolder(n); 
               loadData(); 
               notify.success("Folder Deleted", `The folder has been removed.`);
-              
-              // THÊM DÒNG NÀY: Xóa xong thì tự động đẩy người dùng về màn hình All Groups
               updateUrl({ folder: null, group: null }); 
-              
           } catch(e) { 
               notify.error("Error", "Failed to delete folder."); 
           }
@@ -404,7 +434,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                             updateUrl({ learn: null, sysFolder: null }); 
                             setModalLearnWords(null); 
                             sessionStorage.removeItem('current_learn_words');
-                            // KHÔNG CẦN gọi loadData() ở đây nữa vì mọi thứ đã đồng bộ Real-time!
                         }}
                         themeColor={viewMode === 'global' ? '#9333ea' : (currentFolder && folderColors[currentFolder] ? undefined : '#2563eb')}
                     />
@@ -418,24 +447,43 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
                     onLearn={handleStartLearn} allowEdit={canEdit}
                     onEditWord={handleEditWord}
                 />
-            ) : (
-                <GroupListView 
+            ) : viewMode === 'personal' ? (
+                <PersonalGroupListView 
                     groups={calculatedGroups} searchResults={searchResults} searchTerm={searchTerm}
-                    folders={dbFolders} folderColors={folderColors} currentFolder={currentFolder}
+                    folders={activeFolders} 
+                    folderColors={folderColors} currentFolder={currentFolder}
                     totalWords={currentViewWords.length} learnedCount={currentViewWords.filter(w => w.learned).length}
                     onSearchChange={setSearchTerm} onClearSearch={() => setSearchTerm('')}
                     onSelectGroup={(g) => updateUrl({ group: g })}
                     onSelectFolder={(f) => updateUrl({ folder: f })}
-                    allowAdd={canEdit} onAddGroup={handleAddGroup} onDeleteGroup={handleDeleteGroup}
+                    allowAdd={true} // Cá nhân luôn được sửa
+                    onAddGroup={handleAddGroup} onDeleteGroup={handleDeleteGroup}
                     onDeleteWordResult={handleDeleteWord} onMoveGroup={handleMoveGroup} onCreateFolder={handleCreateFolder}
                     onUpdateFolder={handleUpdateFolder} onDeleteFolder={handleDeleteFolder}
                     onSort={(opt) => {
                         if (sortOption === opt) {
-                            setSortOption('date'); 
-                            setSortDirection('desc'); 
-                        } else {
-                            setSortOption(opt);
-                        }
+                            setSortOption('date'); setSortDirection('desc'); 
+                        } else { setSortOption(opt); }
+                    }}
+                    onStartLearn={handleStartLearn} onResetLearn={handleResetProgress} onUpdate={loadData}
+                />
+            ) : (
+                <SystemGroupListView 
+                    groups={calculatedGroups} searchResults={searchResults} searchTerm={searchTerm}
+                    folders={activeFolders} 
+                    folderColors={folderColors} currentFolder={currentFolder}
+                    totalWords={currentViewWords.length} learnedCount={currentViewWords.filter(w => w.learned).length}
+                    onSearchChange={setSearchTerm} onClearSearch={() => setSearchTerm('')}
+                    onSelectGroup={(g) => updateUrl({ group: g })}
+                    onSelectFolder={(f) => updateUrl({ folder: f })}
+                    allowAdd={role === 'admin'} // Chỉ admin mới được sửa hệ thống
+                    onAddGroup={handleAddGroup} onDeleteGroup={handleDeleteGroup}
+                    onDeleteWordResult={handleDeleteWord} onMoveGroup={handleMoveGroup} onCreateFolder={handleCreateFolder}
+                    onUpdateFolder={handleUpdateFolder} onDeleteFolder={handleDeleteFolder}
+                    onSort={(opt) => {
+                        if (sortOption === opt) {
+                            setSortOption('date'); setSortDirection('desc'); 
+                        } else { setSortOption(opt); }
                     }}
                     onStartLearn={handleStartLearn} onResetLearn={handleResetProgress} onUpdate={loadData}
                 />
