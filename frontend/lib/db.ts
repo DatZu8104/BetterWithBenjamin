@@ -39,12 +39,21 @@ class VocabularyDB extends Dexie {
     super("VocabularyDatabase");
 
     this.version(13).stores({
-      words: "id, english, definition, type, group",
-      learned: "id",
-      groupSettings: "groupName, folder",
-      folders: "name, color, createdAt",
-      systemWords: "id" 
-    });
+  words: "id, english, definition, type, group",
+  learned: "id",
+  groupSettings: "groupName, folder",
+  folders: "name, color, createdAt",
+  systemWords: "id"
+});
+
+// Tăng version để Dexie tự migrate
+this.version(14).stores({
+  words: "id, english, definition, type, group",
+  learned: "id",
+  groupSettings: "groupName, folder",
+  folders: "name, color, createdAt",
+  systemWords: "id, group"  // ← thêm group vào đây
+});
   }
 }
 

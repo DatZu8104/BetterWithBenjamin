@@ -81,9 +81,19 @@ router.post('/words', verifyToken, async (req, res) => {
                 order: 1, label: 'Meaning 1', definition: definition, examples: example ? [example] : [] 
             }];
 
-            const newSysWord = new SystemVocabulary({ word: wordText, definitions: finalDefinitions, type, group });
+            // ĐÃ FIX: Ép kiểu mảng "type" từ Frontend thành Chuỗi (String) để hợp với SystemVocabulary Schema
+            const finalType = Array.isArray(type) ? type.join(', ') : type;
+
+            const newSysWord = new SystemVocabulary({ 
+                word: wordText, 
+                definitions: finalDefinitions, 
+                type: finalType, // Dùng biến đã được convert
+                group 
+            });
+            
             await newSysWord.save();
             return res.json({ ...newSysWord.toObject(), isGlobal: true });
+            
         } else {
             const newWord = new Vocabulary({ 
                 userId: req.userId, english: wordText, definition: definition || (definitions?.[0]?.definition), 
@@ -92,7 +102,10 @@ router.post('/words', verifyToken, async (req, res) => {
             await newWord.save();
             return res.json({ ...newWord.toObject(), isGlobal: false });
         }
-    } catch (e) { res.status(500).json(e); }
+    } catch (e) { 
+        console.error("Lỗi khi thêm từ vựng:", e);
+        res.status(500).json(e); 
+    }
 });
 
 router.delete('/words/:id', verifyToken, async (req, res) => {
@@ -282,23 +295,28 @@ router.delete('/folders/:id', verifyToken, async (req, res) => {
 
         // --- NẾU LÀ FOLDER HỆ THỐNG ---
         if (isSystemFolder) {
-            const groupsInFolder = await GroupSetting.find({ 
-                isGlobal: true, 
-                folder: { $regex: new RegExp(`^${folderName}$`, 'i') } 
-            });
-            const groupNames = groupsInFolder.map(g => g.groupName);
-            
-            if (groupNames.length > 0) {
-                await SystemVocabulary.deleteMany({ group: { $in: groupNames } });
-            }
-            await GroupSetting.deleteMany({ 
-                isGlobal: true, 
-                folder: { $regex: new RegExp(`^${folderName}$`, 'i') } 
-            });
-            await SystemFolder.findByIdAndDelete(folderId);
+    const groupsInFolder = await GroupSetting.find({ 
+        isGlobal: true, 
+        folder: { $regex: new RegExp(`^${folderName}$`, 'i') } 
+    });
+    const groupNames = groupsInFolder.map(g => g.groupName);
+    
+    // Xóa tất cả từ vựng thuộc các group con + group tự tạo
+    const allGroupNames = [...groupNames, folderName];
+    await SystemVocabulary.deleteMany({ group: { $in: allGroupNames } });
 
-            return res.json({ message: 'Deleted system folder, groups, and words successfully' });
-        } 
+    // Xóa GroupSetting theo folder + theo tên tự tạo
+    await GroupSetting.deleteMany({ 
+        isGlobal: true, 
+        $or: [
+            { folder: { $regex: new RegExp(`^${folderName}$`, 'i') } },
+            { groupName: folderName }
+        ]
+    });
+
+    await SystemFolder.findByIdAndDelete(folderId);
+    return res.json({ message: 'Deleted system folder, groups, and words successfully' });
+}
         
         // --- NẾU LÀ FOLDER CÁ NHÂN ---
         else {
@@ -315,9 +333,9 @@ router.delete('/folders/:id', verifyToken, async (req, res) => {
             });
             const groupNames = groupsInFolder.map(g => g.groupName);
             
-            if (groupNames.length > 0) {
-                await Vocabulary.deleteMany({ userId: req.userId, group: { $in: groupNames } });
-            }
+            const allGroupNames = [...groupNames, folderName]; 
+            await SystemVocabulary.deleteMany({ group: { $in: allGroupNames } });
+
             await GroupSetting.deleteMany({ 
                 userId: req.userId, 
                 folder: { $regex: new RegExp(`^${folderName}$`, 'i') } 

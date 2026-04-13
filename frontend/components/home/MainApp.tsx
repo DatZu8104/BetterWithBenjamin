@@ -56,7 +56,43 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const [isSyncingSystem, setIsSyncingSystem] = useState(false);  
 
   const canEdit = viewMode === 'personal' || role === 'admin';
+// Thêm hàm này bên cạnh loadData()
+const loadMetaOnly = async () => {
+    try {
+        const data = await api.syncData();
+        if (!data) return;
 
+        const colors: Record<string, string> = {};
+        if(data.personalFolders) data.personalFolders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
+        if(data.systemFolders) data.systemFolders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
+        setFolderColors(colors);
+
+        if(data.personalFolders) setPersonalFolders(data.personalFolders.map((f: any) => f.name));
+        if(data.systemFolders) setSystemFolders(data.systemFolders.map((f: any) => f.name));
+
+        const pSettings: Record<string, string> = {};
+        const sSettings: Record<string, string> = {};
+        if(data.personalGroupSettings) data.personalGroupSettings.forEach((s: any) => { pSettings[s.groupName] = s.folder; });
+        if(data.systemGroupSettings) data.systemGroupSettings.forEach((s: any) => { sSettings[s.groupName] = s.folder; });
+        setPersonalGroupSettings(pSettings);
+        setSystemGroupSettings(sSettings);
+        setRawGroupSettings([...(data.personalGroupSettings || []), ...(data.systemGroupSettings || [])]);
+
+        // Cập nhật personal words
+        if (Array.isArray(data.words)) {
+            const personalWords = data.words.map((w: any) => ({
+                ...w, id: w.id || w._id, learned: w.learned || false, isGlobal: false
+            }));
+            // Giữ nguyên system words, chỉ thay personal words
+            setWords(prev => {
+                const sysWords = prev.filter(w => w.isGlobal);
+                return [...personalWords, ...sysWords];
+            });
+        }
+    } catch(e) {
+        console.error("loadMetaOnly error:", e);
+    }
+};
   const updateUrl = (updates: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
       Object.entries(updates).forEach(([key, value]) => {
@@ -167,6 +203,10 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
     }
   };
 
+  const invalidateSystemCache = async () => {
+        await db.systemWords.clear();
+    };
+
   const activeFolders = viewMode === 'global' ? systemFolders : personalFolders;
   const activeGroupSettings = viewMode === 'global' ? systemGroupSettings : personalGroupSettings;
 
@@ -209,7 +249,8 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
         };
     }).filter(g => {
         if (g.count > 0) return true;
-        if (canEdit && relevantSettingNames.has(g.name)) return true;
+        // ĐÃ SỬA: Đã xóa "canEdit &&" ở đây để hiển thị Folder rỗng cho toàn bộ user
+        if (relevantSettingNames.has(g.name)) return true;
         return false;
     });
 
@@ -330,27 +371,83 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   };
 
   const handleAddWord = !canEdit ? async () => {} : async (e: string, d: string, t: string[]) => { 
-      if(selectedGroup) { await api.addWord({ english: e, definition: d, type: t, group: selectedGroup, isGlobal: viewMode === 'global' }); loadData(); }
-  };
-  const handleEditWord = !canEdit ? async () => {} : async (id: string, english: string, definition: string, type: string[]) => {
-      try {
-          await api.updateWord(id, { english, definition, type });
-          loadData(); 
-      } catch (error) {
-          console.error("Lỗi khi cập nhật từ:", error);
-          alert("Failed to update word.");
-      }
-  };
-  const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => {
-      try {
-        await api.deleteWord(id);
-        loadData();
-        notify.success("Deleted!", "The word has been removed from your list."); 
-      } catch (error) {
-        notify.error("Error", "Failed to delete the word.");
-      }
-  };
+    if(selectedGroup) {
+        const tempWord = {
+            id: `temp_${Date.now()}`,
+            english: e, word: e, definition: d, type: t,
+            group: selectedGroup,
+            isGlobal: viewMode === 'global',
+            learned: false
+        };
+        setWords(prev => [...prev, tempWord]);
 
+        try {
+            const saved = await api.addWord({ english: e, definition: d, type: t, group: selectedGroup, isGlobal: viewMode === 'global' });
+            
+            // Thay từ tạm bằng từ thật từ server (có _id thật)
+            setWords(prev => prev.map(w => 
+                w.id === tempWord.id 
+                    ? { ...saved, id: String(saved._id || saved.id), isGlobal: viewMode === 'global' } 
+                    : w
+            ));
+
+            // Nếu là system: cập nhật cache Dexie ngầm mà KHÔNG clear toàn bộ
+            if (viewMode === 'global') {
+                const newWord = { ...saved, id: String(saved._id || saved.id), isGlobal: true };
+                await db.systemWords.put(newWord);
+            }
+        } catch(error) {
+            setWords(prev => prev.filter(w => w.id !== tempWord.id));
+            notify.error("Error", "Failed to add word.");
+        }
+    }
+};
+
+const handleEditWord = !canEdit ? async () => {} : async (id: string, english: string, definition: string, type: string[]) => {
+    // Cập nhật UI ngay
+    setWords(prev => prev.map(w => 
+        (w.id === id || w._id === id) 
+            ? { ...w, english, word: english, definition, type } 
+            : w
+    ));
+
+    try {
+        const updatePayload = viewMode === 'global'
+            ? { word: english, definition, type }
+            : { english, definition, type };
+
+        await api.updateWord(id, updatePayload);
+
+        // Cập nhật cache Dexie ngầm mà KHÔNG clear
+        if (viewMode === 'global') {
+            await db.systemWords.where('id').equals(id).modify({ 
+                word: english, english, definition, type 
+            });
+        }
+    } catch (error) {
+        notify.error("Error", "Failed to update word.");
+        loadData(); // Rollback nếu lỗi
+    }
+};
+
+const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => {
+    // Xóa khỏi UI ngay
+    setWords(prev => prev.filter(w => w.id !== id && w._id !== id));
+
+    try {
+        await api.deleteWord(id);
+
+        // Xóa khỏi cache Dexie ngầm mà KHÔNG clear toàn bộ
+        if (viewMode === 'global') {
+            await db.systemWords.where('id').equals(id).delete();
+        }
+        
+        notify.success("Deleted!", "The word has been removed from your list.");
+    } catch (error) {
+        notify.error("Error", "Failed to delete the word.");
+        loadData(); // Rollback nếu lỗi
+    }
+};
   const handleCreateFolder = async (n: string, c: string) => {
     if (canEdit) {
       // 1. Tạo vỏ Folder để lưu màu sắc
@@ -378,18 +475,23 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       } 
   };
   const handleDeleteFolder = async (n: string) => { 
-      if(canEdit) { 
-          try {
-              await api.deleteFolder(n); 
-              loadData(); 
-              notify.success("Folder Deleted", `The folder has been removed.`);
-              updateUrl({ folder: null, group: null }); 
-          } catch(e) { 
-              notify.error("Error", "Failed to delete folder."); 
-          }
-      } 
-  };
+    if(canEdit) { 
+        try {
+            // Xóa UI ngay
+            setWords(prev => prev.filter(w => w.group !== n));
+            await db.systemWords.where('group').equals(n).delete();
 
+            await api.deleteFolder(n);
+            
+            await loadMetaOnly();
+            notify.success("Folder Deleted", `The folder has been removed.`);
+            updateUrl({ folder: null, group: null }); 
+        } catch(e) { 
+            notify.error("Error", "Failed to delete folder.");
+            loadData(); // Rollback nếu lỗi
+        }
+    } 
+};
   const handleMoveGroup = async (g: string, f: string) => { if(canEdit) { await api.updateGroup(g, f); loadData(); } };
   const handleAddGroup = !canEdit ? async (n: string) => {} : async (n: string) => { 
       try {
@@ -400,8 +502,33 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
           notify.error("Error", "Failed to create group."); 
       }
   };
-  const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => { await api.deleteGroup(n); loadData(); };
+const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => { 
+    try {
+        if (viewMode === 'global') {
+            // 1. Xóa khỏi UI ngay
+            setWords(prev => prev.filter(w => w.group !== n));
+            
+            // 2. Xóa khỏi cache Dexie ngầm, KHÔNG clear toàn bộ
+            await db.systemWords.where('group').equals(n).delete();
 
+            // 3. Gọi API ngầm
+            await api.deleteFolder(n);
+
+            // 4. Chỉ reload metadata (folders, groups) không reload words
+            await loadMetaOnly();
+
+        } else {
+            // Personal: xóa UI ngay
+            setWords(prev => prev.filter(w => w.group !== n));
+            await api.deleteGroup(n);
+            await loadMetaOnly();
+        }
+        notify.success("Deleted!", "Group has been removed.");
+    } catch(e) {
+        notify.error("Error", "Failed to delete.");
+        loadData(); // Rollback nếu lỗi
+    }
+};
   const activeLearnWords = useMemo(() => {
     if (modalLearnWords) return modalLearnWords; 
     
