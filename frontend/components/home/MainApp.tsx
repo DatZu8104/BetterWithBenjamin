@@ -351,12 +351,17 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
       }
   };
 
-  const handleCreateFolder = async (n: string, c: string) => { 
-      if(canEdit) { 
-          await api.addFolder({ name: n, color: c, isGlobal: viewMode === 'global' }); 
-          loadData(); 
-      } 
+  const handleCreateFolder = async (n: string, c: string) => {
+    if (canEdit) {
+      await api.addFolder({
+        name: n,
+        color: c,
+        isGlobal: viewMode === 'global' 
+      });
+      loadData();
+    }
   };
+
   const handleUpdateFolder = async (o: string, n: string, c: string) => { 
       if(canEdit) { 
           if(o!==n) await api.deleteFolder(o); 

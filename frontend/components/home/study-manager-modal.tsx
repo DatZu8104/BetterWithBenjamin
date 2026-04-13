@@ -46,7 +46,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const [editingFolderWords, setEditingFolderWords] = useState<any[]>([]);
   const [visibleCount, setVisibleCount] = useState(30);
 
-  // --- STATE CHO XÓA FOLDER ---
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [folderToDeleteId, setFolderToDeleteId] = useState<string | null>(null);
 
@@ -100,9 +99,9 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const fetchUserFolders = async () => {
     try {
       const data = await api.getFoldersList();
-      // ĐÃ SỬA: Lọc ra CHỈ hiển thị các folder của hệ thống (isGlobal === true)
-      const systemFolders = data.filter((f: any) => f.isGlobal === true);
-      setUserFolders(systemFolders);
+      // ĐÃ SỬA: Lọc ĐÚNG folder Study Modal (Không phải hệ thống VÀ có cờ isSystemSaved)
+      const studyFolders = data.filter((f: any) => f.isGlobal !== true && f.isSystemSaved === true);
+      setUserFolders(studyFolders);
     } catch (err) {
       console.error("Error loading folders", err);
     }
@@ -286,8 +285,8 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     setIsLoading(true);
 
     try {
-      // ĐÃ SỬA: Thêm tham số `true` ở cuối để đánh dấu đây là thao tác tạo Folder Hệ thống
-      const newFolder = await api.createFolderAndGetId(newFolderName, '#9333ea', true);
+      // ĐÃ SỬA: Đánh dấu rõ ràng: isGlobal = false (Không phải của Admin), isSystemSaved = true (Tạo từ kho)
+      const newFolder = await api.createFolderAndGetId(newFolderName, '#9333ea', false, true);
       const folderId = newFolder._id;
 
       await api.addWordsToFolder(folderId, selectedWordIds);
@@ -311,7 +310,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
           };
         });
 
-      toast.success("System folder created successfully!");
+      toast.success("Folder created successfully in your library!");
       onStartLearn(newFolder.name, formattedWords);
       onClose();
     } catch (err) {
@@ -324,7 +323,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="!max-w-[98vw] md:!max-w-[95vw] !w-full h-[95vh] md:h-[92vh] flex flex-col p-0 gap-0 bg-black text-zinc-100 border-zinc-800 shadow-2xl overflow-hidden z-[10000]">
+        <DialogContent className="!max-w-[98vw] md:!maxw-[95vw] !w-full h-[95vh] md:h-[92vh] flex flex-col p-0 gap-0 bg-black text-zinc-100 border-zinc-800 shadow-2xl overflow-hidden z-[10000]">
           <DialogHeader className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-6 pt-4 md:pt-6 z-20 flex flex-col md:flex-row md:items-end justify-between gap-2 md:gap-4 relative">
             
             <DialogTitle className="text-2xl font-black tracking-tight text-white pb-2 md:pb-4 shrink-0">
@@ -356,7 +355,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                     onClick={() => startTransition(() => setActiveTab("existing"))}
                     className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "existing" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
                   >
-                    <FolderOpen className="w-4 h-4" /> System Folders
+                    <FolderOpen className="w-4 h-4" /> Your Folders
                   </button>
                 </div>
               </FeatureHint>
@@ -379,7 +378,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {userFolders.length === 0 ? (
                     <div className="col-span-full py-12 text-center text-zinc-500">
-                      You don't have any system folders yet.
+                      You don't have any saved folders yet.
                     </div>
                   ) : (
                     userFolders.map((folder) => (
@@ -442,7 +441,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
               <div className="absolute inset-0 flex flex-col p-6 overflow-hidden">
                 {!selectedSystemGroup ? (
                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-40 md:pb-28">
-                    {/* KHÔNG CÒN THẺ FeatureHint BỌC NGOÀI Ở ĐÂY NỮA, CHỈ BẮT ĐẦU BẰNG DIV GRID */}
                     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
                       {systemGroups.map((group, index) => {
                         
@@ -527,7 +525,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
 
                       <div className="flex items-center justify-end gap-2 shrink-0">
                         
-                        {/* Giao diện Mobile */}
                         <div className="md:hidden">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -554,12 +551,12 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                                 ✨ Select all ({availableWords.length})
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => applyWordSelection(0)} className="cursor-pointer text-red-400 hover:bg-red-500/20 hover:text-red-300 focus:bg-red-500/20 focus:text-red-300 mt-1 border-t border-zinc-800 pt-2">
+                                Deselect all
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
 
-                        {/* Giao diện Desktop */}
                         <div className="hidden md:flex items-center h-10 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shrink-0 shadow-md focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
                           <Input
                             value={quickSelectInputValue}

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { Vocabulary, SystemVocabulary, Folder, GroupSetting, User, UserProgress, SavedWord } = require('../models');
+const { Vocabulary, SystemVocabulary, Folder, GroupSetting, User, UserProgress, SavedWord, SystemFolder } = require('../models');
 const { verifyToken } = require('../middleware');
 
 const checkAdmin = async (userId) => {
@@ -19,7 +19,10 @@ router.get('/sync', verifyToken, async (req, res) => {
         
         // 1. Tách riêng Folder
         const personalFolders = await Folder.find({ userId: req.userId, $or: [{ isGlobal: false }, { isGlobal: { $exists: false } }] });
-        const systemFolders = await Folder.find({ isGlobal: true });
+        
+        // --- ĐÂY CHÍNH LÀ PHẦN 2 ĐÃ ĐƯỢC SỬA ---
+        // Lấy dữ liệu từ bảng SystemFolder mới thay vì bảng Folder cũ
+        const systemFolders = await SystemFolder.find({}); 
 
         // 2. Tách riêng Group Settings
         const personalGroupSettings = await GroupSetting.find({ userId: req.userId, $or: [{ isGlobal: false }, { isGlobal: { $exists: false } }] });
@@ -28,10 +31,10 @@ router.get('/sync', verifyToken, async (req, res) => {
         res.json({ 
             words: formattedUserWords, 
             learnedSystemIds: learnedSysIds, 
-            personalFolders,       // Gửi mảng cá nhân
-            systemFolders,         // Gửi mảng hệ thống
-            personalGroupSettings, // Gửi cài đặt nhóm cá nhân
-            systemGroupSettings    // Gửi cài đặt nhóm hệ thống
+            personalFolders,       
+            systemFolders,         // Gửi mảng hệ thống mới xuống Frontend
+            personalGroupSettings, 
+            systemGroupSettings    
         });
     } catch (e) { 
         res.status(500).json({ error: "Lỗi sync data" }); 
@@ -175,7 +178,6 @@ router.delete('/groups/:groupName', verifyToken, async (req, res) => {
             userId: req.userId, groupName: groupName, $or: [{ isGlobal: false }, { isGlobal: { $exists: false } }]
         });
 
-        // LUÔN LUÔN XÓA TỪ VỰNG DÙ CHO CÓ TÌM THẤY SETTING HAY KHÔNG
         const deletedWords = await Vocabulary.deleteMany({ userId: req.userId, group: groupName });
 
         if (personalGroup || deletedWords.deletedCount > 0) {
@@ -221,31 +223,30 @@ router.post('/import', verifyToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Input error" }); }
 });
 
-
-router.get('/folders', verifyToken, async (req, res) => {
-    try {
-        const folders = await Folder.find({ userId: req.userId }).sort({ createdAt: -1 });
-        res.json(folders);
-    } catch (err) {
-        res.status(500).json({ error: 'Error getting directory list' });
-    }
-});
-
 router.post('/folders', verifyToken, async (req, res) => {
     try {
-        const { name, color, isGlobal } = req.body; // Lấy thêm isGlobal
+        const { name, color, isGlobal, isSystemSaved } = req.body; 
         
-        // Nếu tạo folder hệ thống thì phải là Admin
+        // NẾU LÀ ADMIN TẠO FOLDER HỆ THỐNG -> LƯU VÀO BẢNG SYSTEM FOLDER
         if (isGlobal) {
             const isAdmin = await checkAdmin(req.userId);
             if (!isAdmin) return res.status(403).json({ error: 'Only Admin can add system folders' });
+            
+            const newSysFolder = new SystemFolder({
+                name: name,
+                color: color || '#3b82f6'
+            });
+            const savedSysFolder = await newSysFolder.save();
+            return res.status(201).json(savedSysFolder);
         }
 
+        // NẾU LÀ NGƯỜI DÙNG BÌNH THƯỜNG -> LƯU VÀO BẢNG FOLDER CÁ NHÂN
         const newFolder = new Folder({
             userId: req.userId,
             name: name,
             color: color || '#3b82f6',
-            isGlobal: isGlobal || false // Lưu cờ phân biệt vào DB
+            isGlobal: false,
+            isSystemSaved: isSystemSaved || false 
         });
         const savedFolder = await newFolder.save();
         res.status(201).json(savedFolder);
@@ -258,54 +259,92 @@ router.delete('/folders/:id', verifyToken, async (req, res) => {
     try {
         const identifier = req.params.id;
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(identifier);
+        let isSystemFolder = false;
 
-        // 1. Tìm folder để lấy thông tin tên chính xác
-        const folder = await Folder.findOne({
+        // 1. Tìm xem có phải folder cá nhân không
+        let folder = await Folder.findOne({
             userId: req.userId,
             ...(isObjectId ? { _id: identifier } : { name: identifier })
         });
+
+        // 2. Nếu không tìm thấy ở cá nhân, kiểm tra xem có phải Admin đang xóa folder Hệ thống không
+        if (!folder && (await checkAdmin(req.userId))) {
+            folder = await SystemFolder.findOne({
+                ...(isObjectId ? { _id: identifier } : { name: identifier })
+            });
+            if (folder) isSystemFolder = true;
+        }
 
         if (!folder) return res.status(404).json({ error: 'Folder not found' });
 
         const folderId = folder._id;
         const folderName = folder.name;
 
-        // 2. Xóa từ vựng hệ thống (SavedWord) và tiến độ liên quan
-        const savedWords = await SavedWord.find({ folderId, userId: req.userId });
-        const systemWordIds = savedWords.map(sw => sw.wordId);
-        if (systemWordIds.length > 0) {
-            await UserProgress.deleteMany({ userId: req.userId, wordId: { $in: systemWordIds } });
-        }
-        await SavedWord.deleteMany({ folderId, userId: req.userId });
+        // --- NẾU LÀ FOLDER HỆ THỐNG ---
+        if (isSystemFolder) {
+            const groupsInFolder = await GroupSetting.find({ 
+                isGlobal: true, 
+                folder: { $regex: new RegExp(`^${folderName}$`, 'i') } 
+            });
+            const groupNames = groupsInFolder.map(g => g.groupName);
+            
+            if (groupNames.length > 0) {
+                await SystemVocabulary.deleteMany({ group: { $in: groupNames } });
+            }
+            await GroupSetting.deleteMany({ 
+                isGlobal: true, 
+                folder: { $regex: new RegExp(`^${folderName}$`, 'i') } 
+            });
+            await SystemFolder.findByIdAndDelete(folderId);
 
-        // 3. Xóa Từ vựng cá nhân (Vocabulary) thuộc các Group trong Folder này
-        // Sử dụng Regex để đảm bảo khớp tên folder chính xác nhất
-        const groupsInFolder = await GroupSetting.find({ 
-            userId: req.userId, 
-            folder: { $regex: new RegExp(`^${folderName}$`, 'i') } 
-        });
-        const groupNames = groupsInFolder.map(g => g.groupName);
+            return res.json({ message: 'Deleted system folder, groups, and words successfully' });
+        } 
         
-        if (groupNames.length > 0) {
-            await Vocabulary.deleteMany({ userId: req.userId, group: { $in: groupNames } });
+        // --- NẾU LÀ FOLDER CÁ NHÂN ---
+        else {
+            const savedWords = await SavedWord.find({ folderId, userId: req.userId });
+            const systemWordIds = savedWords.map(sw => sw.wordId);
+            if (systemWordIds.length > 0) {
+                await UserProgress.deleteMany({ userId: req.userId, wordId: { $in: systemWordIds } });
+            }
+            await SavedWord.deleteMany({ folderId, userId: req.userId });
+
+            const groupsInFolder = await GroupSetting.find({ 
+                userId: req.userId, 
+                folder: { $regex: new RegExp(`^${folderName}$`, 'i') } 
+            });
+            const groupNames = groupsInFolder.map(g => g.groupName);
+            
+            if (groupNames.length > 0) {
+                await Vocabulary.deleteMany({ userId: req.userId, group: { $in: groupNames } });
+            }
+            await GroupSetting.deleteMany({ 
+                userId: req.userId, 
+                folder: { $regex: new RegExp(`^${folderName}$`, 'i') } 
+            });
+            await Folder.findByIdAndDelete(folderId);
+
+            return res.json({ message: 'Deleted personal folder, groups, and words successfully' });
         }
-
-        // 4. Xóa toàn bộ Group thuộc Folder này
-        await GroupSetting.deleteMany({ 
-            userId: req.userId, 
-            folder: { $regex: new RegExp(`^${folderName}$`, 'i') } 
-        });
-
-        // 5. Cuối cùng xóa chính Folder
-        await Folder.findByIdAndDelete(folderId);
-
-        res.json({ message: 'Deleted folder, groups, and words successfully' });
     } catch (err) {
         console.error("Error deleting folder:", err);
         res.status(500).json({ error: 'Error deleting folder' });
     }
 });
 
+router.get('/folders', verifyToken, async (req, res) => {
+    try {
+        // ĐÃ SỬA: Chỉ lấy folder cá nhân (Study Modal) - Không lấy folder hệ thống
+        const folders = await Folder.find({ 
+            userId: req.userId,
+            isGlobal: false,
+            isSystemSaved: true 
+        }).sort({ createdAt: -1 });
+        res.json(folders);
+    } catch (err) {
+        res.status(500).json({ error: 'Error getting directory list' });
+    }
+});
 router.get('/folders/:id', verifyToken, async (req, res) => {
     try {
         const folder = await Folder.findOne({ _id: req.params.id, userId: req.userId });
@@ -402,11 +441,23 @@ router.get('/saved-words/all-ids', verifyToken, async (req, res) => {
 router.put('/folders/:id', verifyToken, async (req, res) => {
     try {
         const { name } = req.body;
-        const updatedFolder = await Folder.findOneAndUpdate(
+        
+        // Đổi tên thư mục cá nhân trước
+        let updatedFolder = await Folder.findOneAndUpdate(
             { _id: req.params.id, userId: req.userId },
             { name: name },
             { new: true }
         );
+
+        // Nếu không tìm thấy, và là admin -> thử đổi tên SystemFolder
+        if (!updatedFolder && (await checkAdmin(req.userId))) {
+            updatedFolder = await SystemFolder.findOneAndUpdate(
+                { _id: req.params.id },
+                { name: name },
+                { new: true }
+            );
+        }
+
         if (!updatedFolder) return res.status(404).json({ error: 'Directory not found' });
         res.json(updatedFolder);
     } catch (err) {

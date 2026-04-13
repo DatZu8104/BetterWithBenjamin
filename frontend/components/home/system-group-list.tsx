@@ -12,6 +12,9 @@ import { toast } from 'sonner';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { notify } from '../../lib/notify';
 
+// IMPORT THÊM VALIDATOR ĐỂ FIX LỖI CRASH KHI TẠO FOLDER
+import { checkDuplicateName } from '../../lib/validators';
+
 const COLORS = [
   { id: 'blue', name: 'Blue', bg: 'bg-blue-600', style: { bg: "bg-blue-950/20", border: "border-blue-900/50", iconBox: "bg-blue-900/50 text-blue-300", title: "text-blue-300", progressTrack: "bg-blue-950", progressFill: "bg-blue-600", button: "bg-blue-700 hover:bg-blue-600 text-white", resetBtn: "text-blue-400 hover:bg-blue-950/50", cardBorder: "border-blue-800", cardBg: "bg-blue-950/20", folderText: "text-blue-400", cardHover: "hover:border-blue-600" }},
   { id: 'violet', name: 'Violet', bg: 'bg-violet-600', style: { bg: "bg-violet-950/20", border: "border-violet-900/50", iconBox: "bg-violet-900/50 text-violet-300", title: "text-violet-300", progressTrack: "bg-violet-950", progressFill: "bg-violet-600", button: "bg-violet-700 hover:bg-violet-600 text-white", resetBtn: "text-violet-400 hover:bg-violet-950/50", cardBorder: "border-violet-800", cardBg: "bg-violet-950/20", folderText: "text-violet-400", cardHover: "hover:border-violet-600" }},
@@ -49,7 +52,7 @@ interface SystemGroupListProps {
   onResetLearn: () => void;
 
   onUpdate?: () => void; 
-  allowAdd?: boolean; // Cho System, cái này thường là false, chỉ true khi là Admin
+  allowAdd?: boolean; 
 }
 
 export function SystemGroupListView({
@@ -60,7 +63,7 @@ export function SystemGroupListView({
   totalWords, learnedCount, onStartLearn, onResetLearn,
   folderColors, 
   onUpdate,
-  allowAdd = false // Mặc định false cho System
+  allowAdd = false 
 }: SystemGroupListProps) {
   
   const [groupToMove, setGroupToMove] = useState<string | null>(null);
@@ -68,6 +71,13 @@ export function SystemGroupListView({
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [folderNameInput, setFolderNameInput] = useState('');
   const [folderColorInput, setFolderColorInput] = useState('blue');
+  
+  const openCreateFolderModal = () => {
+    setModalMode('create');
+    setFolderNameInput('');
+    setFolderColorInput('blue');
+    setIsModalOpen(true);
+  };
   
   const [detailWord, setDetailWord] = useState<any | null>(null);
 
@@ -137,13 +147,6 @@ export function SystemGroupListView({
   const progressPercent = totalWords > 0 ? Math.round((learnedCount / totalWords) * 100) : 0;
   const displayResults = searchResults.slice(0, displayLimit);
 
-  const openCreateModal = () => {
-    setModalMode('create');
-    setFolderNameInput('');
-    setFolderColorInput('blue');
-    setIsModalOpen(true);
-  };
-
   const openEditModal = () => {
     if (!currentFolder) return;
     setModalMode('edit');
@@ -152,25 +155,35 @@ export function SystemGroupListView({
     setIsModalOpen(true);
   };
 
-  const handleModalSubmit = () => {
+  // ĐÃ SỬA: Thêm async vào hàm
+  const handleModalSubmit = async () => {
     if (!folderNameInput.trim()) return;
-
+    
     if (modalMode === 'create') {
-        onCreateFolder(folderNameInput, folderColorInput);
-        if (groupToMove) { 
-            onMoveGroup(groupToMove, folderNameInput); 
-            setGroupToMove(null); 
+        if (!checkDuplicateName(folderNameInput, folders, 'Folder')) return;
+        
+        try {
+            // ĐÃ SỬA: Thêm await và try...catch để bắt lỗi thực tế
+            await onCreateFolder(folderNameInput, folderColorInput);
+            notify.success("Folder Created", `System folder "${folderNameInput}" ready.`);
+            setIsModalOpen(false);
+        } catch (error) {
+            notify.error("Lỗi tạo Folder", "API bị từ chối. Vui lòng kiểm tra quyền Admin.");
         }
-        notify.success("Folder Created", `Navigating to "${folderNameInput}"...`);
-        onSelectFolder(folderNameInput); 
     } else {
+        if (currentFolder && currentFolder !== folderNameInput) {
+             if (!checkDuplicateName(folderNameInput, folders, 'Folder')) return;
+        }
         if (currentFolder) {
-            onUpdateFolder(currentFolder, folderNameInput, folderColorInput);
-            notify.success("Folder Updated", "Changes saved successfully.");
+            try {
+                await onUpdateFolder(currentFolder, folderNameInput, folderColorInput);
+                notify.success("Folder Updated", "Changes saved successfully.");
+                setIsModalOpen(false);
+            } catch (error) {
+                notify.error("Lỗi cập nhật", "Không thể lưu thay đổi.");
+            }
         }
     }
-    
-    setIsModalOpen(false);
   };
 
   return (
@@ -203,9 +216,9 @@ export function SystemGroupListView({
                                     <Pencil className="w-4 h-4 mr-2 text-zinc-400" /> Edit Folder
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator className="bg-zinc-800"/>
+                                {/* ĐÃ FIX LỖI PREVENT DEFAULT Ở ĐÂY */}
                                 <DropdownMenuItem 
-                                    onSelect={(e) => {
-                                        e.preventDefault();
+                                    onClick={() => {
                                         setDeleteTarget({ type: 'Folder', name: currentFolder || "" });
                                     }} 
                                     className="focus:bg-red-950/30 text-red-500 focus:text-red-400 cursor-pointer py-2 px-3 rounded-md"
@@ -400,7 +413,7 @@ export function SystemGroupListView({
                     ))}
                     <div className="h-px bg-zinc-800 my-1" />
                     {allowAdd && (
-                        <DropdownMenuItem onClick={openCreateModal} className="cursor-pointer py-2.5 px-3 rounded-lg text-white focus:bg-zinc-800 font-bold">
+                        <DropdownMenuItem onClick={openCreateFolderModal} className="cursor-pointer py-2.5 px-3 rounded-lg text-white focus:bg-zinc-800 font-bold">
                         <Plus className="w-4 h-4 mr-3" /> <span className="font-bold">New Folder</span>
                         </DropdownMenuItem>
                     )}
@@ -474,7 +487,7 @@ export function SystemGroupListView({
                 </div>
                 
                 {allowAdd && (
-                    <Button onClick={openCreateModal} className="shrink-0 h-11 px-5 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none">
+                    <Button onClick={openCreateFolderModal} className="shrink-0 h-11 px-5 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none">
                       <Plus className="w-5 h-5 mr-1.5"/> New Folder
                     </Button>
                 )}
@@ -510,7 +523,7 @@ export function SystemGroupListView({
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator className="bg-zinc-800" />
                                       <DropdownMenuItem 
-                                        onSelect={() => {
+                                        onClick={() => {
                                             setDeleteTarget({ type: 'Group', name: g.name });
                                         }} 
                                         className="rounded-md text-red-500 focus:bg-red-950/20 focus:text-red-400 py-2 px-2 cursor-pointer"
@@ -594,7 +607,7 @@ export function SystemGroupListView({
               
               {allowAdd && (
                   <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700" 
-                    onClick={openCreateModal}>
+                    onClick={openCreateFolderModal}>
                     <Plus className="w-8 h-8 mb-2 opacity-50" />
                     <span className="font-bold text-sm">New Folder</span>
                   </div>

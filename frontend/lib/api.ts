@@ -130,12 +130,14 @@ getSystemWords: async () => {
   },
 
   // --- FOLDERS & GROUPS  ---
-  addFolder: async (data: { name: string, color?: string, isGlobal?: boolean }) => {
-    await fetch(`${API_URL}/folders`, { 
-      method: 'POST', 
-      headers: getHeaders(), 
-      body: JSON.stringify(data) 
+  addFolder: async (data: { name: string; color?: string; isGlobal?: boolean; isSystemSaved?: boolean }) => {
+    const res = await fetch(`${API_URL}/folders`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
     });
+    if (!res.ok) throw new Error("Failed to add folder");
+    return res.json();
   },
   deleteFolder: async (name: string) => {
     const res = await fetch(`${API_URL}/folders/${encodeURIComponent(name)}`, { 
@@ -170,11 +172,11 @@ getSystemWords: async () => {
     return res.json();
   },
 
-  createFolderAndGetId: async (name: string, color?: string, isGlobal: boolean = false) => {
+  createFolderAndGetId: async (name: string, color: string = '#3b82f6', isGlobal: boolean = false, isSystemSaved: boolean = false) => {
     const res = await fetch(`${API_URL}/folders`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ name, color, isGlobal }) // Truyền isGlobal xuống
+      body: JSON.stringify({ name, color, isGlobal, isSystemSaved }) // Bắt buộc phải có isSystemSaved ở đây
     });
     if (!res.ok) throw new Error("Lỗi tạo thư mục mới");
     return res.json();

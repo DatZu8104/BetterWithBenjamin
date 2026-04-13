@@ -52,7 +52,8 @@ const folderSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     name: { type: String, required: true },
     color: { type: String, default: '#3b82f6' },
-    isGlobal: { type: Boolean, default: false }, 
+    isGlobal: { type: Boolean, default: false },
+    isSystemSaved: { type: Boolean, default: false }, 
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -83,6 +84,14 @@ const savedWordSchema = new mongoose.Schema({
 });
 savedWordSchema.index({ userId: 1, folderId: 1, wordId: 1 }, { unique: true });
 
+const systemFolderSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    color: { type: String, default: '#3b82f6' },
+    createdAt: { type: Date, default: Date.now }
+});
+
+const SystemFolder = mongoose.model('SystemFolder', systemFolderSchema);
+
 module.exports = {
     User: mongoose.model('User', userSchema),
     Vocabulary: mongoose.model('Vocabulary', vocabSchema),
@@ -91,4 +100,5 @@ module.exports = {
     GroupSetting: mongoose.model('GroupSetting', groupSettingSchema),
     UserProgress: mongoose.model('UserProgress', userProgressSchema),
     SavedWord: mongoose.model('SavedWord', savedWordSchema), 
+    SystemFolder: mongoose.model('SystemFolder', systemFolderSchema)
 };
