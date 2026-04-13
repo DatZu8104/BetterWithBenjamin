@@ -353,11 +353,19 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
 
   const handleCreateFolder = async (n: string, c: string) => {
     if (canEdit) {
+      // 1. Tạo vỏ Folder để lưu màu sắc
       await api.addFolder({
         name: n,
         color: c,
         isGlobal: viewMode === 'global' 
       });
+      
+      // 2. NẾU LÀ TRANG SYSTEM: Tự động đăng ký nó thành nơi chứa từ vựng
+      // (Để đáp ứng yêu cầu: Bấm vào là thấy từ vựng luôn, không cần tạo group con)
+      if (viewMode === 'global') {
+          await api.updateGroup(n, "", true);
+      }
+      
       loadData();
     }
   };
