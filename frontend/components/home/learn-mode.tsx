@@ -32,8 +32,6 @@ export function LearnModeView({
   const [isAnimating, setIsAnimating] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-
-  // Quiz & Typing State
   const [quizOptions, setQuizOptions] = useState<any[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [typingInput, setTypingInput] = useState('');
@@ -41,7 +39,6 @@ export function LearnModeView({
   
   const hasInitialized = useRef(false);
 
-  // Helper
   const getActual = (w: any) => w?.wordId || w || {};
   const getWordText = (w: any) => getActual(w).word || getActual(w).english || "";
   const getWordDef = (w: any) => getActual(w).definition || getActual(w).definitions?.[0]?.definition || "No definition";
@@ -52,13 +49,7 @@ export function LearnModeView({
   const [swipeOffset, setSwipeOffset] = useState(0);
 
   const [volume, setVolume] = useState<number>(1);
-  const getAuthToken = () => {
-    let token = localStorage.getItem("token") || "";
-    token = token.replace(/(^"|"$)/g, ""); 
-    return token.replace(/^Bearer\s+/i, "");
-  };
 
-  // --- AUDIO ---
   const speakWord = (text: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -70,7 +61,6 @@ export function LearnModeView({
     window.speechSynthesis.speak(utterance);
   };
 
-  // Check Mobile
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -100,7 +90,6 @@ export function LearnModeView({
 
   useEffect(() => { return () => { hasInitialized.current = false; } }, []);
 
-  // --- LOGIC ---
   const switchWord = (newWord: any | null) => {
     setIsAnimating(true); 
     setSwipeOffset(0); 
@@ -116,9 +105,9 @@ export function LearnModeView({
     if (folderId) {
         try {
             if (typeof api.resetFolderProgress !== 'function') {
-                alert("LỖI FRONTEND: Bạn chưa thêm hàm resetFolderProgress vào file api.ts!");
+                alert("ERROR: resetFolderProgress not found in api.ts!");
             } else {
-                api.resetFolderProgress(folderId).catch(err => alert("LỖI BACKEND: " + err.message));
+                api.resetFolderProgress(folderId).catch(err => alert("Backend error: " + err.message));
             }
         } catch (e) { console.error(e); }
     }
@@ -219,8 +208,6 @@ export function LearnModeView({
     }
   };
 
-
-  // Quiz Logic
   useEffect(() => {
     if (mode === 'quiz' && localCurrentWord) {
       const correct = localCurrentWord;
@@ -244,7 +231,6 @@ export function LearnModeView({
     }
   };
 
-  // Typing Logic
   const handleTypingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (typingStatus !== 'idle') return;
@@ -266,282 +252,418 @@ export function LearnModeView({
   const currentWordDef = localCurrentWord ? getWordDef(localCurrentWord) : "";
 
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-black text-white flex flex-col overflow-hidden z-[9999]">
+    /*
+     * FIX: Wrapper ngoài cùng chiếm đúng 100dvh (dynamic viewport height)
+     * dvh tính đúng trên mobile (loại bỏ phần browser chrome trên/dưới)
+     * overflow-hidden ở đây để KHÔNG có gì tràn ra ngoài khung này
+     */
+    <div
+      className="w-full bg-black text-white"
+      style={{
+        height: '100dvh',        // dynamic viewport height - chính xác trên mobile
+        maxHeight: '100dvh',
+        overflow: 'hidden',      // không cho phép bất cứ thứ gì tràn ra ngoài
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       
-      {/* 1. TOP BAR */}
-      <div className="h-14 shrink-0 flex justify-between items-center px-4 border-b border-zinc-800 bg-black z-20 gap-4">
-         <Button variant="ghost" size="sm" onClick={onExit} className="h-9 -ml-2 text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors">
-           <ArrowLeft className="w-5 h-5 mr-2"/> <span className="font-medium">Exit</span>
-         </Button>
+      {/* ── TOP BAR ── cố định chiều cao, không co giãn */}
+      <div
+        className="flex items-center justify-between px-4 border-b border-zinc-800 bg-black z-20 gap-4"
+        style={{ height: '56px', flexShrink: 0 }}
+      >
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onExit}
+          className="h-9 -ml-2 text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          <span className="font-medium">Exit</span>
+        </Button>
 
-         <div className="flex-1 flex justify-center max-w-xs">
-            <div className="bg-zinc-900 p-1 rounded-lg flex w-full border border-zinc-800">
-                {[{ id: 'flashcard', icon: Layers, label: 'Flashcard' }, { id: 'quiz', icon: HelpCircle, label: 'Quiz' }, { id: 'typing', icon: Keyboard, label: 'Typing' }].map((item) => (
-                    <button key={item.id} onClick={() => setMode(item.id as Mode)}
-                    className={cn("flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold transition-all outline-none", mode === item.id ? "bg-zinc-800 text-white shadow-sm ring-1 ring-zinc-700" : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50")}>
-                    <item.icon className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{item.label}</span>
-                    </button>
-                ))}
-            </div>
-         </div>
-         <div className="w-[80px]"></div>
-      </div>
-
-      {/* 2. BODY CONTAINER */}
-      <div className="flex-1 w-full relative min-h-0 bg-black flex flex-col">
-        {/* Scrollable Area */}
-        <div className="absolute inset-0 overflow-y-auto custom-scrollbar p-4 flex flex-col items-center">
-            
-            <div className="w-full flex flex-col items-center my-auto min-h-min">
-                {/* STATS */}
-                <div className="w-full max-w-2xl flex justify-between items-center mb-6 px-4 py-2 bg-zinc-900/50 rounded-full border border-zinc-800/50 text-sm shrink-0">
-                    <div className="flex gap-1"><span className="text-zinc-500">Known:</span><span className="font-bold text-green-500">{displayLearned}/{totalCount}</span></div>
-                    <div className="w-px h-4 bg-zinc-800"></div>
-                    <div className="flex gap-1"><span className="text-zinc-500">Learning:</span><span className="font-bold text-red-400">{displayUnlearned}/{totalCount}</span></div>
-                </div>
-
-                <div className="flex flex-col relative w-[90%] mx-auto">
-                    
-                    {isResetting ? (
-                        <div className="h-[400px] flex flex-col items-center justify-center animate-pulse border border-zinc-800 rounded-3xl bg-zinc-900/30">
-                            <RotateCcw className="w-10 h-10 animate-spin text-zinc-600 mb-3"/> <p className="text-base text-zinc-500 font-medium">Loading data...</p>
-                        </div>
-                    ) : localCurrentWord ? (
-                    <div className={cn("w-full flex flex-col transition-all duration-300 ease-in-out pb-10", isAnimating ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0")}>
-                        
-                        {/* MODE 1: FLASHCARD */}
-                        {mode === 'flashcard' && (
-                            <div className="w-full flex items-center justify-between gap-2 md:gap-4 overflow-hidden md:overflow-visible">
-                                
-                                {/* NÚT MŨI TÊN TRÁI */}
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={handleUnknown} 
-                                    disabled={isAnimating}
-                                    className="hidden md:flex h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-red-500 hover:bg-red-950/30 hover:text-red-400 hover:border-red-900/50 transition-all"
-                                >
-                                    <ChevronLeft className="w-8 h-8" />
-                                </Button>
-
-                                {/* TOUR 1 VÀ TOUR 4 VÙNG CHỨA THẺ */}
-                                {(() => {
-                                    const cardElement = (
-                                        <div 
-                                            className="flex-1 min-w-0 transition-transform duration-200 relative 
-                                                    md:[&_h2]:whitespace-normal md:[&_h2]:text-[clamp(1.5rem,8vw,3.5rem)] md:[&_h2]:px-0
-                                                    max-md:[&_h2]:!whitespace-nowrap max-md:[&_h2]:!text-[clamp(1.5rem,8vw,3.5rem)] max-md:[&_h2]:!px-2"
-                                            style={{ transform: `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.04}deg)` }}
-                                            onTouchStart={handleTouchStart}
-                                            onTouchMove={handleTouchMove}
-                                            onTouchEnd={handleTouchEnd}
-                                        >
-                                            <div className="md:hidden">
-                                                {swipeOffset < -30 && <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
-                                                {swipeOffset > 30 && <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />}
-                                            </div>
-                                            <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" color={themeColor} volume={volume}/>
-                                        </div>
-                                    );
-
-                                    // Tour 1: Lật thẻ
-                                    const withTour1 = (
-                                        <FeatureHint
-                                            id={"learn_click_flashcard" as any}
-                                            delay={400}
-                                            side="bottom"
-                                            align="center"
-                                            message={
-                                                <div className="space-y-1 max-w-[240px]">
-                                                    <p className="font-bold text-white flex items-center gap-1.5"><MousePointerClick className="w-4 h-4 text-blue-400"/>Flip the flashcard</p>
-                                                    <p className="text-zinc-200 text-sm font-normal leading-snug">Click directly on this card to turn it over and see the meaning of the word!</p>
-                                                </div>
-                                            }
-                                        >
-                                            {cardElement}
-                                        </FeatureHint>
-                                    );
-
-                                    // Tour 4: Hướng dẫn vuốt (Chỉ Mobile)
-                                    if (isMobile) {
-                                        return (
-                                            <FeatureHint
-                                                id={"learn_swipe_mobile" as any}
-                                                waitFor={"learn_unknown_btn" as any}
-                                                delay={400}
-                                                side="bottom"
-                                                align="center"
-                                                message={
-                                                    <div className="space-y-1 max-w-[240px]">
-                                                        <p className="font-bold text-white flex items-center gap-1.5"><Hand className="w-4 h-4 text-violet-400"/>Swipe to learn</p>
-                                                        <p className="text-zinc-200 text-sm font-normal leading-snug">Quick action: Swipe the card to <strong>right</strong> if you already memorized it, swipe to <strong>left</strong> if you don't remember yet!</p>
-                                                    </div>
-                                                }
-                                            >
-                                                <div className="flex-1 flex min-w-0">
-                                                    {withTour1}
-                                                </div>
-                                            </FeatureHint>
-                                        );
-                                    }
-
-                                    return withTour1;
-                                })()}
-
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={handleKnown} 
-                                    disabled={isAnimating}
-                                    className="hidden md:flex h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-green-500 hover:bg-green-950/30 hover:text-green-400 hover:border-green-900/50 transition-all"
-                                >
-                                    <ChevronRight className="w-8 h-8" />
-                                </Button>
-                            </div>
-                        )}
-
-                        {/* MODE 2: QUIZ */}
-                        {mode === 'quiz' && (
-                        <div className="flex flex-col justify-center w-full">
-                            <div className="bg-zinc-900 border-2 rounded-3xl shadow-sm text-center mb-6 flex flex-col h-[35vh] min-h-[250px] relative overflow-hidden" style={{ borderColor: themeColor || '#3f3f46' }}>
-                                <div className="w-full h-full overflow-y-auto custom-scrollbar p-6 flex flex-col justify-center items-center">
-                                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4 shrink-0">Definition</p>
-                                    <h2 className={cn("font-normal leading-relaxed text-white break-words", currentWordDef.length > 80 ? "text-xl" : "text-2xl")}>"{currentWordDef}"</h2>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-3">
-                                {quizOptions.map((opt) => {
-                                    const optId = getWordId(opt);
-                                    const currentId = getWordId(localCurrentWord);
-                                    const isSelected = selectedAnswer === optId;
-                                    const isCorrect = optId === currentId;
-                                    let style = "border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300";
-                                    if (selectedAnswer) {
-                                        if (isCorrect) style = "border-green-900 bg-green-950/40 text-green-400 font-bold ring-1 ring-green-900";
-                                        else if (isSelected) style = "border-red-900 bg-red-950/40 text-red-400 opacity-80";
-                                        else style = "opacity-30 grayscale border-transparent";
-                                    }
-                                    return (
-                                        <button key={optId} className={cn("h-14 px-4 rounded-2xl border text-base font-medium transition-all shadow-sm flex items-center justify-center text-center active:scale-[0.98]", style)}
-                                            onClick={() => handleQuizAnswer(optId)} disabled={!!selectedAnswer}>
-                                            <span className="truncate w-full">{getWordText(opt)}</span>
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                        )}
-
-                        {/* MODE 3: TYPING */}
-                        {mode === 'typing' && (
-                        <div className="flex flex-col justify-center w-full">
-                            <div className="bg-zinc-900 border-2 rounded-3xl shadow-sm text-center mb-6 flex flex-col h-[35vh] min-h-[250px] relative overflow-hidden" style={{ borderColor: themeColor || '#3f3f46' }}>
-                                <div className="w-full h-full overflow-y-auto custom-scrollbar p-6 flex flex-col justify-center items-center">
-                                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-4 shrink-0">Type the English word</p>
-                                    <h2 className={cn("font-normal leading-relaxed text-white mb-4 break-words", currentWordDef.length > 80 ? "text-xl" : "text-2xl")}>"{currentWordDef}"</h2>
-                                    {localCurrentWord.type && <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">{Array.isArray(localCurrentWord.type) ? localCurrentWord.type.join(', ') : localCurrentWord.type}</span>}
-                                </div>
-                            </div>
-                            
-                            <div className="min-h-[140px] flex flex-col justify-end">
-                                <form onSubmit={handleTypingSubmit} className="relative w-full mb-3 shrink-0">
-                                    <Input autoFocus placeholder="Enter word..." 
-                                        className={cn("h-16 text-xl text-center rounded-2xl border-2 bg-black text-white placeholder:text-zinc-700 shadow-sm transition-all pr-12 focus:border-zinc-600 border-zinc-800 focus-visible:ring-0", typingStatus === 'correct' && "border-green-800 text-green-500 bg-green-950/20", typingStatus === 'wrong' && "border-red-800 text-red-500 bg-red-950/20")}
-                                        value={typingInput} onChange={(e) => { setTypingInput(e.target.value); if(typingStatus === 'wrong') setTypingStatus('idle'); }} disabled={typingStatus === 'correct'} />
-                                    <div className="absolute right-4 top-5">
-                                        {typingStatus === 'correct' && <CheckCircle2 className="text-green-500 w-6 h-6 animate-in zoom-in"/>}
-                                        {typingStatus === 'wrong' && <XCircle className="text-red-500 w-6 h-6 animate-in zoom-in"/>}
-                                    </div>
-                                </form>
-                                <div className="shrink-0 h-14">
-                                    {typingStatus === 'idle' && (
-                                        <div className="grid grid-cols-2 gap-3 h-full">
-                                            <Button size="lg" onClick={handleUnknown} className="h-full text-base font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-2xl">Skip</Button>
-                                            <Button size="lg" onClick={handleTypingSubmit} className="h-full text-base font-bold bg-white text-black hover:bg-zinc-200 rounded-2xl">Check</Button>
-                                        </div>
-                                    )}
-                                    {typingStatus === 'wrong' && (
-                                        <div className="h-full flex items-center justify-between px-4 bg-red-950/20 rounded-2xl border border-red-900/50 animate-in slide-in-from-bottom-2 cursor-pointer hover:bg-red-950/30 transition-colors" onClick={handleUnknown}>
-                                            <div className="flex items-baseline gap-2 overflow-hidden"><span className="text-xs text-red-400/70 shrink-0">Answer:</span><span className="text-lg font-bold text-red-400 truncate">{currentWordText}</span></div>
-                                            <span className="text-xs text-red-400 font-bold bg-red-950/50 px-2 py-1 rounded">Continue</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        )}
-                        
-                        {/* TOUR 2 VÀ 3 (KNOWN / UNKNOWN) */}
-                        {mode === 'flashcard' && (
-                            <div className="shrink-0 mt-6 pt-4 border-t border-zinc-900/50 flex flex-col gap-4 w-full">
-                                
-                                {/* THANH KÉO ÂM LƯỢNG */}
-                                <div className="flex items-center gap-3 px-4 max-w-sm mx-auto w-full">
-                                    <Volume2 className="w-5 h-5 text-zinc-500 shrink-0" />
-                                    <input 
-                                        type="range" 
-                                        min="0" max="1" step="0.1" 
-                                        value={volume} 
-                                        onChange={(e) => setVolume(parseFloat(e.target.value))}
-                                        className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                                    />
-                                </div>
-
-                                {/* 2 NÚT BẤM CÓ BỌC TOUR */}
-                                <div className="grid grid-cols-2 gap-3 w-full">
-                                    <FeatureHint
-                                        id={"learn_unknown_btn" as any}
-                                        waitFor={"learn_known_btn" as any}
-                                        delay={400}
-                                        side="top"
-                                        align="center"
-                                        message={
-                                            <div className="space-y-1 max-w-[240px]">
-                                                <p className="font-bold text-white flex items-center gap-1.5"><X className="w-4 h-4 text-red-400"/>Don't know the words yet</p>
-                                                <p className="text-zinc-200 text-sm font-normal leading-snug">If you don't remember, click here (or left arrow). The system will repeat this word until you remember!</p>
-                                            </div>
-                                        }
-                                    >
-                                        <Button onClick={handleUnknown} className="h-16 rounded-2xl text-lg font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white" disabled={isAnimating}>
-                                            <X className="w-5 h-5 mr-2"/> Unknown
-                                        </Button>
-                                    </FeatureHint>
-
-                                    <FeatureHint
-                                        id={"learn_known_btn" as any}
-                                        waitFor={"learn_click_flashcard" as any}
-                                        delay={400}
-                                        side="top"
-                                        align="center"
-                                        message={
-                                            <div className="space-y-1 max-w-[240px]">
-                                                <p className="font-bold text-white flex items-center gap-1.5"><Check className="w-4 h-4 text-green-400"/> Already memorized the word</p>
-                                                <p className="text-zinc-200 text-sm font-normal leading-snug">If you already remember this word, click here (or the right arrow) to move to the next word.</p>
-                                            </div>
-                                        }
-                                    >
-                                        <Button onClick={handleKnown} className="h-16 rounded-2xl text-lg font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white" style={{ backgroundColor: themeColor || '#2563eb' }} disabled={isAnimating}>
-                                            Known <Check className="ml-2 w-5 h-5"/>
-                                        </Button>
-                                    </FeatureHint>
-                                </div>
-                                
-                            </div>
-                        )}
-                    </div>
-                    ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center animate-in zoom-in-95 py-20">
-                        <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center mb-6 shadow-inner"><span className="text-5xl">🎉</span></div>
-                        <h3 className="text-2xl font-bold mb-2 text-white">Excellent!</h3>
-                        <p className="text-zinc-500 mb-6 text-center max-w-xs">You have finished reviewing this folder.</p>
-                        <Button onClick={handleRestart} size="lg" className="rounded-full px-10 h-12 text-base font-bold shadow-lg bg-white text-black hover:bg-zinc-200">Learn again</Button>
-                    </div>
-                    )}
-                </div> 
-                
-            </div>
+        {/* Mode switcher */}
+        <div className="flex-1 flex justify-center max-w-xs">
+          <div className="bg-zinc-900 p-1 rounded-lg flex w-full border border-zinc-800">
+            {[
+              { id: 'flashcard', icon: Layers,    label: 'Flashcard' },
+              { id: 'quiz',      icon: HelpCircle, label: 'Quiz'      },
+              { id: 'typing',    icon: Keyboard,   label: 'Typing'    },
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setMode(item.id as Mode)}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold transition-all outline-none',
+                  mode === item.id
+                    ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-zinc-700'
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'
+                )}
+              >
+                <item.icon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{item.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* spacer để căn giữa mode switcher */}
+        <div className="w-[80px]" />
       </div>
-    </div>
+
+      {/* ── BODY ── flex-1 = lấy toàn bộ không gian còn lại, overflow-y-auto để scroll nội dung bên trong */}
+      <div
+        className="flex-1 bg-black"
+        style={{
+          overflow: 'hidden',   // body KHÔNG scroll — để scroll box bên trong tự quản lý
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,         // quan trọng: cho phép flex-child co lại dưới min-content-size
+        }}
+      >
+        {/* Scrollable inner — chỉ vùng này scroll */}
+        <div
+          className="flex-1 px-4 py-4 custom-scrollbar"
+          style={{
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
+        >
+          {/* Stats bar */}
+          <div className="w-full max-w-2xl mx-auto flex justify-between items-center mb-4 px-4 py-2 bg-zinc-900/50 rounded-full border border-zinc-800/50 text-sm shrink-0">
+            <div className="flex gap-1">
+              <span className="text-zinc-500">Known:</span>
+              <span className="font-bold text-green-500">{displayLearned}/{totalCount}</span>
+            </div>
+            <div className="w-px h-4 bg-zinc-800" />
+            <div className="flex gap-1">
+              <span className="text-zinc-500">Learning:</span>
+              <span className="font-bold text-red-400">{displayUnlearned}/{totalCount}</span>
+            </div>
+          </div>
+
+          {/* ── CONTENT AREA ── */}
+          <div className="w-full max-w-2xl mx-auto flex flex-col flex-1">
+
+            {isResetting ? (
+              /* Loading state */
+              <div className="flex-1 flex flex-col items-center justify-center animate-pulse border border-zinc-800 rounded-3xl bg-zinc-900/30 min-h-[300px]">
+                <RotateCcw className="w-10 h-10 animate-spin text-zinc-600 mb-3" />
+                <p className="text-base text-zinc-500 font-medium">Loading data...</p>
+              </div>
+
+            ) : localCurrentWord ? (
+              <div
+                className={cn(
+                  'w-full flex flex-col transition-all duration-300 ease-in-out pb-6',
+                  isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+                )}
+              >
+
+                {/* ══ MODE: FLASHCARD ══ */}
+                {mode === 'flashcard' && (
+                  <>
+                    {/* Card row với mũi tên hai bên trên desktop */}
+                    <div className="w-full flex items-center justify-between gap-2 md:gap-4">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleUnknown}
+                        disabled={isAnimating}
+                        className="hidden md:flex h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-red-500 hover:bg-red-950/30 hover:text-red-400 hover:border-red-900/50 transition-all"
+                      >
+                        <ChevronLeft className="w-8 h-8" />
+                      </Button>
+
+                      {/* Flashcard với swipe */}
+                      {(() => {
+                        const cardElement = (
+                          <div
+                            className="flex-1 min-w-0 transition-transform duration-200 relative"
+                            style={{ transform: `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.04}deg)` }}
+                            onTouchStart={handleTouchStart}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                          >
+                            {swipeOffset < -30 && (
+                              <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />
+                            )}
+                            {swipeOffset > 30 && (
+                              <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />
+                            )}
+                            <Flashcard
+                              word={localCurrentWord}
+                              className="text-white w-full shadow-2xl"
+                              color={themeColor}
+                              volume={volume}
+                            />
+                          </div>
+                        );
+
+                        const withTour1 = (
+                          <FeatureHint
+                            id={"learn_click_flashcard" as any}
+                            delay={400}
+                            side="bottom"
+                            align="center"
+                            message={
+                              <div className="space-y-1 max-w-[240px]">
+                                <p className="font-bold text-white flex items-center gap-1.5">
+                                  <MousePointerClick className="w-4 h-4 text-blue-400" />Flip the flashcard
+                                </p>
+                                <p className="text-zinc-200 text-sm font-normal leading-snug">
+                                  Click directly on this card to turn it over and see the meaning!
+                                </p>
+                              </div>
+                            }
+                          >
+                            {cardElement}
+                          </FeatureHint>
+                        );
+
+                        if (isMobile) {
+                          return (
+                            <FeatureHint
+                              id={"learn_swipe_mobile" as any}
+                              waitFor={"learn_unknown_btn" as any}
+                              delay={400}
+                              side="bottom"
+                              align="center"
+                              message={
+                                <div className="space-y-1 max-w-[240px]">
+                                  <p className="font-bold text-white flex items-center gap-1.5">
+                                    <Hand className="w-4 h-4 text-violet-400" />Swipe to learn
+                                  </p>
+                                  <p className="text-zinc-200 text-sm font-normal leading-snug">
+                                    Swipe <strong>right</strong> if memorized, swipe <strong>left</strong> if not yet!
+                                  </p>
+                                </div>
+                              }
+                            >
+                              <div className="flex-1 flex min-w-0">{withTour1}</div>
+                            </FeatureHint>
+                          );
+                        }
+                        return withTour1;
+                      })()}
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleKnown}
+                        disabled={isAnimating}
+                        className="hidden md:flex h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-green-500 hover:bg-green-950/30 hover:text-green-400 hover:border-green-900/50 transition-all"
+                      >
+                        <ChevronRight className="w-8 h-8" />
+                      </Button>
+                    </div>
+
+                    {/* Volume + Known/Unknown buttons */}
+                    <div className="shrink-0 mt-4 pt-4 border-t border-zinc-900/50 flex flex-col gap-3 w-full">
+                      <div className="flex items-center gap-3 px-4 max-w-sm mx-auto w-full">
+                        <Volume2 className="w-5 h-5 text-zinc-500 shrink-0" />
+                        <input
+                          type="range"
+                          min="0" max="1" step="0.1"
+                          value={volume}
+                          onChange={(e) => setVolume(parseFloat(e.target.value))}
+                          className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 w-full">
+                        <FeatureHint
+                          id={"learn_unknown_btn" as any}
+                          waitFor={"learn_known_btn" as any}
+                          delay={400}
+                          side="top"
+                          align="center"
+                          message={
+                            <div className="space-y-1 max-w-[240px]">
+                              <p className="font-bold text-white flex items-center gap-1.5">
+                                <X className="w-4 h-4 text-red-400" />Don't know yet
+                              </p>
+                              <p className="text-zinc-200 text-sm font-normal leading-snug">
+                                Click here (or left arrow). The system will repeat this word!
+                              </p>
+                            </div>
+                          }
+                        >
+                          <Button
+                            onClick={handleUnknown}
+                            className="h-14 rounded-2xl text-base font-bold shadow-sm transition-all active:scale-[0.98] border border-zinc-800 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                            disabled={isAnimating}
+                          >
+                            <X className="w-5 h-5 mr-2" /> Unknown
+                          </Button>
+                        </FeatureHint>
+
+                        <FeatureHint
+                          id={"learn_known_btn" as any}
+                          waitFor={"learn_click_flashcard" as any}
+                          delay={400}
+                          side="top"
+                          align="center"
+                          message={
+                            <div className="space-y-1 max-w-[240px]">
+                              <p className="font-bold text-white flex items-center gap-1.5">
+                                <Check className="w-4 h-4 text-green-400" />Already memorized
+                              </p>
+                              <p className="text-zinc-200 text-sm font-normal leading-snug">
+                                Click here (or right arrow) to move to the next word.
+                              </p>
+                            </div>
+                          }
+                        >
+                          <Button
+                            onClick={handleKnown}
+                            className="h-14 rounded-2xl text-base font-bold shadow-xl transition-all active:scale-[0.98] border-none hover:opacity-90 text-white"
+                            style={{ backgroundColor: themeColor || '#2563eb' }}
+                            disabled={isAnimating}
+                          >
+                            Known <Check className="ml-2 w-5 h-5" />
+                          </Button>
+                        </FeatureHint>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* ══ MODE: QUIZ ══ */}
+                {mode === 'quiz' && (
+                  <div className="flex flex-col w-full gap-4">
+                    {/* Definition card */}
+                    <div
+                      className="bg-zinc-900 border-2 rounded-3xl shadow-sm text-center flex flex-col overflow-hidden"
+                      style={{ borderColor: themeColor || '#3f3f46', minHeight: '180px', maxHeight: '35vh' }}
+                    >
+                      <div className="w-full h-full overflow-y-auto custom-scrollbar p-6 flex flex-col justify-center items-center">
+                        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-3 shrink-0">Definition</p>
+                        <h2 className={cn('font-normal leading-relaxed text-white break-words', currentWordDef.length > 80 ? 'text-xl' : 'text-2xl')}>
+                          "{currentWordDef}"
+                        </h2>
+                      </div>
+                    </div>
+
+                    {/* Options */}
+                    <div className="grid grid-cols-1 gap-3">
+                      {quizOptions.map((opt) => {
+                        const optId = getWordId(opt);
+                        const currentId = getWordId(localCurrentWord);
+                        const isSelected = selectedAnswer === optId;
+                        const isCorrect = optId === currentId;
+                        let style = 'border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300';
+                        if (selectedAnswer) {
+                          if (isCorrect) style = 'border-green-900 bg-green-950/40 text-green-400 font-bold ring-1 ring-green-900';
+                          else if (isSelected) style = 'border-red-900 bg-red-950/40 text-red-400 opacity-80';
+                          else style = 'opacity-30 grayscale border-transparent';
+                        }
+                        return (
+                          <button
+                            key={optId}
+                            className={cn('h-14 px-4 rounded-2xl border text-base font-medium transition-all shadow-sm flex items-center justify-center text-center active:scale-[0.98]', style)}
+                            onClick={() => handleQuizAnswer(optId)}
+                            disabled={!!selectedAnswer}
+                          >
+                            <span className="truncate w-full">{getWordText(opt)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ══ MODE: TYPING ══ */}
+                {mode === 'typing' && (
+                  <div className="flex flex-col w-full gap-4">
+                    {/* Definition card */}
+                    <div
+                      className="bg-zinc-900 border-2 rounded-3xl shadow-sm text-center flex flex-col overflow-hidden"
+                      style={{ borderColor: themeColor || '#3f3f46', minHeight: '180px', maxHeight: '35vh' }}
+                    >
+                      <div className="w-full h-full overflow-y-auto custom-scrollbar p-6 flex flex-col justify-center items-center">
+                        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-3 shrink-0">Type the English word</p>
+                        <h2 className={cn('font-normal leading-relaxed text-white mb-3 break-words', currentWordDef.length > 80 ? 'text-xl' : 'text-2xl')}>
+                          "{currentWordDef}"
+                        </h2>
+                        {localCurrentWord.type && (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                            {Array.isArray(localCurrentWord.type) ? localCurrentWord.type.join(', ') : localCurrentWord.type}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Input + action */}
+                    <form onSubmit={handleTypingSubmit} className="relative w-full">
+                      <Input
+                        autoFocus
+                        placeholder="Enter word..."
+                        className={cn(
+                          'h-16 text-xl text-center rounded-2xl border-2 bg-black text-white placeholder:text-zinc-700 shadow-sm transition-all pr-12 focus:border-zinc-600 border-zinc-800 focus-visible:ring-0',
+                          typingStatus === 'correct' && 'border-green-800 text-green-500 bg-green-950/20',
+                          typingStatus === 'wrong'   && 'border-red-800 text-red-500 bg-red-950/20'
+                        )}
+                        value={typingInput}
+                        onChange={(e) => { setTypingInput(e.target.value); if (typingStatus === 'wrong') setTypingStatus('idle'); }}
+                        disabled={typingStatus === 'correct'}
+                      />
+                      <div className="absolute right-4 top-5">
+                        {typingStatus === 'correct' && <CheckCircle2 className="text-green-500 w-6 h-6 animate-in zoom-in" />}
+                        {typingStatus === 'wrong'   && <XCircle     className="text-red-500   w-6 h-6 animate-in zoom-in" />}
+                      </div>
+                    </form>
+
+                    <div className="h-14">
+                      {typingStatus === 'idle' && (
+                        <div className="grid grid-cols-2 gap-3 h-full">
+                          <Button size="lg" onClick={handleUnknown} className="h-full text-base font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-2xl">Skip</Button>
+                          <Button size="lg" onClick={handleTypingSubmit} className="h-full text-base font-bold bg-white text-black hover:bg-zinc-200 rounded-2xl">Check</Button>
+                        </div>
+                      )}
+                      {typingStatus === 'wrong' && (
+                        <div
+                          className="h-full flex items-center justify-between px-4 bg-red-950/20 rounded-2xl border border-red-900/50 animate-in slide-in-from-bottom-2 cursor-pointer hover:bg-red-950/30 transition-colors"
+                          onClick={handleUnknown}
+                        >
+                          <div className="flex items-baseline gap-2 overflow-hidden">
+                            <span className="text-xs text-red-400/70 shrink-0">Answer:</span>
+                            <span className="text-lg font-bold text-red-400 truncate">{currentWordText}</span>
+                          </div>
+                          <span className="text-xs text-red-400 font-bold bg-red-950/50 px-2 py-1 rounded">Continue</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+            ) : (
+              /* ── COMPLETED STATE ── */
+              <div className="flex-1 flex flex-col items-center justify-center py-16 animate-in zoom-in-95">
+                <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                  <span className="text-5xl">🎉</span>
+                </div>
+                <h3 className="text-2xl font-bold mb-2 text-white">Excellent!</h3>
+                <p className="text-zinc-500 mb-6 text-center max-w-xs">You have finished reviewing this folder.</p>
+                <Button
+                  onClick={handleRestart}
+                  size="lg"
+                  className="rounded-full px-10 h-12 text-base font-bold shadow-lg bg-white text-black hover:bg-zinc-200"
+                >
+                  Learn again
+                </Button>
+              </div>
+            )}
+
+          </div>{/* /content area */}
+        </div>{/* /scrollable inner */}
+      </div>{/* /body */}
+    </div>/* /root wrapper */
   );
 }

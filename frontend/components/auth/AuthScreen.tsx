@@ -14,7 +14,6 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  // State quản lý việc ẩn/hiện mật khẩu
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
@@ -30,7 +29,6 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
     e.preventDefault();
     setError('');
 
-    // VALIDATION CHO ĐĂNG KÝ
     if (!isLogin) {
         if (password.length < 8) {
             setError('Password must be at least 8 characters long!');
@@ -50,11 +48,9 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
         data = await api.login(username, password);
         if (data.error) throw new Error(data.error);
       } else {
-        // ĐĂNG KÝ
         const regData = await api.register(username, password);
         if (regData.error) throw new Error(regData.error);
         
-        // AUTO-LOGIN: Sau khi đăng ký thành công, tự động đăng nhập ngầm để lấy Token
         data = await api.login(username, password);
         if (data.error) throw new Error(data.error);
       }
@@ -65,7 +61,6 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
           sessionStorage.setItem('user_role', data.role || 'user');
       }
 
-      // Vào thẳng App cho cả 2 trường hợp (Đăng nhập / Đăng ký xong)
       onLoginSuccess(data.token, data.username, data.role);
 
     } catch (err: any) {
@@ -88,7 +83,6 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl p-8 relative overflow-hidden transition-all duration-500">
         
-        {/* Ánh sáng nền thay đổi theo trạng thái */}
         <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none transition-colors duration-500 ${colorBgGlow}`}></div>
 
         <div className="text-center mb-6 relative z-10">
@@ -103,7 +97,6 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
             </p>
         </div>
 
-        {/* Hệ thống Tabs chuyển đổi */}
         <div className="flex bg-black/50 p-1.5 rounded-xl mb-6 border border-white/5 relative z-10">
             <button 
                 type="button"
@@ -121,7 +114,16 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
             </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
+        {/* 
+          FIX 1: Thêm autocomplete="off" vào form và autocomplete cụ thể vào từng input
+          - Login form: dùng "username" và "current-password" để browser hiện autofill nhỏ gọn
+          - Register form: dùng "new-password" để browser KHÔNG gợi ý password cũ
+        */}
+        <form 
+          onSubmit={handleSubmit} 
+          className="space-y-4 relative z-10"
+          autoComplete={isLogin ? 'on' : 'off'}
+        >
             {/* Input: Username */}
             <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Username</label>
@@ -130,6 +132,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                     <input 
                         type="text" 
                         required 
+                        autoComplete={isLogin ? 'username' : 'username'}
                         className={`w-full pl-12 pr-4 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:ring-1 transition-all outline-none ${colorFocus}`}
                         placeholder="Enter username"
                         value={username}
@@ -146,6 +149,8 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                     <input 
                         type={showPassword ? "text" : "password"} 
                         required 
+                        // FIX: Login dùng "current-password", Register dùng "new-password"
+                        autoComplete={isLogin ? 'current-password' : 'new-password'}
                         className={`w-full pl-12 pr-12 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:ring-1 transition-all outline-none ${colorFocus}`}
                         placeholder="••••••••"
                         value={password}
@@ -161,7 +166,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                 </div>
             </div>
 
-            {/* Input: Confirm Password (Chỉ hiện khi Đăng ký) */}
+            {/* Input: Confirm Password - Chỉ hiện khi Đăng ký */}
             {!isLogin && (
                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
                     <label className="text-xs font-bold text-zinc-500 uppercase ml-1">Confirm Password</label>
@@ -170,6 +175,8 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                         <input 
                             type={showConfirmPassword ? "text" : "password"} 
                             required 
+                            // FIX: Confirm password cũng dùng "new-password"
+                            autoComplete="new-password"
                             className={`w-full pl-12 pr-12 py-3.5 bg-black border border-zinc-800 rounded-xl text-white focus:ring-1 transition-all outline-none ${colorFocus}`}
                             placeholder="••••••••"
                             value={confirmPassword}
@@ -186,7 +193,6 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                 </div>
             )}
 
-            {/* Error Message */}
             {error && (
                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 animate-in fade-in">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></div>
@@ -194,7 +200,6 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                 </div>
             )}
 
-            {/* Nút Submit & Loading Ui */}
             <button 
                 type="submit" 
                 disabled={isLoading}
