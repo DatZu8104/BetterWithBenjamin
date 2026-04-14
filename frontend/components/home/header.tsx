@@ -164,7 +164,6 @@ export function Header({
             </div>
         </FeatureHint>
 
-        {/* LOGO - Nút này vẫn giữ tính năng "Back to home" như cũ */}
         <div className="flex items-center gap-2 shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onReset}>
            <div className="p-1 sm:p-1.5 rounded-md bg-white/10 text-white transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

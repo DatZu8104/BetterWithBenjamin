@@ -10,7 +10,7 @@ router.get('/personal-groups-progress', verifyToken, async (req, res) => {
         // Ép kiểu userId về dạng ObjectId của MongoDB để so sánh
         const userId = new mongoose.Types.ObjectId(req.userId);
 
-        // Sử dụng Aggregation Pipeline (Sức mạnh của MongoDB)
+        // Sử dụng Aggregation Pipeline 
         const stats = await Vocabulary.aggregate([
             // BƯỚC 1: Lọc ra tất cả từ vựng của đúng User đang đăng nhập
             { $match: { userId: userId } },
@@ -28,7 +28,6 @@ router.get('/personal-groups-progress', verifyToken, async (req, res) => {
             }
         ]);
 
-        // Làm đẹp lại dữ liệu trả về cho Frontend dễ dùng
         const formattedStats = stats.map(item => ({
             groupName: item._id || 'Uncategorized',
             totalWords: item.totalWords,

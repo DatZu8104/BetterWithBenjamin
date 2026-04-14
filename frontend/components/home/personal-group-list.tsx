@@ -220,10 +220,8 @@ export function PersonalGroupListView({
         onSelectFolder(folderNameInput); 
     } 
     
-    // --- XỬ LÝ KHI EDIT FOLDER CŨ ---
     else {
         if (editingFolder) {
-            // Khi đổi tên folder cũ sang tên mới, cũng phải kiểm tra xem tên mới có trùng với folder nào khác không
             if (editingFolder !== folderNameInput) {
                  if (!checkDuplicateName(folderNameInput, folders, 'Folder')) return;
             }
@@ -496,8 +494,8 @@ export function PersonalGroupListView({
                                             <DropdownMenuItem
                                                 key={g.name}
                                                 onClick={() => {
-                                                    onSelectFolder(f); // Cập nhật folder
-                                                    onSelectGroup(g.name); // Đi vào trực tiếp Group luôn
+                                                    onSelectFolder(f);
+                                                    onSelectGroup(g.name); 
                                                 }}
                                                 className="cursor-pointer py-2 px-3 rounded-md text-sm text-zinc-400 hover:text-white focus:bg-zinc-800 focus:text-white flex items-center"
                                             >
@@ -598,7 +596,6 @@ export function PersonalGroupListView({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in slide-in-from-bottom-4 duration-500">
               {displayItems.map((item: any, index: number) => {
                 
-                // NẾU ITEM LÀ FOLDER
                 if (item.isFolder) {
                     const cardColor = folderColors[item.name] || 'blue';
                     const cardTheme = COLORS.find(c => c.id === cardColor)?.style || COLORS[0].style;
@@ -700,7 +697,6 @@ export function PersonalGroupListView({
                     );
                 }
 
-                // NẾU ITEM LÀ GROUP BÌNH THƯỜNG
                 const g = item;
                 const cardFolder = g.folder;
                 const cardColor = cardFolder && folderColors[cardFolder] ? folderColors[cardFolder] : null;

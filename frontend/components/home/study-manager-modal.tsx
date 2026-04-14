@@ -99,7 +99,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   const fetchUserFolders = async () => {
     try {
       const data = await api.getFoldersList();
-      // ĐÃ SỬA: Lọc ĐÚNG folder Study Modal (Không phải hệ thống VÀ có cờ isSystemSaved)
       const studyFolders = data.filter((f: any) => f.isGlobal !== true && f.isSystemSaved === true);
       setUserFolders(studyFolders);
     } catch (err) {
@@ -285,7 +284,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     setIsLoading(true);
 
     try {
-      // ĐÃ SỬA: Đánh dấu rõ ràng: isGlobal = false (Không phải của Admin), isSystemSaved = true (Tạo từ kho)
       const newFolder = await api.createFolderAndGetId(newFolderName, '#9333ea', false, true);
       const folderId = newFolder._id;
 

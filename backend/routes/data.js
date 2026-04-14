@@ -17,14 +17,10 @@ router.get('/sync', verifyToken, async (req, res) => {
         const userProgress = await UserProgress.find({ userId: req.userId });
         const learnedSysIds = userProgress.map(p => p.wordId.toString());
         
-        // 1. Tách riêng Folder
         const personalFolders = await Folder.find({ userId: req.userId, $or: [{ isGlobal: false }, { isGlobal: { $exists: false } }] });
         
-        // --- ĐÂY CHÍNH LÀ PHẦN 2 ĐÃ ĐƯỢC SỬA ---
-        // Lấy dữ liệu từ bảng SystemFolder mới thay vì bảng Folder cũ
         const systemFolders = await SystemFolder.find({}); 
 
-        // 2. Tách riêng Group Settings
         const personalGroupSettings = await GroupSetting.find({ userId: req.userId, $or: [{ isGlobal: false }, { isGlobal: { $exists: false } }] });
         const systemGroupSettings = await GroupSetting.find({ isGlobal: true });
         
@@ -32,7 +28,7 @@ router.get('/sync', verifyToken, async (req, res) => {
             words: formattedUserWords, 
             learnedSystemIds: learnedSysIds, 
             personalFolders,       
-            systemFolders,         // Gửi mảng hệ thống mới xuống Frontend
+            systemFolders,       
             personalGroupSettings, 
             systemGroupSettings    
         });
@@ -81,13 +77,12 @@ router.post('/words', verifyToken, async (req, res) => {
                 order: 1, label: 'Meaning 1', definition: definition, examples: example ? [example] : [] 
             }];
 
-            // ĐÃ FIX: Ép kiểu mảng "type" từ Frontend thành Chuỗi (String) để hợp với SystemVocabulary Schema
             const finalType = Array.isArray(type) ? type.join(', ') : type;
 
             const newSysWord = new SystemVocabulary({ 
                 word: wordText, 
                 definitions: finalDefinitions, 
-                type: finalType, // Dùng biến đã được convert
+                type: finalType, 
                 group 
             });
             
@@ -274,13 +269,11 @@ router.delete('/folders/:id', verifyToken, async (req, res) => {
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(identifier);
         let isSystemFolder = false;
 
-        // 1. Tìm xem có phải folder cá nhân không
         let folder = await Folder.findOne({
             userId: req.userId,
             ...(isObjectId ? { _id: identifier } : { name: identifier })
         });
 
-        // 2. Nếu không tìm thấy ở cá nhân, kiểm tra xem có phải Admin đang xóa folder Hệ thống không
         if (!folder && (await checkAdmin(req.userId))) {
             folder = await SystemFolder.findOne({
                 ...(isObjectId ? { _id: identifier } : { name: identifier })
@@ -318,7 +311,6 @@ router.delete('/folders/:id', verifyToken, async (req, res) => {
     return res.json({ message: 'Deleted system folder, groups, and words successfully' });
 }
         
-        // --- NẾU LÀ FOLDER CÁ NHÂN ---
         else {
             const savedWords = await SavedWord.find({ folderId, userId: req.userId });
             const systemWordIds = savedWords.map(sw => sw.wordId);
@@ -352,7 +344,6 @@ router.delete('/folders/:id', verifyToken, async (req, res) => {
 
 router.get('/folders', verifyToken, async (req, res) => {
     try {
-        // ĐÃ SỬA: Chỉ lấy folder cá nhân (Study Modal) - Không lấy folder hệ thống
         const folders = await Folder.find({ 
             userId: req.userId,
             isGlobal: false,
@@ -460,14 +451,12 @@ router.put('/folders/:id', verifyToken, async (req, res) => {
     try {
         const { name } = req.body;
         
-        // Đổi tên thư mục cá nhân trước
         let updatedFolder = await Folder.findOneAndUpdate(
             { _id: req.params.id, userId: req.userId },
             { name: name },
             { new: true }
         );
 
-        // Nếu không tìm thấy, và là admin -> thử đổi tên SystemFolder
         if (!updatedFolder && (await checkAdmin(req.userId))) {
             updatedFolder = await SystemFolder.findOneAndUpdate(
                 { _id: req.params.id },

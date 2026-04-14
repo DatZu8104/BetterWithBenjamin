@@ -1,7 +1,6 @@
 import { notify } from './notify';
 
 /**
- * Kiểm tra tên Folder/Group có bị trùng lặp hay không
  * @param name Tên mới người dùng vừa nhập
  * @param existingItems Danh sách tên các Folder/Group đã có (Mảng string)
  * @param type Loại đang tạo ('Folder' hoặc 'Group') để hiển thị thông báo cho đúng
@@ -22,7 +21,6 @@ export function checkDuplicateName(name: string, existingItems: string[], type: 
     );
 
     if (isDuplicate) {
-        // Tận dụng motif thông báo lỗi (màu đỏ) đã có sẵn của thư viện notify
         notify.error(
             `${type} Đã Tồn Tại`, 
             `Một ${type.toLowerCase()} mang tên "${trimmedName}" đã có sẵn trong danh sách. Vui lòng chọn tên khác!`
@@ -30,5 +28,5 @@ export function checkDuplicateName(name: string, existingItems: string[], type: 
         return false;
     }
 
-    return true; // Tên hoàn toàn hợp lệ và không trùng
+    return true; 
 }

@@ -413,7 +413,7 @@ export function WordListView({
                                       id={"modal_audio_tour" as any}
                                       side="bottom"
                                       align="start"
-                                      delay={500} // Chờ 0.5s để modal mở xong mới hiện Tour
+                                      delay={300} // Chờ 0.3s để modal mở xong mới hiện Tour
                                       message={
                                           <div className="space-y-1.5 w-[220px]">
                                               <p className="font-bold text-white flex items-center gap-1.5">

@@ -46,13 +46,12 @@ class VocabularyDB extends Dexie {
   systemWords: "id"
 });
 
-// Tăng version để Dexie tự migrate
 this.version(14).stores({
   words: "id, english, definition, type, group",
   learned: "id",
   groupSettings: "groupName, folder",
   folders: "name, color, createdAt",
-  systemWords: "id, group"  // ← thêm group vào đây
+  systemWords: "id, group"  
 });
   }
 }

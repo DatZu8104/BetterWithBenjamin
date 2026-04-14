@@ -12,7 +12,6 @@ import { toast } from 'sonner';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { notify } from '../../lib/notify';
 
-// IMPORT THÊM VALIDATOR ĐỂ FIX LỖI CRASH KHI TẠO FOLDER
 import { checkDuplicateName } from '../../lib/validators';
 
 const COLORS = [
@@ -155,7 +154,6 @@ export function SystemGroupListView({
     setIsModalOpen(true);
   };
 
-  // ĐÃ SỬA: Thêm async vào hàm
   const handleModalSubmit = async () => {
     if (!folderNameInput.trim()) return;
     
@@ -163,7 +161,6 @@ export function SystemGroupListView({
         if (!checkDuplicateName(folderNameInput, folders, 'Folder')) return;
         
         try {
-            // ĐÃ SỬA: Thêm await và try...catch để bắt lỗi thực tế
             await onCreateFolder(folderNameInput, folderColorInput);
             notify.success("Folder Created", `System folder "${folderNameInput}" ready.`);
             setIsModalOpen(false);

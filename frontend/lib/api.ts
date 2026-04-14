@@ -144,7 +144,6 @@ getSystemWords: async () => {
         method: 'DELETE', 
         headers: getHeaders() 
     });
-    // Thêm dòng kiểm tra lỗi này:
     if (!res.ok) throw new Error("Failed to delete folder"); 
   },
   
@@ -176,7 +175,7 @@ getSystemWords: async () => {
     const res = await fetch(`${API_URL}/folders`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ name, color, isGlobal, isSystemSaved }) // Bắt buộc phải có isSystemSaved ở đây
+      body: JSON.stringify({ name, color, isGlobal, isSystemSaved }) 
     });
     if (!res.ok) throw new Error("Lỗi tạo thư mục mới");
     return res.json();

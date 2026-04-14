@@ -9,7 +9,6 @@ import { StudyManagerModal } from '@/components/home/study-manager-modal';
 import { notify } from '../../lib/notify';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 
-// IMPORT 2 COMPONENT VỪA TÁCH:
 import { PersonalGroupListView } from '@/components/home/personal-group-list';
 import { SystemGroupListView } from '@/components/home/system-group-list';
 
@@ -56,7 +55,6 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const [isSyncingSystem, setIsSyncingSystem] = useState(false);  
 
   const canEdit = viewMode === 'personal' || role === 'admin';
-// Thêm hàm này bên cạnh loadData()
 const loadMetaOnly = async () => {
     try {
         const data = await api.syncData();
@@ -78,13 +76,11 @@ const loadMetaOnly = async () => {
         setSystemGroupSettings(sSettings);
         setRawGroupSettings([...(data.personalGroupSettings || []), ...(data.systemGroupSettings || [])]);
 
-        // Cập nhật personal words
         if (Array.isArray(data.words)) {
             const personalWords = data.words.map((w: any) => ({
                 ...w, id: w.id || w._id, learned: w.learned || false, isGlobal: false
             }));
-            // Giữ nguyên system words, chỉ thay personal words
-            setWords(prev => {
+          setWords(prev => {
                 const sysWords = prev.filter(w => w.isGlobal);
                 return [...personalWords, ...sysWords];
             });
@@ -131,18 +127,15 @@ const loadMetaOnly = async () => {
               }));
           }
           
-          // Xử lý màu sắc (gom chung màu của cả 2)
-          const colors: Record<string, string> = {};
+           const colors: Record<string, string> = {};
           if(data.personalFolders) data.personalFolders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
           if(data.systemFolders) data.systemFolders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
           setFolderColors(colors);
 
-          // Tách riêng danh sách tên Folder
-          if(data.personalFolders) setPersonalFolders(data.personalFolders.map((f: any) => f.name));
+           if(data.personalFolders) setPersonalFolders(data.personalFolders.map((f: any) => f.name));
           if(data.systemFolders) setSystemFolders(data.systemFolders.map((f: any) => f.name));
 
-          // Tách riêng Group Settings (Nhóm nào nằm trong Folder nào)
-          const pSettings: Record<string, string> = {};
+           const pSettings: Record<string, string> = {};
           const sSettings: Record<string, string> = {};
           
           if(data.personalGroupSettings) {
@@ -155,8 +148,7 @@ const loadMetaOnly = async () => {
           setPersonalGroupSettings(pSettings);
           setSystemGroupSettings(sSettings);
           
-          // Gộp raw lại để hệ thống tính toán logic tiến độ (như cũ)
-          setRawGroupSettings([...(data.personalGroupSettings || []), ...(data.systemGroupSettings || [])]);
+           setRawGroupSettings([...(data.personalGroupSettings || []), ...(data.systemGroupSettings || [])]);
       }
 
       setWords(personalWords);
@@ -249,8 +241,7 @@ const loadMetaOnly = async () => {
         };
     }).filter(g => {
         if (g.count > 0) return true;
-        // ĐÃ SỬA: Đã xóa "canEdit &&" ở đây để hiển thị Folder rỗng cho toàn bộ user
-        if (relevantSettingNames.has(g.name)) return true;
+         if (relevantSettingNames.has(g.name)) return true;
         return false;
     });
 
@@ -384,14 +375,12 @@ const loadMetaOnly = async () => {
         try {
             const saved = await api.addWord({ english: e, definition: d, type: t, group: selectedGroup, isGlobal: viewMode === 'global' });
             
-            // Thay từ tạm bằng từ thật từ server (có _id thật)
-            setWords(prev => prev.map(w => 
+             setWords(prev => prev.map(w => 
                 w.id === tempWord.id 
                     ? { ...saved, id: String(saved._id || saved.id), isGlobal: viewMode === 'global' } 
                     : w
             ));
 
-            // Nếu là system: cập nhật cache Dexie ngầm mà KHÔNG clear toàn bộ
             if (viewMode === 'global') {
                 const newWord = { ...saved, id: String(saved._id || saved.id), isGlobal: true };
                 await db.systemWords.put(newWord);
@@ -404,7 +393,6 @@ const loadMetaOnly = async () => {
 };
 
 const handleEditWord = !canEdit ? async () => {} : async (id: string, english: string, definition: string, type: string[]) => {
-    // Cập nhật UI ngay
     setWords(prev => prev.map(w => 
         (w.id === id || w._id === id) 
             ? { ...w, english, word: english, definition, type } 
@@ -418,7 +406,6 @@ const handleEditWord = !canEdit ? async () => {} : async (id: string, english: s
 
         await api.updateWord(id, updatePayload);
 
-        // Cập nhật cache Dexie ngầm mà KHÔNG clear
         if (viewMode === 'global') {
             await db.systemWords.where('id').equals(id).modify({ 
                 word: english, english, definition, type 
@@ -426,18 +413,16 @@ const handleEditWord = !canEdit ? async () => {} : async (id: string, english: s
         }
     } catch (error) {
         notify.error("Error", "Failed to update word.");
-        loadData(); // Rollback nếu lỗi
+        loadData();
     }
 };
 
 const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => {
-    // Xóa khỏi UI ngay
     setWords(prev => prev.filter(w => w.id !== id && w._id !== id));
 
     try {
         await api.deleteWord(id);
 
-        // Xóa khỏi cache Dexie ngầm mà KHÔNG clear toàn bộ
         if (viewMode === 'global') {
             await db.systemWords.where('id').equals(id).delete();
         }
@@ -445,20 +430,16 @@ const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => {
         notify.success("Deleted!", "The word has been removed from your list.");
     } catch (error) {
         notify.error("Error", "Failed to delete the word.");
-        loadData(); // Rollback nếu lỗi
     }
 };
   const handleCreateFolder = async (n: string, c: string) => {
     if (canEdit) {
-      // 1. Tạo vỏ Folder để lưu màu sắc
       await api.addFolder({
         name: n,
         color: c,
         isGlobal: viewMode === 'global' 
       });
       
-      // 2. NẾU LÀ TRANG SYSTEM: Tự động đăng ký nó thành nơi chứa từ vựng
-      // (Để đáp ứng yêu cầu: Bấm vào là thấy từ vựng luôn, không cần tạo group con)
       if (viewMode === 'global') {
           await api.updateGroup(n, "", true);
       }
@@ -477,7 +458,6 @@ const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => {
   const handleDeleteFolder = async (n: string) => { 
     if(canEdit) { 
         try {
-            // Xóa UI ngay
             setWords(prev => prev.filter(w => w.group !== n));
             await db.systemWords.where('group').equals(n).delete();
 
@@ -488,7 +468,7 @@ const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => {
             updateUrl({ folder: null, group: null }); 
         } catch(e) { 
             notify.error("Error", "Failed to delete folder.");
-            loadData(); // Rollback nếu lỗi
+            loadData();
         }
     } 
 };
@@ -505,20 +485,15 @@ const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => {
 const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => { 
     try {
         if (viewMode === 'global') {
-            // 1. Xóa khỏi UI ngay
             setWords(prev => prev.filter(w => w.group !== n));
             
-            // 2. Xóa khỏi cache Dexie ngầm, KHÔNG clear toàn bộ
             await db.systemWords.where('group').equals(n).delete();
 
-            // 3. Gọi API ngầm
             await api.deleteFolder(n);
 
-            // 4. Chỉ reload metadata (folders, groups) không reload words
             await loadMetaOnly();
 
         } else {
-            // Personal: xóa UI ngay
             setWords(prev => prev.filter(w => w.group !== n));
             await api.deleteGroup(n);
             await loadMetaOnly();
@@ -526,7 +501,7 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
         notify.success("Deleted!", "Group has been removed.");
     } catch(e) {
         notify.error("Error", "Failed to delete.");
-        loadData(); // Rollback nếu lỗi
+        loadData(); 
     }
 };
   const activeLearnWords = useMemo(() => {
@@ -596,7 +571,7 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
                     onSearchChange={setSearchTerm} onClearSearch={() => setSearchTerm('')}
                     onSelectGroup={(g) => updateUrl({ group: g })}
                     onSelectFolder={(f) => updateUrl({ folder: f })}
-                    allowAdd={true} // Cá nhân luôn được sửa
+                    allowAdd={true} 
                     onAddGroup={handleAddGroup} onDeleteGroup={handleDeleteGroup}
                     onDeleteWordResult={handleDeleteWord} onMoveGroup={handleMoveGroup} onCreateFolder={handleCreateFolder}
                     onUpdateFolder={handleUpdateFolder} onDeleteFolder={handleDeleteFolder}
@@ -616,7 +591,7 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
                     onSearchChange={setSearchTerm} onClearSearch={() => setSearchTerm('')}
                     onSelectGroup={(g) => updateUrl({ group: g })}
                     onSelectFolder={(f) => updateUrl({ folder: f })}
-                    allowAdd={role === 'admin'} // Chỉ admin mới được sửa hệ thống
+                    allowAdd={role === 'admin'}
                     onAddGroup={handleAddGroup} onDeleteGroup={handleDeleteGroup}
                     onDeleteWordResult={handleDeleteWord} onMoveGroup={handleMoveGroup} onCreateFolder={handleCreateFolder}
                     onUpdateFolder={handleUpdateFolder} onDeleteFolder={handleDeleteFolder}
