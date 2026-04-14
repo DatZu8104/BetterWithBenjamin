@@ -65,7 +65,10 @@ const loadMetaOnly = async () => {
         if(data.systemFolders) data.systemFolders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
         setFolderColors(colors);
 
-        if(data.personalFolders) setPersonalFolders(data.personalFolders.map((f: any) => f.name));
+        if(data.personalFolders) {
+            const filteredPersonal = data.personalFolders.filter((f: any) => f.isSystemSaved !== true);
+            setPersonalFolders(filteredPersonal.map((f: any) => f.name));
+        }
         if(data.systemFolders) setSystemFolders(data.systemFolders.map((f: any) => f.name));
 
         const pSettings: Record<string, string> = {};
@@ -130,9 +133,13 @@ const loadMetaOnly = async () => {
            const colors: Record<string, string> = {};
           if(data.personalFolders) data.personalFolders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
           if(data.systemFolders) data.systemFolders.forEach((f: any) => { if(f.color) colors[f.name] = f.color; });
-          setFolderColors(colors);
+          setFolderColors(colors);  
 
-           if(data.personalFolders) setPersonalFolders(data.personalFolders.map((f: any) => f.name));
+          if(data.personalFolders) {
+                const filteredPersonal = data.personalFolders.filter((f: any) => f.isSystemSaved !== true);
+                setPersonalFolders(filteredPersonal.map((f: any) => f.name));
+            }
+        
           if(data.systemFolders) setSystemFolders(data.systemFolders.map((f: any) => f.name));
 
            const pSettings: Record<string, string> = {};
