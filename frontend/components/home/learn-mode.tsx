@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Flashcard } from '../flashcard'; 
-import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw, Check, X, ChevronLeft, ChevronRight, Volume2, MousePointerClick, Hand } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw, Check, X, ChevronLeft, ChevronRight, Volume2, MousePointerClick, Hand, Sparkles } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { FeatureHint } from '../onboarding/FeatureHint';
+import { ONBOARDING_IDS } from '../onboarding/constants';
 import { VocabChatbot } from './vocab-chatbot';
 
 interface LearnModeProps {
@@ -666,12 +667,38 @@ export function LearnModeView({
         </div>{/* /scrollable inner */}
       </div>{/* /body */}
       {localCurrentWord && !isResetting && (
-        <VocabChatbot
-          currentWord={getWordText(localCurrentWord)}
-          wordType={getActual(localCurrentWord)?.type}
-          wordDefinition={getWordDef(localCurrentWord)}
-          wordExamples={getActual(localCurrentWord)?.definitions?.[0]?.examples}
-        />
+        <>
+          {/* Anchor cố định góc dưới phải để FeatureHint highlight đúng vị trí FAB */}
+          <FeatureHint
+            id={ONBOARDING_IDS.LEARN_AI_CHATBOT}
+            waitFor={"learn_known_btn" as any}
+            delay={800}
+            side="left"
+            align="center"
+            message={
+              <div className="space-y-1 max-w-[220px]">
+                <p className="font-bold text-white flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-violet-400" />AI Vocab Assistant
+                </p>
+                <p className="text-zinc-200 text-sm font-normal leading-snug">
+                  Tap this button to ask AI anything about the current word — usage, examples, collocations and more!
+                  You can move that!
+                </p>
+              </div>
+            }
+          >
+            <div
+              className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full pointer-events-none"
+              aria-hidden="true"
+            />
+          </FeatureHint>
+          <VocabChatbot
+            currentWord={getWordText(localCurrentWord)}
+            wordType={getActual(localCurrentWord)?.type}
+            wordDefinition={getWordDef(localCurrentWord)}
+            wordExamples={getActual(localCurrentWord)?.definitions?.[0]?.examples}
+          />
+        </>
       )}
     </div>/* /root wrapper */
   );
