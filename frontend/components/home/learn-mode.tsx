@@ -7,6 +7,7 @@ import { Flashcard } from '../flashcard';
 import { ArrowLeft, CheckCircle2, XCircle, Keyboard, Layers, HelpCircle, RotateCcw, Check, X, ChevronLeft, ChevronRight, Volume2, MousePointerClick, Hand } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { FeatureHint } from '../onboarding/FeatureHint';
+import { VocabChatbot } from './vocab-chatbot';
 
 interface LearnModeProps {
   currentWord?: any; 
@@ -664,6 +665,14 @@ export function LearnModeView({
           </div>{/* /content area */}
         </div>{/* /scrollable inner */}
       </div>{/* /body */}
+      {localCurrentWord && !isResetting && (
+        <VocabChatbot
+          currentWord={getWordText(localCurrentWord)}
+          wordType={getActual(localCurrentWord)?.type}
+          wordDefinition={getWordDef(localCurrentWord)}
+          wordExamples={getActual(localCurrentWord)?.definitions?.[0]?.examples}
+        />
+      )}
     </div>/* /root wrapper */
   );
 }
