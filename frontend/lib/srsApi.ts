@@ -143,5 +143,35 @@ export const srsApi = {
         } catch {
             return false;
         }
+    },
+    // Shift tất cả nextReview về quá khứ X ngày
+    adminTimeShift: async (days: number): Promise<{
+        success: boolean;
+        affected: number;
+        message: string;
+    }> => {
+        const res = await fetch(`${API_URL}/srs/admin/time-shift`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ days })
+        });
+        if (!res.ok) throw new Error('Failed to time shift');
+        return res.json();
+    },
+
+    // Hoàn tác về ngày thật
+    adminTimeReset: async (): Promise<{
+        success: boolean;
+        affected: number;
+        message: string;
+    }> => {
+        const res = await fetch(`${API_URL}/srs/admin/time-reset`, {
+            method: 'POST',
+            headers: getHeaders()
+        });
+        if (!res.ok) throw new Error('Failed to reset time');
+        return res.json();
     }
 };
+
+

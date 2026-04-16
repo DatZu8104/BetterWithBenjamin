@@ -1,5 +1,6 @@
 'use client';
 import { api } from '../../lib/api';
+import { srsApi } from '../../lib/srsApi';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -121,22 +122,28 @@ export function LearnModeView({
   };
 
   const handleKnown = useCallback(() => {
-      if (!localCurrentWord) return;
-      const currentId = getWordId(localCurrentWord);
+    if (!localCurrentWord) return;
+    const currentId = getWordId(localCurrentWord);
 
-      if (localCurrentWord.savedWordId) {
-          api.updateMasterStatus(localCurrentWord.savedWordId, true).catch(console.error);
-      } else {
-          api.updateWord(currentId, { learned: true }).catch(console.error);
-      }
+    if (localCurrentWord.savedWordId) {
+        api.updateMasterStatus(localCurrentWord.savedWordId, true).catch(console.error);
+    } else {
+        api.updateWord(currentId, { learned: true }).catch(console.error);
+    }
 
-      onNext(currentId, true); 
-      
-      const newQueue = studyQueue.filter(w => getWordId(w) !== currentId);
-      setStudyQueue(newQueue);
-      const nextWord = newQueue.length > 0 ? newQueue[0] : null;
-      switchWord(nextWord);
-  }, [localCurrentWord, studyQueue, onNext]);
+    // SRS: khởi tạo record khi thuộc lần đầu (silent, không ảnh hưởng flow)
+    const wordType = (localCurrentWord.savedWordId || localCurrentWord.isGlobal) 
+    ? 'system' 
+    : 'personal';
+    srsApi.initRecord(currentId, wordType).catch(() => {});
+
+    onNext(currentId, true);
+
+    const newQueue = studyQueue.filter(w => getWordId(w) !== currentId);
+    setStudyQueue(newQueue);
+    const nextWord = newQueue.length > 0 ? newQueue[0] : null;
+    switchWord(nextWord);
+}, [localCurrentWord, studyQueue, onNext]);
 
   const handleUnknown = useCallback(() => {
       if (!localCurrentWord) return;

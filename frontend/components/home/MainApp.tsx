@@ -7,8 +7,7 @@ import { WordListView } from '@/components/home/word-list';
 import { LearnModeView } from '@/components/home/learn-mode';
 import { StudyManagerModal } from '@/components/home/study-manager-modal'; 
 import { notify } from '../../lib/notify';
-import { ConfirmDialog } from '../ui/ConfirmDialog';
-
+import { SmartReviewNotification } from '@/components/smart-review/SmartReviewNotification';
 import { PersonalGroupListView } from '@/components/home/personal-group-list';
 import { SystemGroupListView } from '@/components/home/system-group-list';
 
@@ -627,6 +626,10 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
           <span>Synchronizing system data...</span>
         </div>
         )}
-    </div>
-  );
+    {/* Smart Review Notification */}
+        <SmartReviewNotification
+            onOpenSmartReview={() => router.push('/smart-review')}
+        />
+        </div>
+    );
 }

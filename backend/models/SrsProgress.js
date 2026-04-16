@@ -27,7 +27,9 @@ const srsProgressSchema = new mongoose.Schema({
     correctReviews: { type: Number, default: 0 },
     lastReviewed: { type: Date, default: null },
 
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+    originalNextReview: { type: Date, default: null },
+    isTimeShifted: { type: Boolean, default: false },
 });
 
 srsProgressSchema.index({ userId: 1, wordId: 1, wordType: 1 }, { unique: true });

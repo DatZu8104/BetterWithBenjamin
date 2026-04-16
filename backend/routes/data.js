@@ -371,6 +371,7 @@ router.get('/folders/:id', verifyToken, async (req, res) => {
 
 router.put('/folders/:id/reset', verifyToken, async (req, res) => {
     try {
+        const SrsProgress = require('../models/SrsProgress');
         const savedWords = await SavedWord.find({ folderId: req.params.id, userId: req.userId });
         const wordIds = savedWords.map(sw => sw.wordId);
 
@@ -380,6 +381,14 @@ router.put('/folders/:id/reset', verifyToken, async (req, res) => {
             { folderId: req.params.id, userId: req.userId },
             { isMastered: false }
         );
+
+        // Xóa luôn SRS record vì đã reset progress
+        await SrsProgress.deleteMany({
+            userId: req.userId,
+            wordId: { $in: wordIds },
+            wordType: 'system'
+        });
+
         res.json({ message: 'Folder progress has been reset' });
     } catch (err) {
         res.status(500).json({ error: 'Error when resetting progress' });
@@ -474,6 +483,7 @@ router.put('/folders/:id', verifyToken, async (req, res) => {
 
 router.delete('/saved-words/:id', verifyToken, async (req, res) => {
     try {
+        const SrsProgress = require('../models/SrsProgress');
         const savedWord = await SavedWord.findOne({
             _id: req.params.id,
             userId: req.userId
@@ -483,6 +493,13 @@ router.delete('/saved-words/:id', verifyToken, async (req, res) => {
             await UserProgress.findOneAndDelete({
                 userId: req.userId,
                 wordId: savedWord.wordId
+            });
+
+            // Xóa luôn SRS record
+            await SrsProgress.findOneAndDelete({
+                userId: req.userId,
+                wordId: savedWord.wordId,
+                wordType: 'system'
             });
             
             await SavedWord.findByIdAndDelete(req.params.id);

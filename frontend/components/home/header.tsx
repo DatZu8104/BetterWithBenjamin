@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
-import { Upload, Download, LogOut, ChevronDown, Search, BookOpen, ShieldCheck, Loader2, KeyRound, X, Menu, Library, User, Check } from 'lucide-react';
+import { LogOut, ChevronDown, Search, BookOpen, ShieldCheck, Loader2, KeyRound, X, Menu, Library, User, Check, Brain } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { srsApi } from '../../lib/srsApi';
 import { FeatureHint } from '../onboarding/FeatureHint';
 import { ONBOARDING_IDS } from '../onboarding/constants';
-
 interface HeaderProps {
   onSearchChange: (term: string) => void;
   searchTerm: string;
@@ -32,6 +32,12 @@ export function Header({
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false); 
+  // Smart Review
+const [dueCount, setDueCount] = useState(0);
+
+useEffect(() => {
+    srsApi.getDueCount().then(setDueCount).catch(() => {});
+}, []);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false); 
   
   const [isProcessing, setIsProcessing] = useState(false);
@@ -158,13 +164,35 @@ export function Header({
                             <button onClick={() => { onModeChange('global'); setIsSheetOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${currentMode === 'global' ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
                                 <Library className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Oxford 5000</div><div className="text-[10px] font-normal opacity-70">System vocabulary</div></div>
                             </button>
+
+                            {/* Smart Review */}
+                            <div className="pt-2 border-t border-zinc-800">
+                                <button
+                                    onClick={() => { router.push('/smart-review'); setIsSheetOpen(false); }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border bg-violet-950/30 border-violet-900/50 hover:bg-violet-900/40"
+                                >
+                                    <div className="relative shrink-0">
+                                        <Brain className="w-5 h-5 text-violet-400" />
+                                        {dueCount > 0 && (
+                                            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                                                {dueCount > 99 ? '99+' : dueCount}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="text-sm font-bold text-violet-300">Smart Review</div>
+                                        <div className="text-[10px] font-normal text-violet-400/70">
+                                            {dueCount > 0 ? `${dueCount} word${dueCount > 1 ? 's' : ''} due today` : 'Spaced repetition'}
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
                     </SheetContent>
-                </Sheet>
+                 </Sheet>
             </div>
         </FeatureHint>
-
-        <div className="flex items-center gap-2 shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onReset}>
+        <div className="flex items-center gap-2 shrink-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onReset}>                         
            <div className="p-1 sm:p-1.5 rounded-md bg-white/10 text-white transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
@@ -267,7 +295,7 @@ export function Header({
       </div>
     </header>
 
-    {/* MODAL ĐỔI MẬT KHẨU (TIẾNG ANH) */}
+    {/* MODAL ĐỔI MẬT KHẨU */}
     {showPassModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 relative">

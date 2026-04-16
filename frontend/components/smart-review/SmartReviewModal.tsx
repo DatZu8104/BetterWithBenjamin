@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { X, Brain, RefreshCw, Shuffle } from 'lucide-react';
-import { srsApi, DueWord, WordType } from '../../lib/srsApi';
+import { srsApi, DueWord } from '../../lib/srsApi';
 import { SmartReviewCard } from './SmartReviewCard';
+import { SmartReviewDevTools } from './SmartReviewDevTools';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 
@@ -22,23 +23,30 @@ export function SmartReviewModal({ onClose, onStartSession }: SmartReviewModalPr
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
 
+    // Đọc role từ sessionStorage — không cần prop, không đụng file khác
+    // App lưu role tại sessionStorage key 'user_role' (xem AuthScreen.tsx)
+    const isAdmin = typeof window !== 'undefined'
+        ? sessionStorage.getItem('user_role') === 'admin'
+        : false;
+
+    const loadWords = async () => {
+        setIsLoading(true);
+        try {
+            const data = await srsApi.getDueWords();
+            setPersonalWords(data.personal);
+            setSystemWords(data.system);
+            // Mặc định chọn tất cả
+            const allIds = [...data.personal, ...data.system].map(w => w._id);
+            setSelectedIds(new Set(allIds));
+        } catch {
+            // silent
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const load = async () => {
-            setIsLoading(true);
-            try {
-                const data = await srsApi.getDueWords();
-                setPersonalWords(data.personal);
-                setSystemWords(data.system);
-                // Mặc định chọn tất cả
-                const allIds = [...data.personal, ...data.system].map(w => w._id);
-                setSelectedIds(new Set(allIds));
-            } catch {
-                // silent
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        load();
+        loadWords();
     }, []);
 
     const activeWords = tab === 'personal' ? personalWords : systemWords;
@@ -99,11 +107,17 @@ export function SmartReviewModal({ onClose, onStartSession }: SmartReviewModalPr
                         <div>
                             <h2 className="text-white font-bold text-lg">Smart Review</h2>
                             <p className="text-zinc-500 text-sm">
-                                {isLoading ? 'Loading...' : `${personalWords.length + systemWords.length} words due today`}
+                                {isLoading
+                                    ? 'Loading...'
+                                    : `${personalWords.length + systemWords.length} words due today`
+                                }
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+                    <button
+                        onClick={onClose}
+                        className="text-zinc-500 hover:text-white transition-colors"
+                    >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -188,6 +202,13 @@ export function SmartReviewModal({ onClose, onStartSession }: SmartReviewModalPr
                         </div>
                     )}
                 </div>
+
+                {/* Dev Tools — admin only */}
+                {isAdmin && (
+                    <div className="px-4 pb-3">
+                        <SmartReviewDevTools onRefresh={loadWords} />
+                    </div>
+                )}
 
                 {/* Footer */}
                 <div className="flex items-center justify-between p-4 border-t border-zinc-800 shrink-0">
