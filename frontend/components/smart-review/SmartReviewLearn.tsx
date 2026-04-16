@@ -242,7 +242,10 @@ export function SmartReviewLearn({ words }: SmartReviewLearnProps) {
         return (
             <SmartReviewSummary
                 results={results}
-                onClose={() => router.push('/smart-review')}
+                onClose={() => {
+                    const tab = sessionStorage.getItem('srs_learn_tab') || 'personal';
+                    router.push(`/smart-review?tab=${tab}`);
+                }}
                 onReviewAgain={() => {
                     const shuffled = [...words].sort(() => Math.random() - 0.5);
                     setStudyQueue(shuffled);
@@ -267,7 +270,10 @@ export function SmartReviewLearn({ words }: SmartReviewLearnProps) {
         >
             <Button
                 variant="ghost" size="sm"
-                onClick={() => router.push('/smart-review')}
+onClick={() => {
+    const tab = sessionStorage.getItem('srs_learn_tab') || 'personal';
+    router.push(`/smart-review?tab=${tab}`);
+}}
                 className="h-9 -ml-2 text-zinc-400 hover:text-white hover:bg-zinc-900"
             >
                 <ArrowLeft className="w-5 h-5 mr-2" />

@@ -84,11 +84,11 @@ export function SmartReviewPage({ defaultTab = 'personal' }: SmartReviewPageProp
     }, [selectedIds, personalWords, systemWords]);
 
     const handleStart = () => {
-        if (selectedWords.length === 0) return;
-        // Lưu words vào sessionStorage để trang learn đọc
-        sessionStorage.setItem('srs_learn_words', JSON.stringify(selectedWords));
-        router.push('/smart-review/learn');
-    };
+    if (selectedWords.length === 0) return;
+    sessionStorage.setItem('srs_learn_words', JSON.stringify(selectedWords));
+    sessionStorage.setItem('srs_learn_tab', tab); // lưu tab hiện tại
+    router.push('/smart-review/learn');
+};
 
     const allActiveSelected = activeWords.length > 0 &&
         activeWords.every(w => selectedIds.has(w._id));
