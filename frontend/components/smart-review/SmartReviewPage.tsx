@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Brain, RefreshCw, Shuffle } from 'lucide-react';
+import { Brain, RefreshCw, Shuffle, User, Library } from 'lucide-react';
 import { srsApi, DueWord } from '../../lib/srsApi';
 import { SmartReviewCard } from './SmartReviewCard';
 import { SmartReviewDevTools } from './SmartReviewDevTools';
@@ -11,9 +11,17 @@ import { cn } from '../../lib/utils';
 type Tab = 'personal' | 'system';
 const QUICK_SELECT = [10, 20, 30];
 
-export function SmartReviewPage() {
+interface SmartReviewPageProps {
+    defaultTab?: 'personal' | 'system';
+}
+
+export function SmartReviewPage({ defaultTab = 'personal' }: SmartReviewPageProps) {
     const router = useRouter();
-    const [tab, setTab] = useState<Tab>('personal');
+    const [tab, setTab] = useState<Tab>(defaultTab);
+
+    useEffect(() => {
+        setTab(defaultTab);
+    }, [defaultTab]);
     const [personalWords, setPersonalWords] = useState<DueWord[]>([]);
     const [systemWords, setSystemWords] = useState<DueWord[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -112,29 +120,16 @@ export function SmartReviewPage() {
                     ← Back
                 </Button>
             </div>
-
-            {/* Tabs */}
-            <div className="flex gap-1 p-4 border-b border-zinc-800">
-                {(['personal', 'system'] as Tab[]).map(t => (
-                    <button
-                        key={t}
-                        onClick={() => setTab(t)}
-                        className={cn(
-                            'flex-1 py-2 px-4 rounded-xl text-sm font-semibold transition-all',
-                            tab === t
-                                ? t === 'personal'
-                                    ? 'bg-blue-900/50 text-blue-300 border border-blue-800'
-                                    : 'bg-purple-900/50 text-purple-300 border border-purple-800'
-                                : 'text-zinc-500 hover:text-zinc-300'
-                        )}
-                    >
-                        {t === 'personal' ? 'Personal' : 'System (Oxford)'}
-                        <span className="ml-2 text-xs opacity-70">
-                            ({t === 'personal' ? personalWords.length : systemWords.length})
-                        </span>
-                    </button>
-                ))}
-            </div>
+            {/* Tab indicator — không có nút chuyển */}
+<div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2">
+    {tab === 'personal'
+        ? <><User className="w-4 h-4 text-blue-400" /><span className="text-sm font-semibold text-blue-300">Personal vocabulary</span></>
+        : <><Library className="w-4 h-4 text-purple-400" /><span className="text-sm font-semibold text-purple-300">System (Oxford)</span></>
+    }
+    <span className="text-xs text-zinc-500 ml-1">
+        — {activeWords.length} words due
+    </span>
+</div>
 
             {/* Toolbar */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 flex-wrap">

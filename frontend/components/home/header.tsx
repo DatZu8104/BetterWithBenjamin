@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname  } from 'next/navigation';
 import { api } from '../../lib/api';
 import { LogOut, ChevronDown, Search, BookOpen, ShieldCheck, Loader2, KeyRound, X, Menu, Library, User, Check, Brain } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { srsApi } from '../../lib/srsApi';
 import { FeatureHint } from '../onboarding/FeatureHint';
 import { ONBOARDING_IDS } from '../onboarding/constants';
+import { cn } from '../../lib/utils';
+
 interface HeaderProps {
   onSearchChange: (term: string) => void;
   searchTerm: string;
@@ -28,15 +30,24 @@ export function Header({
 }: HeaderProps) {
   
   const router = useRouter();
+  const pathname = usePathname();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false); 
   // Smart Review
 const [dueCount, setDueCount] = useState(0);
+const [duePersonal, setDuePersonal] = useState(0);
+const [dueSystem, setDueSystem] = useState(0);
 
+const [isSmartReviewExpanded, setIsSmartReviewExpanded] = useState(false);
 useEffect(() => {
     srsApi.getDueCount().then(setDueCount).catch(() => {});
+    // Lấy chi tiết personal/system
+    srsApi.getDueWords().then(data => {
+        setDuePersonal(data.personal.length);
+        setDueSystem(data.system.length);
+    }).catch(() => {});
 }, []);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false); 
   
@@ -145,12 +156,35 @@ useEffect(() => {
                 {/* MENU HAMBURGER */}
                 <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetTrigger asChild>
-                        <button className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border transition-all outline-none shrink-0 ${currentMode === 'global' ? 'bg-purple-950/30 border-purple-900/50 hover:bg-purple-900/50' : 'bg-blue-950/30 border-blue-900/50 hover:bg-blue-900/50'}`}>
-                            <span className={`text-[10px] sm:text-xs font-bold whitespace-nowrap ${currentMode === 'global' ? 'text-purple-300' : 'text-blue-300'}`}>
-                                {currentMode === 'global' ? 'System' : 'Personal'}
-                            </span>
-                            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isSheetOpen ? 'rotate-180' : ''} ${currentMode === 'global' ? 'text-purple-400' : 'text-blue-400'}`} />
-                        </button>
+                        <button className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border transition-all outline-none shrink-0 ${
+    pathname?.startsWith('/smart-review')
+        ? 'bg-violet-950/30 border-violet-900/50 hover:bg-violet-900/50'
+        : currentMode === 'global'
+            ? 'bg-purple-950/30 border-purple-900/50 hover:bg-purple-900/50'
+            : 'bg-blue-950/30 border-blue-900/50 hover:bg-blue-900/50'
+}`}>
+    <span className={`text-[10px] sm:text-xs font-bold whitespace-nowrap ${
+        pathname?.startsWith('/smart-review')
+            ? 'text-violet-300'
+            : currentMode === 'global'
+                ? 'text-purple-300'
+                : 'text-blue-300'
+    }`}>
+        {pathname?.startsWith('/smart-review')
+            ? 'Review'
+            : currentMode === 'global'
+                ? 'System'
+                : 'Personal'
+        }
+    </span>
+    <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isSheetOpen ? 'rotate-180' : ''} ${
+        pathname?.startsWith('/smart-review')
+            ? 'text-violet-400'
+            : currentMode === 'global'
+                ? 'text-purple-400'
+                : 'text-blue-400'
+    }`} />
+</button>
                     </SheetTrigger>
                     <SheetContent side="left" className="bg-zinc-950 border-r border-zinc-800 text-white w-[300px] z-[60]">
                         <SheetHeader className="mb-6 text-left">
@@ -158,35 +192,88 @@ useEffect(() => {
                             <SheetDescription className="text-zinc-500">Choose vocabulary source to learn.</SheetDescription>
                         </SheetHeader>
                         <div className="space-y-2">
-                            <button onClick={() => { onModeChange('personal'); setIsSheetOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${currentMode === 'personal' ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
-                                <User className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Personal vocabulary</div><div className="text-[10px] font-normal opacity-70"> {username}</div></div>
-                            </button>
-                            <button onClick={() => { onModeChange('global'); setIsSheetOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${currentMode === 'global' ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
-                                <Library className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Oxford 5000</div><div className="text-[10px] font-normal opacity-70">System vocabulary</div></div>
-                            </button>
+                            <button onClick={() => { onModeChange('personal'); setIsSheetOpen(false); }} 
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${!pathname?.startsWith('/smart-review') && currentMode === 'personal' ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
+    <User className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Personal vocabulary</div><div className="text-[10px] font-normal opacity-70"> {username}</div></div>
+</button>
+<button onClick={() => { onModeChange('global'); setIsSheetOpen(false); }} 
+    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${!pathname?.startsWith('/smart-review') && currentMode === 'global' ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
+    <Library className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Oxford 5000</div><div className="text-[10px] font-normal opacity-70">System vocabulary</div></div>
+</button>
 
-                            {/* Smart Review */}
-                            <div className="pt-2 border-t border-zinc-800">
-                                <button
-                                    onClick={() => { router.push('/smart-review'); setIsSheetOpen(false); }}
-                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border bg-violet-950/30 border-violet-900/50 hover:bg-violet-900/40"
-                                >
-                                    <div className="relative shrink-0">
-                                        <Brain className="w-5 h-5 text-violet-400" />
-                                        {dueCount > 0 && (
-                                            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                                                {dueCount > 99 ? '99+' : dueCount}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="text-sm font-bold text-violet-300">Smart Review</div>
-                                        <div className="text-[10px] font-normal text-violet-400/70">
-                                            {dueCount > 0 ? `${dueCount} word${dueCount > 1 ? 's' : ''} due today` : 'Spaced repetition'}
-                                        </div>
-                                    </div>
-                                </button>
-                            </div>
+                            {/* Smart Review — accordion */}
+<div className="pt-2 border-t border-zinc-800">
+    {/* Dòng cha — chỉ xổ/đóng */}
+    <button
+    onClick={() => setIsSmartReviewExpanded(v => !v)}
+    className={cn(
+        'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border',
+        pathname?.startsWith('/smart-review')
+            ? 'bg-violet-700 border-violet-500 text-white shadow-lg shadow-violet-900/20'
+            : 'bg-violet-950/30 border-violet-900/50 hover:bg-violet-900/40'
+    )}
+>
+        <div className="relative shrink-0">
+            <Brain className="w-5 h-5 text-violet-400" />
+            {dueCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {dueCount > 99 ? '99+' : dueCount}
+                </span>
+            )}
+        </div>
+        <div className="flex-1 text-left">
+            <div className="text-sm font-bold text-violet-300">Smart Review</div>
+            <div className="text-[10px] font-normal text-violet-400/70">
+                {dueCount > 0 ? `${dueCount} word${dueCount > 1 ? 's' : ''} due today` : 'Spaced repetition'}
+            </div>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-violet-400 transition-transform duration-200 ${isSmartReviewExpanded ? 'rotate-180' : ''}`} />
+    </button>
+
+    {/* Dropdown — personal & system */}
+    {isSmartReviewExpanded && (
+        <div className="mt-1 ml-4 space-y-1 border-l border-violet-900/40 pl-3">
+            <button
+    onClick={() => { router.push('/smart-review?tab=personal'); setIsSheetOpen(false); }}
+    className={cn(
+        'w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all hover:bg-violet-900/20 text-left',
+        pathname === '/smart-review' && new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('tab') !== 'system'
+            ? 'bg-violet-900/30'
+            : ''
+    )}
+>
+    <div className="flex items-center gap-2">
+        <User className="w-4 h-4 text-blue-400 shrink-0" />
+        <span className="text-sm font-medium text-zinc-300">Personal</span>
+    </div>
+    {duePersonal > 0 && (
+        <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/50 text-blue-300 border border-blue-800/50 rounded-full font-semibold">
+            {duePersonal}
+        </span>
+    )}
+</button>
+<button
+    onClick={() => { router.push('/smart-review?tab=system'); setIsSheetOpen(false); }}
+    className={cn(
+        'w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all hover:bg-violet-900/20 text-left',
+        pathname === '/smart-review' && new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('tab') === 'system'
+            ? 'bg-violet-900/30'
+            : ''
+    )}
+>
+    <div className="flex items-center gap-2">
+        <Library className="w-4 h-4 text-purple-400 shrink-0" />
+        <span className="text-sm font-medium text-zinc-300">System (Oxford)</span>
+    </div>
+    {dueSystem > 0 && (
+        <span className="text-[10px] px-1.5 py-0.5 bg-purple-900/50 text-purple-300 border border-purple-800/50 rounded-full font-semibold">
+            {dueSystem}
+        </span>
+    )}
+</button>
+        </div>
+    )}
+</div>
                         </div>
                     </SheetContent>
                  </Sheet>

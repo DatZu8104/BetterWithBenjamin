@@ -1,15 +1,21 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Header } from '@/components/home/header';
 import { SmartReviewPage } from '@/components/smart-review/SmartReviewPage';
+
+// Tách riêng component đọc searchParams vì Next.js yêu cầu Suspense
+function SmartReviewContent() {
+    const searchParams = useSearchParams();
+    const defaultTab = (searchParams.get('tab') as 'personal' | 'system') || 'personal';
+    return <SmartReviewPage defaultTab={defaultTab} />;
+}
 
 export default function SmartReviewRoute() {
     const router = useRouter();
     const [isAuth, setIsAuth] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Lấy thông tin từ sessionStorage giống page.tsx chính
     const username = typeof window !== 'undefined'
         ? sessionStorage.getItem('current_user') || ''
         : '';
@@ -55,7 +61,14 @@ export default function SmartReviewRoute() {
                 onModeChange={() => router.push('/')}
             />
             <div className="flex-1">
-                <SmartReviewPage />
+                {/* Suspense bắt buộc khi dùng useSearchParams */}
+                <Suspense fallback={
+                    <div className="flex items-center justify-center h-40 text-zinc-500">
+                        Loading...
+                    </div>
+                }>
+                    <SmartReviewContent />
+                </Suspense>
             </div>
         </div>
     );

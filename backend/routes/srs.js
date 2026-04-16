@@ -260,5 +260,110 @@ router.delete('/:wordId', verifyToken, async (req, res) => {
         res.status(500).json({ error: 'Failed to delete SRS record' });
     }
 });
+// ─────────────────────────────────────────────
+// POST /api/srs/admin/time-shift
+// Admin only — shift nextReview về quá khứ X ngày để test
+// ─────────────────────────────────────────────
+router.post('/admin/time-shift', verifyToken, async (req, res) => {
+    try {
+        const user = await require('../models').User.findById(req.userId);
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin only' });
+        }
+
+        const days = Number(req.body.days);
+        if (!days || isNaN(days) || days <= 0) {
+            return res.status(400).json({ error: 'Invalid days value' });
+        }
+
+        const records = await SrsProgress.find({ userId: req.userId });
+
+        if (records.length === 0) {
+            return res.json({ success: true, affected: 0, message: 'No records found' });
+        }
+
+        const bulkOps = records.map(record => {
+            const original = record.isTimeShifted
+                ? record.originalNextReview
+                : record.nextReview;
+
+            const shifted = new Date(record.nextReview);
+            shifted.setDate(shifted.getDate() - days);
+            shifted.setHours(0, 0, 0, 0);
+
+            return {
+                updateOne: {
+                    filter: { _id: record._id },
+                    update: {
+                        $set: {
+                            nextReview: shifted,
+                            originalNextReview: original,
+                            isTimeShifted: true
+                        }
+                    }
+                }
+            };
+        });
+
+        await SrsProgress.bulkWrite(bulkOps);
+
+        res.json({
+            success: true,
+            affected: records.length,
+            shiftedDays: days,
+            message: `Shifted ${records.length} records back ${days} day(s)`
+        });
+
+    } catch (err) {
+        console.error('Time shift error:', err);
+        res.status(500).json({ error: 'Failed to time shift' });
+    }
+});
+
+// ─────────────────────────────────────────────
+// POST /api/srs/admin/time-reset
+// Admin only — hoàn tác về ngày thật
+// ─────────────────────────────────────────────
+router.post('/admin/time-reset', verifyToken, async (req, res) => {
+    try {
+        const user = await require('../models').User.findById(req.userId);
+        if (!user || user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin only' });
+        }
+
+        const records = await SrsProgress.find({
+            userId: req.userId,
+            isTimeShifted: true,
+            originalNextReview: { $ne: null }
+        });
+
+        if (records.length === 0) {
+            return res.json({ success: true, affected: 0, message: 'Nothing to reset' });
+        }
+
+        const bulkOps = records.map(record => ({
+            updateOne: {
+                filter: { _id: record._id },
+                update: {
+                    $set: { nextReview: record.originalNextReview },
+                    $unset: { originalNextReview: '', isTimeShifted: '' }
+                }
+            }
+        }));
+
+        await SrsProgress.bulkWrite(bulkOps);
+
+        res.json({
+            success: true,
+            affected: records.length,
+            message: `Reset ${records.length} records to real dates`
+        });
+
+    } catch (err) {
+        console.error('Time reset error:', err);
+        res.status(500).json({ error: 'Failed to reset time' });
+    }
+});
+
 
 module.exports = router;

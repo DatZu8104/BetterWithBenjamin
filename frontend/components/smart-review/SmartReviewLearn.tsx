@@ -256,271 +256,248 @@ export function SmartReviewLearn({ words }: SmartReviewLearnProps) {
     }
 
     return (
+    <div
+        className="w-full bg-black text-white"
+        style={{ height: '100dvh', maxHeight: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+    >
+        {/* ── TOP BAR — shrink-0, cố định ── */}
         <div
-            className="w-full bg-black text-white"
-            style={{ height: '100dvh', maxHeight: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            className="flex items-center justify-between px-4 border-b border-zinc-800 bg-black z-20 gap-4"
+            style={{ height: '56px', flexShrink: 0 }}
         >
-            {/* ── TOP BAR ── */}
-            <div
-                className="flex items-center justify-between px-4 border-b border-zinc-800 bg-black z-20 gap-4"
-                style={{ height: '56px', flexShrink: 0 }}
+            <Button
+                variant="ghost" size="sm"
+                onClick={() => router.push('/smart-review')}
+                className="h-9 -ml-2 text-zinc-400 hover:text-white hover:bg-zinc-900"
             >
-                <Button
-                    variant="ghost" size="sm"
-                    onClick={() => router.push('/smart-review')}
-                    className="h-9 -ml-2 text-zinc-400 hover:text-white hover:bg-zinc-900"
-                >
-                    <ArrowLeft className="w-5 h-5 mr-2" />
-                    <span className="font-medium">Exit</span>
-                </Button>
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                <span className="font-medium">Exit</span>
+            </Button>
 
-                {/* Mode switcher */}
-                <div className="flex-1 flex justify-center max-w-xs">
-                    <div className="bg-zinc-900 p-1 rounded-lg flex w-full border border-zinc-800">
-                        {[
-                            { id: 'flashcard', icon: Layers,     label: 'Flashcard' },
-                            { id: 'quiz',      icon: HelpCircle, label: 'Quiz'      },
-                            { id: 'typing',    icon: Keyboard,   label: 'Typing'    },
-                        ].map(item => (
-                            <button
-                                key={item.id}
-                                onClick={() => setMode(item.id as Mode)}
-                                className={cn(
-                                    'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold transition-all outline-none',
-                                    mode === item.id
-                                        ? 'bg-white text-black shadow-sm'
-                                        : 'text-zinc-500 hover:text-zinc-300'
-                                )}
-                            >
-                                <item.icon className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">{item.label}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Progress */}
-                <div className="text-right shrink-0">
-                    <span className="text-xs text-zinc-400 font-mono">{displayLearned}/{totalCount}</span>
+            {/* Mode switcher */}
+            <div className="flex-1 flex justify-center max-w-xs">
+                <div className="bg-zinc-900 p-1 rounded-lg flex w-full border border-zinc-800">
+                    {[
+                        { id: 'flashcard', icon: Layers,     label: 'Flashcard' },
+                        { id: 'quiz',      icon: HelpCircle, label: 'Quiz'      },
+                        { id: 'typing',    icon: Keyboard,   label: 'Typing'    },
+                    ].map(item => (
+                        <button
+                            key={item.id}
+                            onClick={() => setMode(item.id as Mode)}
+                            className={cn(
+                                'flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-bold transition-all outline-none',
+                                mode === item.id
+                                    ? 'bg-white text-black shadow-sm'
+                                    : 'text-zinc-500 hover:text-zinc-300'
+                            )}
+                        >
+                            <item.icon className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">{item.label}</span>
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            {/* Progress bar */}
-            <div className="h-1 bg-zinc-900 shrink-0">
-                <div
-                    className="h-full bg-violet-500 transition-all duration-500"
-                    style={{ width: `${totalCount > 0 ? (displayLearned / totalCount) * 100 : 0}%` }}
-                />
-            </div>
-
-            {/* ── BODY ── */}
-            <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="flex-1 overflow-y-auto px-4 py-4">
-                    <div className="max-w-xl mx-auto">
-
-                        {/* Loading */}
-                        {!localCurrentWord && !showSummary && (
-                            <div className="flex flex-col items-center justify-center min-h-[300px]">
-                                <RotateCcw className="w-10 h-10 animate-spin text-zinc-600 mb-3" />
-                                <p className="text-zinc-500">Loading...</p>
-                            </div>
-                        )}
-
-                        {localCurrentWord && (
-                            <div className={cn(
-                                'w-full flex flex-col transition-all duration-300 ease-in-out pb-6',
-                                isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
-                            )}>
-
-                                {/* ══ FLASHCARD MODE ══ */}
-                                {mode === 'flashcard' && (
-                                    <>
-                                        <div className="w-full flex items-center justify-between gap-2 md:gap-4">
-                                            {/* Again — trái */}
-                                            <Button
-                                                variant="ghost" size="icon"
-                                                onClick={() => handleSrsButton('again')}
-                                                disabled={isAnimating || isSubmitting}
-                                                className="hidden md:flex h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-red-500 hover:bg-red-950/30 hover:border-red-900/50"
-                                            >
-                                                <ChevronLeft className="w-8 h-8" />
-                                            </Button>
-
-                                            {/* Flashcard */}
-                                            <div
-                                                className="flex-1 min-w-0 transition-transform duration-200 relative"
-                                                style={{ transform: `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.04}deg)` }}
-                                                onTouchStart={handleTouchStart}
-                                                onTouchMove={handleTouchMove}
-                                                onTouchEnd={handleTouchEnd}
-                                            >
-                                                {swipeOffset < -30 && <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none z-10" />}
-                                                {swipeOffset > 30 && <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none z-10" />}
-                                                <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" />
-                                            </div>
-
-                                            {/* Easy — phải */}
-                                            <Button
-                                                variant="ghost" size="icon"
-                                                onClick={() => handleSrsButton('easy')}
-                                                disabled={isAnimating || isSubmitting}
-                                                className="hidden md:flex h-12 w-12 shrink-0 rounded-full border border-zinc-800 bg-zinc-900/50 text-green-500 hover:bg-green-950/30 hover:border-green-900/50"
-                                            >
-                                                <ChevronRight className="w-8 h-8" />
-                                            </Button>
-                                        </div>
-
-                                        {/* 4 SRS buttons */}
-                                        <div className="grid grid-cols-4 gap-2 mt-4">
-                                            {SRS_BUTTONS.map(btn => (
-                                                <button
-                                                    key={btn.key}
-                                                    onClick={() => handleSrsButton(btn.key)}
-                                                    disabled={isAnimating || isSubmitting}
-                                                    className={cn(
-                                                        'flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 transition-all disabled:opacity-40',
-                                                        btn.className
-                                                    )}
-                                                >
-                                                    <span className="font-bold text-sm">{btn.label}</span>
-                                                    <span className="text-[10px] opacity-70">{btn.sublabel}</span>
-                                                    <span className="text-[10px] opacity-40 mt-0.5">[{btn.hotkey}]</span>
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        {/* Mobile hint */}
-                                        {isMobile && (
-                                            <p className="text-center text-xs text-zinc-600 mt-3">
-                                                Swipe left = Good · Swipe right = Again
-                                            </p>
-                                        )}
-                                    </>
-                                )}
-
-                                {/* ══ QUIZ MODE ══ */}
-                                {mode === 'quiz' && (
-                                    <div className="flex flex-col w-full gap-4">
-                                        <div
-                                            className="bg-zinc-900 border-2 border-zinc-800 rounded-3xl shadow-sm text-center flex flex-col overflow-hidden"
-                                            style={{ minHeight: '180px', maxHeight: '35vh' }}
-                                        >
-                                            <div className="w-full h-full overflow-y-auto p-6 flex flex-col justify-center items-center">
-                                                <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-3">Definition</p>
-                                                <h2 className={cn('font-normal leading-relaxed text-white break-words', currentWordDef.length > 80 ? 'text-xl' : 'text-2xl')}>
-                                                    "{currentWordDef}"
-                                                </h2>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-3">
-                                            {quizOptions.map(opt => {
-                                                const optId = getWordId(opt);
-                                                const correctId = getWordId(localCurrentWord);
-                                                const isSelected = selectedAnswer === optId;
-                                                const isCorrect = optId === correctId;
-                                                let style = 'border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300';
-                                                if (selectedAnswer) {
-                                                    if (isCorrect) style = 'border-green-900 bg-green-950/40 text-green-400 font-bold ring-1 ring-green-900';
-                                                    else if (isSelected) style = 'border-red-900 bg-red-950/40 text-red-400 opacity-80';
-                                                    else style = 'opacity-30 grayscale border-transparent';
-                                                }
-                                                return (
-                                                    <button
-                                                        key={optId}
-                                                        className={cn('h-14 px-4 rounded-2xl border text-base font-medium transition-all shadow-sm flex items-center justify-center text-center active:scale-[0.98]', style)}
-                                                        onClick={() => handleQuizAnswer(optId)}
-                                                        disabled={!!selectedAnswer}
-                                                    >
-                                                        <span className="truncate w-full">{getWordText(opt)}</span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* ══ TYPING MODE ══ */}
-                                {mode === 'typing' && (
-                                    <div className="flex flex-col w-full gap-4">
-                                        <div
-                                            className="bg-zinc-900 border-2 border-zinc-800 rounded-3xl shadow-sm text-center flex flex-col overflow-hidden"
-                                            style={{ minHeight: '180px', maxHeight: '35vh' }}
-                                        >
-                                            <div className="w-full h-full overflow-y-auto p-6 flex flex-col justify-center items-center">
-                                                <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-3">Type the English word</p>
-                                                <h2 className={cn('font-normal leading-relaxed text-white mb-3 break-words', currentWordDef.length > 80 ? 'text-xl' : 'text-2xl')}>
-                                                    "{currentWordDef}"
-                                                </h2>
-                                                {(localCurrentWord as any).type && (
-                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
-                                                        {Array.isArray((localCurrentWord as any).type)
-                                                            ? (localCurrentWord as any).type.join(', ')
-                                                            : (localCurrentWord as any).type}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <form onSubmit={handleTypingSubmit} className="relative w-full">
-                                            <Input
-                                                autoFocus
-                                                placeholder="Enter word..."
-                                                className={cn(
-                                                    'h-16 text-xl text-center rounded-2xl border-2 bg-black text-white placeholder:text-zinc-700 shadow-sm transition-all pr-12 focus:border-zinc-600 border-zinc-800 focus-visible:ring-0',
-                                                    typingStatus === 'correct' && 'border-green-800 text-green-500 bg-green-950/20',
-                                                    typingStatus === 'wrong' && 'border-red-800 text-red-500 bg-red-950/20'
-                                                )}
-                                                value={typingInput}
-                                                onChange={e => { setTypingInput(e.target.value); if (typingStatus === 'wrong') setTypingStatus('idle'); }}
-                                                disabled={typingStatus === 'correct'}
-                                            />
-                                            <div className="absolute right-4 top-5">
-                                                {typingStatus === 'correct' && <CheckCircle2 className="text-green-500 w-6 h-6 animate-in zoom-in" />}
-                                                {typingStatus === 'wrong' && <XCircle className="text-red-500 w-6 h-6 animate-in zoom-in" />}
-                                            </div>
-                                        </form>
-                                        <div className="h-14">
-                                            {typingStatus === 'idle' && (
-                                                <div className="grid grid-cols-2 gap-3 h-full">
-                                                    <Button size="lg" onClick={() => handleSrsButton('again')} className="h-full text-base font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-2xl">Skip</Button>
-                                                    <Button size="lg" onClick={handleTypingSubmit} className="h-full text-base font-bold bg-white text-black hover:bg-zinc-200 rounded-2xl">Check</Button>
-                                                </div>
-                                            )}
-                                            {typingStatus === 'wrong' && (
-                                                <div
-                                                    className="h-full flex items-center justify-between px-4 bg-red-950/20 rounded-2xl border border-red-900/50 cursor-pointer hover:bg-red-950/30 transition-colors"
-                                                    onClick={() => handleSrsButton('again')}
-                                                >
-                                                    <div className="flex items-baseline gap-2 overflow-hidden">
-                                                        <span className="text-xs text-red-400/70 shrink-0">Answer:</span>
-                                                        <span className="text-lg font-bold text-red-400 truncate">{currentWordText}</span>
-                                                    </div>
-                                                    <span className="text-xs text-red-400 font-bold bg-red-950/50 px-2 py-1 rounded">Continue</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* AI Chatbot */}
-            {localCurrentWord && (
-                <VocabChatbot
-                    currentWord={getWordText(localCurrentWord)}
-                    wordType={getActual(localCurrentWord)?.type}
-                    wordDefinition={getWordDef(localCurrentWord)}
-                    wordExamples={getActual(localCurrentWord)?.definitions?.[0]?.examples}
-                />
-            )}
-
-            {/* Keyboard hint desktop */}
-            <div className="hidden md:flex items-center justify-center gap-6 py-2 border-t border-zinc-900 shrink-0">
-                <span className="text-xs text-zinc-600">1 Again · 2 Hard · 3 Good · 4 Easy</span>
+            {/* Progress */}
+            <div className="text-right shrink-0">
+                <span className="text-xs text-zinc-400 font-mono">{displayLearned}/{totalCount}</span>
             </div>
         </div>
-    );
+
+        {/* Progress bar — shrink-0 */}
+        <div className="h-1 bg-zinc-900 shrink-0">
+            <div
+                className="h-full bg-violet-500 transition-all duration-500"
+                style={{ width: `${totalCount > 0 ? (displayLearned / totalCount) * 100 : 0}%` }}
+            />
+        </div>
+
+        {/* ── BODY — flex-1, overflow hidden, flex column ── */}
+        <div
+            style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        >
+            {/* Scrollable inner */}
+            <div
+                style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}
+                className="px-4 py-4"
+            >
+                <div className="max-w-xl mx-auto">
+
+                    {/* Loading */}
+                    {!localCurrentWord && (
+                        <div className="flex flex-col items-center justify-center min-h-[300px]">
+                            <RotateCcw className="w-10 h-10 animate-spin text-zinc-600 mb-3" />
+                            <p className="text-zinc-500">Loading...</p>
+                        </div>
+                    )}
+
+                    {localCurrentWord && (
+                        <div className={cn(
+                            'w-full flex flex-col transition-all duration-300 ease-in-out pb-4',
+                            isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+                        )}>
+
+                            {/* ══ FLASHCARD MODE ══ */}
+                            {mode === 'flashcard' && (
+                                <>
+                                    {/* Flashcard — bỏ nút mũi tên trái phải */}
+                                    <div
+                                        className="w-full transition-transform duration-200 relative"
+                                        style={{ transform: `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.04}deg)` }}
+                                        onTouchStart={handleTouchStart}
+                                        onTouchMove={handleTouchMove}
+                                        onTouchEnd={handleTouchEnd}
+                                    >
+                                        {swipeOffset < -30 && <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none z-10" />}
+                                        {swipeOffset > 30 && <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none z-10" />}
+                                        <Flashcard word={localCurrentWord} className="text-white w-full shadow-2xl" />
+                                    </div>
+
+                                    {/* 4 SRS buttons */}
+                                    <div className="grid grid-cols-4 gap-2 mt-4">
+                                        {SRS_BUTTONS.map(btn => (
+                                            <button
+                                                key={btn.key}
+                                                onClick={() => handleSrsButton(btn.key)}
+                                                disabled={isAnimating || isSubmitting}
+                                                className={cn(
+                                                    'flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 transition-all disabled:opacity-40',
+                                                    btn.className
+                                                )}
+                                            >
+                                                <span className="font-bold text-sm">{btn.label}</span>
+                                                <span className="text-[10px] opacity-70">{btn.sublabel}</span>
+                                                <span className="text-[10px] opacity-40 mt-0.5">[{btn.hotkey}]</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {isMobile && (
+                                        <p className="text-center text-xs text-zinc-600 mt-3">
+                                            Swipe left = Good · Swipe right = Again
+                                        </p>
+                                    )}
+                                </>
+                            )}
+
+                            {/* ══ QUIZ MODE ══ */}
+                            {mode === 'quiz' && (
+                                <div className="flex flex-col w-full gap-4">
+                                    <div className="bg-zinc-900 border-2 border-zinc-800 rounded-3xl text-center flex flex-col overflow-hidden" style={{ minHeight: '160px', maxHeight: '30vh' }}>
+                                        <div className="w-full h-full overflow-y-auto p-6 flex flex-col justify-center items-center">
+                                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-3">Definition</p>
+                                            <h2 className={cn('font-normal leading-relaxed text-white break-words', currentWordDef.length > 80 ? 'text-xl' : 'text-2xl')}>
+                                                "{currentWordDef}"
+                                            </h2>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {quizOptions.map(opt => {
+                                            const optId = getWordId(opt);
+                                            const correctId = getWordId(localCurrentWord);
+                                            const isSelected = selectedAnswer === optId;
+                                            const isCorrect = optId === correctId;
+                                            let style = 'border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300';
+                                            if (selectedAnswer) {
+                                                if (isCorrect) style = 'border-green-900 bg-green-950/40 text-green-400 font-bold ring-1 ring-green-900';
+                                                else if (isSelected) style = 'border-red-900 bg-red-950/40 text-red-400 opacity-80';
+                                                else style = 'opacity-30 grayscale border-transparent';
+                                            }
+                                            return (
+                                                <button
+                                                    key={optId}
+                                                    className={cn('h-14 px-4 rounded-2xl border text-base font-medium transition-all flex items-center justify-center text-center active:scale-[0.98]', style)}
+                                                    onClick={() => handleQuizAnswer(optId)}
+                                                    disabled={!!selectedAnswer}
+                                                >
+                                                    <span className="truncate w-full">{getWordText(opt)}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ══ TYPING MODE ══ */}
+                            {mode === 'typing' && (
+                                <div className="flex flex-col w-full gap-4">
+                                    <div className="bg-zinc-900 border-2 border-zinc-800 rounded-3xl text-center flex flex-col overflow-hidden" style={{ minHeight: '160px', maxHeight: '30vh' }}>
+                                        <div className="w-full h-full overflow-y-auto p-6 flex flex-col justify-center items-center">
+                                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-3">Type the English word</p>
+                                            <h2 className={cn('font-normal leading-relaxed text-white mb-3 break-words', currentWordDef.length > 80 ? 'text-xl' : 'text-2xl')}>
+                                                "{currentWordDef}"
+                                            </h2>
+                                            {(localCurrentWord as any).type && (
+                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                                    {Array.isArray((localCurrentWord as any).type)
+                                                        ? (localCurrentWord as any).type.join(', ')
+                                                        : (localCurrentWord as any).type}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <form onSubmit={handleTypingSubmit} className="relative w-full">
+                                        <Input
+                                            autoFocus
+                                            placeholder="Enter word..."
+                                            className={cn(
+                                                'h-16 text-xl text-center rounded-2xl border-2 bg-black text-white placeholder:text-zinc-700 transition-all pr-12 focus:border-zinc-600 border-zinc-800 focus-visible:ring-0',
+                                                typingStatus === 'correct' && 'border-green-800 text-green-500 bg-green-950/20',
+                                                typingStatus === 'wrong' && 'border-red-800 text-red-500 bg-red-950/20'
+                                            )}
+                                            value={typingInput}
+                                            onChange={e => { setTypingInput(e.target.value); if (typingStatus === 'wrong') setTypingStatus('idle'); }}
+                                            disabled={typingStatus === 'correct'}
+                                        />
+                                        <div className="absolute right-4 top-5">
+                                            {typingStatus === 'correct' && <CheckCircle2 className="text-green-500 w-6 h-6 animate-in zoom-in" />}
+                                            {typingStatus === 'wrong' && <XCircle className="text-red-500 w-6 h-6 animate-in zoom-in" />}
+                                        </div>
+                                    </form>
+                                    <div className="h-14">
+                                        {typingStatus === 'idle' && (
+                                            <div className="grid grid-cols-2 gap-3 h-full">
+                                                <Button size="lg" onClick={() => handleSrsButton('again')} className="h-full text-base font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-2xl">Skip</Button>
+                                                <Button size="lg" onClick={handleTypingSubmit} className="h-full text-base font-bold bg-white text-black hover:bg-zinc-200 rounded-2xl">Check</Button>
+                                            </div>
+                                        )}
+                                        {typingStatus === 'wrong' && (
+                                            <div
+                                                className="h-full flex items-center justify-between px-4 bg-red-950/20 rounded-2xl border border-red-900/50 cursor-pointer hover:bg-red-950/30 transition-colors"
+                                                onClick={() => handleSrsButton('again')}
+                                            >
+                                                <div className="flex items-baseline gap-2 overflow-hidden">
+                                                    <span className="text-xs text-red-400/70 shrink-0">Answer:</span>
+                                                    <span className="text-lg font-bold text-red-400 truncate">{currentWordText}</span>
+                                                </div>
+                                                <span className="text-xs text-red-400 font-bold bg-red-950/50 px-2 py-1 rounded">Continue</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+
+        {/* AI Chatbot */}
+        {localCurrentWord && (
+            <VocabChatbot
+                currentWord={getWordText(localCurrentWord)}
+                wordType={getActual(localCurrentWord)?.type}
+                wordDefinition={getWordDef(localCurrentWord)}
+                wordExamples={getActual(localCurrentWord)?.definitions?.[0]?.examples}
+            />
+        )}
+
+        {/* Keyboard hint desktop */}
+        <div className="hidden md:flex items-center justify-center gap-6 py-2 border-t border-zinc-900 shrink-0">
+            <span className="text-xs text-zinc-600">1 Again · 2 Hard · 3 Good · 4 Easy</span>
+        </div>
+    </div>
+);
 }
