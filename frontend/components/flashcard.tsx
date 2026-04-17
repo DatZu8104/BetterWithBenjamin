@@ -111,7 +111,7 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
 
   return (
     <div 
-      className={cn("w-full h-[65vh] min-h-[500px] cursor-pointer select-none perspective-1000", className)}
+      className={cn("w-full h-full cursor-pointer select-none perspective-1000", className)}
       onClick={() => setIsFlipped(!isFlipped)}
     >
       <div 
@@ -127,7 +127,7 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
             className="absolute inset-0 w-full h-full rounded-3xl border-2 shadow-2xl flex flex-col items-center justify-center p-4 text-center bg-zinc-900 border-zinc-800"
             style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
         >
-           <div className="w-full h-full flex flex-col justify-center items-center gap-6 m-auto relative">
+           <div className="w-full h-full flex flex-col justify-center items-center gap-3 m-auto relative overflow-hidden py-4 pt-8">
               
               {displayLevel && (
                   <span className="absolute top-4 right-4 px-3 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded-lg text-sm font-bold shadow-sm">
@@ -136,7 +136,7 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
               )}
 
               <h2 className={cn(
-  "font-bold text-white w-full px-4 leading-tight tracking-tight text-center",
+  "font-bold text-white w-full px-4 leading-tight tracking-tight text-center mt-2 md:mt-4",
   displayWord.length <= 8  ? "text-5xl sm:text-7xl" :
   displayWord.length <= 12 ? "text-4xl sm:text-6xl" :
   displayWord.length <= 16 ? "text-3xl sm:text-5xl" :
@@ -152,9 +152,10 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
                  </span>
               )}
 
-              <div className="flex flex-col gap-3 mt-6 w-full max-w-[280px]">
+              {/* Mobile: dọc | Desktop: ngang song song */}
+              <div className="flex flex-col md:flex-row gap-2 mt-3 w-full max-w-[280px] md:max-w-[520px]">
                   {/* Nút Loa US */}
-                  <div className="flex items-center justify-between bg-black/40 p-3 rounded-xl border border-white/5 hover:border-blue-500/30 transition-colors group">
+                  <div className="flex-1 flex items-center justify-between bg-black/40 p-3 rounded-xl border border-white/5 hover:border-blue-500/30 transition-colors group">
                       <div className="flex items-center gap-3">
                           <span className="text-[10px] font-bold text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded uppercase tracking-wider">US</span>
                           <span className="text-zinc-300 font-mono text-sm">{phonetics.us || "---"}</span>
@@ -165,7 +166,7 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
                   </div>
 
                   {/* Nút Loa UK */}
-                  <div className="flex items-center justify-between bg-black/40 p-3 rounded-xl border border-white/5 hover:border-rose-500/30 transition-colors group">
+                  <div className="flex-1 flex items-center justify-between bg-black/40 p-3 rounded-xl border border-white/5 hover:border-rose-500/30 transition-colors group">
                       <div className="flex items-center gap-3">
                           <span className="text-[10px] font-bold text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded uppercase tracking-wider">UK</span>
                           <span className="text-zinc-300 font-mono text-sm">{phonetics.uk || "---"}</span>
@@ -176,10 +177,6 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
                   </div>
               </div>
            </div>
-           
-           <p className="absolute bottom-6 text-xs text-zinc-600 font-medium animate-pulse uppercase tracking-widest flex items-center gap-2">
-             <RotateCw className="w-3 h-3"/> Tap to flip
-           </p>
         </div>
 
         {/* === MẶT SAU (DEFINITIONS) === */}

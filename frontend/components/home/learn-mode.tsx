@@ -331,32 +331,49 @@ export function LearnModeView({
           minHeight: 0,         // quan trọng: cho phép flex-child co lại dưới min-content-size
         }}
       >
-        {/* Scrollable inner — chỉ vùng này scroll */}
-        <div
-          className="flex-1 px-4 py-4 custom-scrollbar"
-          style={{
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-          }}
-        >
+        {/* Scrollable inner — flashcard mode không scroll, quiz/typing scroll được */}
+<div
+  className="flex-1 px-4 py-4 custom-scrollbar"
+  style={{
+    overflowY: mode === 'flashcard' ? 'hidden' : 'auto',
+    overflowX: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
+  }}
+>
           {/* Stats bar */}
-          <div className="w-full max-w-2xl mx-auto flex justify-between items-center mb-4 px-4 py-2 bg-zinc-900/50 rounded-full border border-zinc-800/50 text-sm shrink-0">
-            <div className="flex gap-1">
-              <span className="text-zinc-500">Known:</span>
-              <span className="font-bold text-green-500">{displayLearned}/{totalCount}</span>
-            </div>
-            <div className="w-px h-4 bg-zinc-800" />
-            <div className="flex gap-1">
-              <span className="text-zinc-500">Learning:</span>
-              <span className="font-bold text-red-400">{displayUnlearned}/{totalCount}</span>
-            </div>
-          </div>
+<div className="w-full max-w-4xl mx-auto flex justify-between items-center mb-4 px-4 py-2 bg-zinc-900/50 rounded-full border border-zinc-800/50 text-sm shrink-0">
+  <div className="flex gap-1">
+    <span className="text-zinc-500">Known:</span>
+    <span className="font-bold text-green-500">{displayLearned}/{totalCount}</span>
+  </div>
+
+  {/* Volume slider — chỉ hiện trên desktop, nằm giữa Known và Learning */}
+  {mode === 'flashcard' && (
+    <div className="hidden md:flex items-center gap-2 flex-1 max-w-[180px] mx-4">
+      <Volume2 className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+      <input
+        type="range"
+        min="0" max="1" step="0.1"
+        value={volume}
+        onChange={(e) => setVolume(parseFloat(e.target.value))}
+        className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+      />
+    </div>
+  )}
+  {mode !== 'flashcard' && <div className="hidden md:block w-px h-4 bg-zinc-800" />}
+
+  <div className="w-px h-4 bg-zinc-800 md:hidden" />
+
+  <div className="flex gap-1">
+    <span className="text-zinc-500">Learning:</span>
+    <span className="font-bold text-red-400">{displayUnlearned}/{totalCount}</span>
+  </div>
+</div>
 
           {/* ── CONTENT AREA ── */}
-          <div className="w-full max-w-2xl mx-auto flex flex-col flex-1">
+          <div className="w-full max-w-4xl mx-auto flex flex-col flex-1">
 
             {isResetting ? (
               /* Loading state */
@@ -367,17 +384,17 @@ export function LearnModeView({
 
             ) : localCurrentWord ? (
               <div
-                className={cn(
-                  'w-full flex flex-col transition-all duration-300 ease-in-out pb-6',
-                  isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
-                )}
-              >
+  className={cn(
+    'w-full flex flex-col flex-1 min-h-0 transition-all duration-300 ease-in-out pb-4',
+    isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+  )}
+>
 
                 {/* ══ MODE: FLASHCARD ══ */}
                 {mode === 'flashcard' && (
                   <>
                     {/* Card row với mũi tên hai bên trên desktop */}
-                    <div className="w-full flex items-center justify-between gap-2 md:gap-4">
+                    <div className="w-full flex items-center justify-between gap-2 md:gap-4 flex-1 min-h-0">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -392,7 +409,7 @@ export function LearnModeView({
                       {(() => {
                         const cardElement = (
                           <div
-                            className="flex-1 min-w-0 transition-transform duration-200 relative"
+                            className="flex-1 min-w-0 min-h-0 h-full transition-transform duration-200 relative"
                             style={{ transform: `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.04}deg)` }}
                             onTouchStart={handleTouchStart}
                             onTouchMove={handleTouchMove}
@@ -406,7 +423,7 @@ export function LearnModeView({
                             )}
                             <Flashcard
                               word={localCurrentWord}
-                              className="text-white w-full shadow-2xl"
+                              className="text-white w-full h-full shadow-2xl"
                               color={themeColor}
                               volume={volume}
                             />
@@ -453,7 +470,7 @@ export function LearnModeView({
                                 </div>
                               }
                             >
-                              <div className="flex-1 flex min-w-0">{withTour1}</div>
+                              <div className="flex-1 flex min-w-0 min-h-0 h-full">{withTour1}</div>
                             </FeatureHint>
                           );
                         }
@@ -472,17 +489,18 @@ export function LearnModeView({
                     </div>
 
                     {/* Volume + Known/Unknown buttons */}
-                    <div className="shrink-0 mt-4 pt-4 border-t border-zinc-900/50 flex flex-col gap-3 w-full">
-                      <div className="flex items-center gap-3 px-4 max-w-sm mx-auto w-full">
-                        <Volume2 className="w-5 h-5 text-zinc-500 shrink-0" />
-                        <input
-                          type="range"
-                          min="0" max="1" step="0.1"
-                          value={volume}
-                          onChange={(e) => setVolume(parseFloat(e.target.value))}
-                          className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                        />
-                      </div>
+<div className="shrink-0 mt-4 pt-4 border-t border-zinc-900/50 flex flex-col gap-3 w-full">
+  {/* Volume slider — chỉ hiện trên mobile, desktop đã có trong stats bar */}
+  <div className="flex md:hidden items-center gap-3 px-4 max-w-sm mx-auto w-full">
+    <Volume2 className="w-5 h-5 text-zinc-500 shrink-0" />
+    <input
+      type="range"
+      min="0" max="1" step="0.1"
+      value={volume}
+      onChange={(e) => setVolume(parseFloat(e.target.value))}
+      className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+    />
+  </div>
 
                       <div className="grid grid-cols-2 gap-3 w-full">
                         <FeatureHint
