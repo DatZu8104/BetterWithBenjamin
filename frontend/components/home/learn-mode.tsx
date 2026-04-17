@@ -415,7 +415,7 @@ export function LearnModeView({
 
                         const withTour1 = (
                           <FeatureHint
-                            id={"learn_click_flashcard" as any}
+                            id={ONBOARDING_IDS.LEARN_CLICK_FLASHCARD}
                             delay={400}
                             side="bottom"
                             align="center"
@@ -437,8 +437,8 @@ export function LearnModeView({
                         if (isMobile) {
                           return (
                             <FeatureHint
-                              id={"learn_swipe_mobile" as any}
-                              waitFor={"learn_unknown_btn" as any}
+                              id={ONBOARDING_IDS.LEARN_SWIPE_MOBILE}
+                              waitFor={ONBOARDING_IDS.LEARN_UNKNOWN_BTN}
                               delay={400}
                               side="bottom"
                               align="center"
@@ -486,8 +486,8 @@ export function LearnModeView({
 
                       <div className="grid grid-cols-2 gap-3 w-full">
                         <FeatureHint
-                          id={"learn_unknown_btn" as any}
-                          waitFor={"learn_known_btn" as any}
+                          id={ONBOARDING_IDS.LEARN_UNKNOWN_BTN}
+                          waitFor={ONBOARDING_IDS.LEARN_KNOWN_BTN}
                           delay={400}
                           side="top"
                           align="center"
@@ -512,8 +512,8 @@ export function LearnModeView({
                         </FeatureHint>
 
                         <FeatureHint
-                          id={"learn_known_btn" as any}
-                          waitFor={"learn_click_flashcard" as any}
+                          id={ONBOARDING_IDS.LEARN_KNOWN_BTN}
+                          waitFor={ONBOARDING_IDS.LEARN_CLICK_FLASHCARD}
                           delay={400}
                           side="top"
                           align="center"
@@ -678,7 +678,7 @@ export function LearnModeView({
           {/* Anchor cố định góc dưới phải để FeatureHint highlight đúng vị trí FAB */}
           <FeatureHint
             id={ONBOARDING_IDS.LEARN_AI_CHATBOT}
-            waitFor={"learn_known_btn" as any}
+            waitFor={ONBOARDING_IDS.LEARN_UNKNOWN_BTN}
             delay={800}
             side="left"
             align="center"

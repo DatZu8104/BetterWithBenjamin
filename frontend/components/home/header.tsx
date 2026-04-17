@@ -192,11 +192,25 @@ useEffect(() => {
                             <SheetDescription className="text-zinc-500">Choose vocabulary source to learn.</SheetDescription>
                         </SheetHeader>
                         <div className="space-y-2">
-                            <button onClick={() => { onModeChange('personal'); setIsSheetOpen(false); }} 
+<button onClick={() => {
+    if (pathname?.startsWith('/smart-review')) {
+        router.push('/?tab=personal');
+    } else {
+        onModeChange('personal');
+    }
+    setIsSheetOpen(false);
+}}
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${!pathname?.startsWith('/smart-review') && currentMode === 'personal' ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
     <User className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Personal vocabulary</div><div className="text-[10px] font-normal opacity-70"> {username}</div></div>
 </button>
-<button onClick={() => { onModeChange('global'); setIsSheetOpen(false); }} 
+<button onClick={() => {
+    if (pathname?.startsWith('/smart-review')) {
+        router.push('/?tab=global');
+    } else {
+        onModeChange('global');
+    }
+    setIsSheetOpen(false);
+}}
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all border ${!pathname?.startsWith('/smart-review') && currentMode === 'global' ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/20' : 'bg-zinc-900/50 border-transparent hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}>
     <Library className="w-5 h-5 shrink-0" /><div className="text-left"><div className="text-sm font-bold">Oxford 5000</div><div className="text-[10px] font-normal opacity-70">System vocabulary</div></div>
 </button>

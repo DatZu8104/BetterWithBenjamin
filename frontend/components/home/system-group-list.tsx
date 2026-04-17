@@ -253,6 +253,7 @@ export function SystemGroupListView({
                 
                 <FeatureHint 
                     id={ONBOARDING_IDS.SYSTEM_WORDS_START}
+                    waitFor={ONBOARDING_IDS.HOME_SYSTEM_WORDS}
                     side="bottom"
                     align="center"
                     message={
@@ -571,10 +572,10 @@ export function SystemGroupListView({
                     return (
                         <FeatureHint
                             key={`tour-${g.name}`}
-                            id={"folder_click_tour" as any}
+                            id={ONBOARDING_IDS.FOLDER_CLICK}
                             waitFor={ONBOARDING_IDS.SYSTEM_WORDS_START} 
                             delay={400} 
-                            side="bottom"
+                            side="top"
                             align="center"
                             message={
                                 <div className="space-y-1.5 w-[220px]">

@@ -46,6 +46,8 @@ export default function Home() {
 
   const handleLoginSuccess = (newToken: string, user: string, userRole: string) => {
     if (typeof window !== 'undefined') {
+        sessionStorage.setItem('current_user', user);      // ✅ thêm
+        sessionStorage.setItem('user_role', userRole);
         sessionStorage.setItem('auth_token', newToken);
     }
     

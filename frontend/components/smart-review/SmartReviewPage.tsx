@@ -94,8 +94,7 @@ export function SmartReviewPage({ defaultTab = 'personal' }: SmartReviewPageProp
         activeWords.every(w => selectedIds.has(w._id));
 
     return (
-        <div className="min-h-screen bg-black text-white flex flex-col">
-
+        <div className="min-h-screen bg-black text-white flex flex-col overflow-x-hidden w-full">
             {/* Page header */}
             <div className="border-b border-zinc-800 px-4 sm:px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -157,7 +156,7 @@ export function SmartReviewPage({ defaultTab = 'personal' }: SmartReviewPageProp
             </div>
 
             {/* Word list */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
                 {isLoading ? (
                     <div className="flex items-center justify-center h-40">
                         <RefreshCw className="w-6 h-6 text-zinc-600 animate-spin" />
@@ -169,7 +168,7 @@ export function SmartReviewPage({ defaultTab = 'personal' }: SmartReviewPageProp
                         <p className="text-zinc-600 text-xs">Keep learning to build your review queue!</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-5xl mx-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
                         {activeWords.map(w => (
                             <SmartReviewCard
                                 key={w._id}

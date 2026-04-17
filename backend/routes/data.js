@@ -155,9 +155,30 @@ router.patch('/words/:id', verifyToken, async (req, res) => {
 
 router.post('/words/reset-batch', verifyToken, async (req, res) => {
     try {
-        const { ids } = req.body;
-        await Vocabulary.updateMany({ _id: { $in: ids }, userId: req.userId }, { $set: { learned: false } });
-        await UserProgress.deleteMany({ userId: req.userId, wordId: { $in: ids } });
+        const { ids, wordType } = req.body; // wordType: 'personal' | 'system'
+        const SrsProgress = require('../models/SrsProgress');
+
+        if (wordType === 'system') {
+            // Reset system folder: xóa UserProgress + SRS system
+            await UserProgress.deleteMany({ userId: req.userId, wordId: { $in: ids } });
+            await SrsProgress.deleteMany({
+                userId: req.userId,
+                wordId: { $in: ids },
+                wordType: 'system'
+            });
+        } else {
+            // Reset personal: set learned = false + xóa SRS personal
+            await Vocabulary.updateMany(
+                { _id: { $in: ids }, userId: req.userId },
+                { $set: { learned: false } }
+            );
+            await SrsProgress.deleteMany({
+                userId: req.userId,
+                wordId: { $in: ids },
+                wordType: 'personal'
+            });
+        }
+
         res.json({ success: true });
     } catch (e) { res.status(500).json(e); }
 });

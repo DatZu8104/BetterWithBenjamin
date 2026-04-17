@@ -9,11 +9,15 @@ const globalLimiter = rateLimit({
     message: "Too many requests, please try again later."
 });
 
-const loginLimiter = rateLimit({
-    windowMs: 5 * 60 * 1000, 
-    max: 10, 
-    message: "You have tried logging in too many times. Please wait 5 minutes."
-});
+const loginLimiter = process.env.NODE_ENV === 'production'
+    ? rateLimit({
+        windowMs: 5 * 60 * 1000,
+        max: 10,
+        handler: (req, res) => {
+            res.status(429).json({ error: "Too many login attempts. Please wait 5 minutes." });
+        }
+    })
+    : (req, res, next) => next(); 
 
 //  Verify Token
 const verifyToken = async (req, res, next) => {

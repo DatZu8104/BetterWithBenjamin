@@ -124,8 +124,8 @@ getSystemWords: async () => {
     return res.json();
   },
 
-  resetProgressBatch: async (ids: string[]) => {
-    const res = await fetch(`${API_URL}/words/reset-batch`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ ids }) });
+  resetProgressBatch: async (ids: string[], wordType: 'personal' | 'system' = 'personal') => {
+    const res = await fetch(`${API_URL}/words/reset-batch`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ ids, wordType }) });
     return res.json();
   },
 
@@ -166,9 +166,13 @@ getSystemWords: async () => {
   },
 
   getFoldersList: async () => {
-    const res = await fetch(`${API_URL}/folders`, { headers: getHeaders() });
-    if (!res.ok) throw new Error("Lỗi tải danh sách thư mục");
-    return res.json();
+    try {
+      const res = await fetch(`${API_URL}/folders`, { headers: getHeaders() });
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
   },
 
   createFolderAndGetId: async (name: string, color: string = '#3b82f6', isGlobal: boolean = false, isSystemSaved: boolean = false) => {
@@ -204,9 +208,13 @@ getSystemWords: async () => {
   },
 
   getSavedWordIds: async () => {
-    const res = await fetch(`${API_URL}/saved-words/all-ids`, { headers: getHeaders() });
-    if (!res.ok) throw new Error("Lỗi lấy danh sách ID đã lưu");
-    return res.json();
+    try {
+      const res = await fetch(`${API_URL}/saved-words/all-ids`, { headers: getHeaders() });
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
   },
 
   renameFolder: async (folderId: string, newName: string) => {

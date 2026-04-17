@@ -5,13 +5,15 @@ import { srsApi } from '../../lib/srsApi';
 import { cn } from '../../lib/utils';
 
 interface SmartReviewNotificationProps {
-    onOpenSmartReview: () => void;
+    onOpenSmartReview: (tab?: 'personal' | 'system') => void;
 }
 
 const DISMISSED_KEY = 'srs_notification_dismissed_date';
 
 export function SmartReviewNotification({ onOpenSmartReview }: SmartReviewNotificationProps) {
     const [dueCount, setDueCount] = useState(0);
+    const [duePersonal, setDuePersonal] = useState(0);
+    const [dueSystem, setDueSystem] = useState(0);
     const [isVisible, setIsVisible] = useState(false);
     const [isDismissedToday, setIsDismissedToday] = useState(false);
 
@@ -27,12 +29,19 @@ export function SmartReviewNotification({ onOpenSmartReview }: SmartReviewNotifi
 
         // Lấy số từ đến hạn
         const load = async () => {
-            const count = await srsApi.getDueCount();
-            if (count > 0) {
-                setDueCount(count);
-                setIsVisible(true);
-            }
-        };
+    try {
+        const data = await srsApi.getDueWords();
+        const total = data.personal.length + data.system.length;
+        if (total > 0) {
+            setDueCount(total);
+            setDuePersonal(data.personal.length);
+            setDueSystem(data.system.length);
+            setIsVisible(true);
+        }
+    } catch {
+        // silent
+    }
+};
         load();
     }, []);
 
@@ -72,11 +81,21 @@ export function SmartReviewNotification({ onOpenSmartReview }: SmartReviewNotifi
                     {/* Actions */}
                     <div className="flex items-center gap-2 mt-3">
                         <button
-                            onClick={() => { handleDismiss(); onOpenSmartReview(); }}
-                            className="flex-1 py-1.5 px-3 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold rounded-lg transition-colors"
-                        >
-                            Review Now
-                        </button>
+    onClick={() => {
+        handleDismiss();
+        // Ưu tiên tab có từ, nếu cả 2 đều có thì vào personal trước
+        if (duePersonal > 0 && dueSystem === 0) {
+            onOpenSmartReview('personal');
+        } else if (dueSystem > 0 && duePersonal === 0) {
+            onOpenSmartReview('system');
+        } else {
+            onOpenSmartReview('personal'); // cả 2 đều có → vào personal
+        }
+    }}
+    className="flex-1 py-1.5 px-3 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold rounded-lg transition-colors"
+>
+    Review Now
+</button>
                         <button
                             onClick={handleDismissToday}
                             className="flex items-center gap-1 py-1.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs rounded-lg transition-colors"

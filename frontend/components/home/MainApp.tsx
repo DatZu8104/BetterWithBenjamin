@@ -320,38 +320,53 @@ const loadMetaOnly = async () => {
   const handleResetProgress = async () => {
     if (modalLearnWords) {
         setIsResetting(true);
-        setModalLearnWords(prev => {
-            if (!prev) return null;
-            const resetWords = prev.map(w => ({...w, isMastered: false}));
-            sessionStorage.setItem('current_learn_words', JSON.stringify(resetWords));
-            return resetWords;
-        });
+
+        // ✅ Gọi API xóa SRS cho system words
+        try {
+            const idsToReset = modalLearnWords.map((w: any) => w.savedWordId || w._id || w.id);
+            await api.resetProgressBatch(idsToReset, 'system');
+        } catch (e) {
+            console.error("Lỗi reset SRS system:", e);
+        }
+
+        // ✅ Reset isMastered + xóa sessionStorage
+        const resetWords = modalLearnWords.map(w => ({...w, isMastered: false}));
+        setModalLearnWords(resetWords);
+        sessionStorage.setItem('current_learn_words', JSON.stringify(resetWords)); // ✅ ghi đè data cũ
+
         setTimeout(() => {
-            if (modalLearnWords.length > 0) {
-                setCurrentWord(modalLearnWords[Math.floor(Math.random() * modalLearnWords.length)]);
+            if (resetWords.length > 0) {
+                setCurrentWord(resetWords[Math.floor(Math.random() * resetWords.length)]);
             }
             setIsResetting(false);
         }, 500);
         return;
     }
 
-    const wordsToReset = currentViewWords; 
+    // Personal: giữ nguyên logic cũ + xóa sessionStorage
+    const wordsToReset = currentViewWords;
     if (wordsToReset.length === 0) return;
 
     try {
-      setIsResetting(true);
-      const idsToReset = wordsToReset.map((w: any) => w.id || w._id);
-      await api.resetProgressBatch(idsToReset); 
-      
-      setWords(prevWords => prevWords.map(w => idsToReset.includes(w.id || w._id) ? { ...w, learned: false } : w));
+        setIsResetting(true);
+        const idsToReset = wordsToReset.map((w: any) => w.id || w._id);
+        await api.resetProgressBatch(idsToReset, viewMode === 'global' ? 'system' : 'personal');
 
-      if (wordsToReset.length > 0) {
-          const rand = wordsToReset[Math.floor(Math.random() * wordsToReset.length)];
-          setCurrentWord(rand);
-      }
-    } catch (error) { alert("Error resetting progress."); } 
+        // ✅ Xóa sessionStorage để learn mode không đọc data cũ
+        sessionStorage.removeItem('current_learn_words');
+        setModalLearnWords(null);
+
+        setWords(prevWords => prevWords.map(w =>
+            idsToReset.includes(w.id || w._id) ? { ...w, learned: false } : w
+        ));
+
+        if (wordsToReset.length > 0) {
+            const rand = wordsToReset[Math.floor(Math.random() * wordsToReset.length)];
+            setCurrentWord(rand);
+        }
+    } catch (error) { alert("Error resetting progress."); }
     finally { setIsResetting(false); }
-  };
+};
 
   const handleReset = () => { 
       updateUrl({ group: null, folder: null, learn: null, sysFolder: null });
@@ -628,7 +643,7 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
         )}
     {/* Smart Review Notification */}
         <SmartReviewNotification
-            onOpenSmartReview={() => router.push('/smart-review')}
+            onOpenSmartReview={(tab) => router.push(`/smart-review?tab=${tab || 'personal'}`)}
         />
         </div>
     );

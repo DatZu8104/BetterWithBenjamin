@@ -306,6 +306,7 @@ export function PersonalGroupListView({
                 
                 <FeatureHint 
                     id={ONBOARDING_IDS.SYSTEM_WORDS_START}
+                    waitFor={ONBOARDING_IDS.HOME_SYSTEM_WORDS}
                     side="bottom"
                     align="center"
                     message={
@@ -315,7 +316,7 @@ export function PersonalGroupListView({
                                 Get started now!
                             </p>
                             <p className="text-zinc-100 text-sm leading-snug font-normal">
-                                Click here to choose a vocabulary library and start studying with flashcards!
+                                Click here to start studying with flashcards!
                             </p>
                         </div>
                     }
@@ -667,10 +668,10 @@ export function PersonalGroupListView({
                         return (
                             <FeatureHint
                                 key={`tour-${item.name}`}
-                                id={"folder_click_tour" as any}
+                                id={ONBOARDING_IDS.FOLDER_CLICK}
                                 waitFor={ONBOARDING_IDS.SYSTEM_WORDS_START} 
                                 delay={400} 
-                                side="bottom"
+                                side="top"
                                 align="center"
                                 message={
                                     <div className="space-y-1.5 w-[220px]">
@@ -776,10 +777,10 @@ export function PersonalGroupListView({
                     return (
                         <FeatureHint
                             key={`tour-${g.name}`}
-                            id={"folder_click_tour" as any}
+                            id={ONBOARDING_IDS.FOLDER_CLICK}
                             waitFor={ONBOARDING_IDS.SYSTEM_WORDS_START} 
                             delay={400} 
-                            side="bottom"
+                            side="top"
                             align="center"
                             message={
                                 <div className="space-y-1.5 w-[220px]">

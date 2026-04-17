@@ -48,7 +48,7 @@ export function SmartReviewCard({
         <div
             onClick={onToggle}
             className={cn(
-                'relative flex flex-col gap-3 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 select-none',
+                'relative flex flex-col gap-3 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 select-none w-full overflow-hidden',
                 isSelected
                     ? 'border-violet-500 bg-violet-950/30'
                     : 'border-zinc-800 bg-zinc-900 hover:border-zinc-600'
