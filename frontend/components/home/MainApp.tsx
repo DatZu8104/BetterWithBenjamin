@@ -53,6 +53,8 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const [modalFolderName, setModalFolderName] = useState<string>(''); 
   const [isSyncingSystem, setIsSyncingSystem] = useState(false);  
 
+  const [learnResetKey, setLearnResetKey] = useState(0);
+
   const canEdit = viewMode === 'personal' || role === 'admin';
 const loadMetaOnly = async () => {
     try {
@@ -320,8 +322,6 @@ const loadMetaOnly = async () => {
   const handleResetProgress = async () => {
     if (modalLearnWords) {
         setIsResetting(true);
-
-        // ✅ Gọi API xóa SRS cho system words
         try {
             const idsToReset = modalLearnWords.map((w: any) => w.savedWordId || w._id || w.id);
             await api.resetProgressBatch(idsToReset, 'system');
@@ -329,21 +329,21 @@ const loadMetaOnly = async () => {
             console.error("Lỗi reset SRS system:", e);
         }
 
-        // ✅ Reset isMastered + xóa sessionStorage
         const resetWords = modalLearnWords.map(w => ({...w, isMastered: false}));
         setModalLearnWords(resetWords);
-        sessionStorage.setItem('current_learn_words', JSON.stringify(resetWords)); // ✅ ghi đè data cũ
+        sessionStorage.setItem('current_learn_words', JSON.stringify(resetWords));
 
         setTimeout(() => {
             if (resetWords.length > 0) {
                 setCurrentWord(resetWords[Math.floor(Math.random() * resetWords.length)]);
             }
+            setLearnResetKey(k => k + 1); // ✅ THÊM DÒNG NÀY
             setIsResetting(false);
         }, 500);
         return;
     }
 
-    // Personal: giữ nguyên logic cũ + xóa sessionStorage
+    // Personal
     const wordsToReset = currentViewWords;
     if (wordsToReset.length === 0) return;
 
@@ -351,14 +351,22 @@ const loadMetaOnly = async () => {
         setIsResetting(true);
         const idsToReset = wordsToReset.map((w: any) => w.id || w._id);
         await api.resetProgressBatch(idsToReset, viewMode === 'global' ? 'system' : 'personal');
-
-        // ✅ Xóa sessionStorage để learn mode không đọc data cũ
+        if (viewMode === 'global') {
+            try {
+                const folders = await api.getFoldersList(); // lấy danh sách folder system-saved
+                await Promise.all(folders.map((f: any) => api.resetFolderProgress(f._id)));
+            } catch(e) {
+                console.error("Lỗi reset folder isMastered:", e);
+            }
+        }
         sessionStorage.removeItem('current_learn_words');
         setModalLearnWords(null);
 
         setWords(prevWords => prevWords.map(w =>
             idsToReset.includes(w.id || w._id) ? { ...w, learned: false } : w
         ));
+
+        setLearnResetKey(k => k + 1);
 
         if (wordsToReset.length > 0) {
             const rand = wordsToReset[Math.floor(Math.random() * wordsToReset.length)];
@@ -559,6 +567,7 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
             {isLearnMode ? (
                 <div className="fixed inset-0 z-50 bg-white">
                     <LearnModeView 
+                        key={learnResetKey}
                         currentWord={currentWord}
                         allWords={activeLearnWords}
                         progress={activeLearnWords.filter((w: any) => modalLearnWords ? w.isMastered : w.learned).length}

@@ -135,9 +135,16 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
                   </span>
               )}
 
-              <h2 className="text-5xl sm:text-7xl font-bold text-white break-words w-full px-4 leading-tight tracking-tight">
-                {displayWord}
-              </h2>
+              <h2 className={cn(
+  "font-bold text-white w-full px-4 leading-tight tracking-tight text-center",
+  displayWord.length <= 8  ? "text-5xl sm:text-7xl" :
+  displayWord.length <= 12 ? "text-4xl sm:text-6xl" :
+  displayWord.length <= 16 ? "text-3xl sm:text-5xl" :
+  displayWord.length <= 20 ? "text-2xl sm:text-4xl" :
+                             "text-xl sm:text-3xl"
+)}>
+  {displayWord}
+</h2>
               
               {actualData.type && (
                  <span className="text-xl text-blue-400 italic font-serif opacity-90">
