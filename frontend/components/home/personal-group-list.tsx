@@ -66,7 +66,7 @@ export function PersonalGroupListView({
   
   const [groupToMove, setGroupToMove] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'create_folder' | 'edit_folder' | 'create_group'>('create_folder');
+  const [modalMode, setModalMode] = useState<'create_folder' | 'edit_folder'>('create_folder');
   const [editingFolder, setEditingFolder] = useState<string | null>(null); 
   const [folderNameInput, setFolderNameInput] = useState('');
   const [folderColorInput, setFolderColorInput] = useState('blue');
@@ -176,14 +176,6 @@ export function PersonalGroupListView({
     setIsModalOpen(true);
   };
 
-  // MỞ MODAL TẠO GROUP TRONG FOLDER
-  const openCreateGroupModal = () => {
-    setModalMode('create_group');
-    setEditingFolder(null);
-    setFolderNameInput('');
-    setIsModalOpen(true);
-  };
-
   const openEditModal = (fName: string) => {
     setModalMode('edit_folder');
     setEditingFolder(fName);
@@ -194,17 +186,6 @@ export function PersonalGroupListView({
 
   const handleModalSubmit = () => {
     if (!folderNameInput.trim()) return;
-
-    // --- KIỂM TRA TRÙNG LẶP KHI TẠO GROUP ---
-    if (modalMode === 'create_group') {
-        const existingGroupNames = groups.map(g => g.name);
-        // Gọi file validator: Nếu false (trùng), lập tức dừng (return) không cho chạy tiếp
-        if (!checkDuplicateName(folderNameInput, existingGroupNames, 'Group')) return; 
-
-        onAddGroup(folderNameInput);
-        setIsModalOpen(false);
-        return;
-    }
 
     // --- KIỂM TRA TRÙNG LẶP KHI TẠO FOLDER MỚI ---
     if (modalMode === 'create_folder') {
@@ -586,9 +567,9 @@ export function PersonalGroupListView({
 
                 </div>
                 
-                {allowAdd && (
-                    <Button onClick={currentFolder ? openCreateGroupModal : openCreateFolderModal} className="shrink-0 h-11 px-5 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none">
-                      <Plus className="w-5 h-5 mr-1.5"/> {currentFolder ? "New Group" : "New Folder"}
+                {allowAdd && !currentFolder && (
+                    <Button onClick={openCreateFolderModal} className="shrink-0 h-11 px-5 rounded-xl font-bold bg-violet-600 hover:bg-violet-700 text-white border-none">
+                      <Plus className="w-5 h-5 mr-1.5"/> New Folder
                     </Button>
                 )}
               </div>
@@ -807,11 +788,11 @@ export function PersonalGroupListView({
                 );
               })}
               
-              {allowAdd && (
-                  <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700" 
-                    onClick={currentFolder ? openCreateGroupModal : openCreateFolderModal}>
+              {allowAdd && !currentFolder && (
+                  <div className="border-2 border-dashed border-zinc-800 bg-zinc-900/30 rounded-2xl flex flex-col items-center justify-center min-h-[11rem] cursor-pointer hover:bg-zinc-900 transition-all text-zinc-600 hover:text-white hover:border-zinc-700"
+                    onClick={openCreateFolderModal}>
                     <Plus className="w-8 h-8 mb-2 opacity-50" />
-                    <span className="font-bold text-sm">{currentFolder ? "New Group" : "New Folder"}</span>
+                    <span className="font-bold text-sm">New Folder</span>
                   </div>
               )}
             </div>
@@ -854,46 +835,44 @@ export function PersonalGroupListView({
             <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsModalOpen(false)}>
                 <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
                     <h3 className="text-xl font-bold text-white mb-4">
-                        {modalMode === 'create_group' ? "Create New Group" : modalMode === 'create_folder' ? "Create New Folder" : "Edit Folder"}
+                        {modalMode === 'create_folder' ? "Create New Folder" : "Edit Folder"}
                     </h3>
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                                {modalMode === 'create_group' ? "Group Name" : "Folder Name"}
+                                Folder Name
                             </label>
-                            <input 
+                            <input
                                 autoFocus
-                                type="text" 
-                                placeholder={modalMode === 'create_group' ? "e.g. Lesson 1" : "e.g. TOEIC Preparation"} 
+                                type="text"
+                                placeholder="e.g. TOEIC Preparation"
                                 className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-600 transition-colors"
                                 value={folderNameInput}
                                 onChange={(e) => setFolderNameInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleModalSubmit()}
                             />
                         </div>
-                        {modalMode !== 'create_group' && (
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Select Color</label>
-                                <div className="flex flex-wrap gap-3">
-                                    {COLORS.map((color) => (
-                                        <button
-                                            key={color.id}
-                                            onClick={() => setFolderColorInput(color.id)}
-                                            className={cn(
-                                                "w-10 h-10 rounded-full transition-all border-2",
-                                                color.bg,
-                                                folderColorInput === color.id ? "border-white scale-110 shadow-lg ring-2 ring-white/20" : "border-transparent opacity-50 hover:opacity-100 hover:scale-105"
-                                            )}
-                                            title={color.name}
-                                        />
-                                    ))}
-                                </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Select Color</label>
+                            <div className="flex flex-wrap gap-3">
+                                {COLORS.map((color) => (
+                                    <button
+                                        key={color.id}
+                                        onClick={() => setFolderColorInput(color.id)}
+                                        className={cn(
+                                            "w-10 h-10 rounded-full transition-all border-2",
+                                            color.bg,
+                                            folderColorInput === color.id ? "border-white scale-110 shadow-lg ring-2 ring-white/20" : "border-transparent opacity-50 hover:opacity-100 hover:scale-105"
+                                        )}
+                                        title={color.name}
+                                    />
+                                ))}
                             </div>
-                        )}
+                        </div>
                         <div className="pt-4 flex gap-3">
                             <Button className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white h-12 rounded-xl" onClick={() => setIsModalOpen(false)}>Cancel</Button>
                             <Button className="flex-1 bg-white hover:bg-zinc-200 text-black h-12 rounded-xl font-bold" onClick={handleModalSubmit}>
-                                {modalMode === 'create_group' || modalMode === 'create_folder' ? (groupToMove && modalMode === 'create_folder' ? "Create & Move" : "Create") : "Save Changes"}
+                                {modalMode === 'create_folder' ? (groupToMove ? "Create & Move" : "Create") : "Save Changes"}
                             </Button>
                         </div>
                     </div>
@@ -972,7 +951,7 @@ export function PersonalGroupListView({
                               <div className="absolute top-4 sm:top-5 right-4 sm:right-5 z-10">
                                   <a href={actualData.href} target="_blank" rel="noopener noreferrer" className="text-[10px] sm:text-xs font-bold text-blue-400 flex items-center gap-1.5 hover:bg-blue-600 hover:text-white bg-blue-950/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-blue-900 transition-all">
                                       View on Oxford <ExternalLink className="w-3 h-3"/>
-                                  </a>
+                                                        </a>
                               </div>
                           )}
 

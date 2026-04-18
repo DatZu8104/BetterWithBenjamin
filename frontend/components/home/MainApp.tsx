@@ -705,7 +705,7 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
         <div className="flex-1 flex flex-col h-full overflow-hidden">
             {isLearnMode ? (
                 <div className="fixed inset-0 z-50 bg-white">
-                    <LearnModeView 
+                    <LearnModeView
                         key={learnResetKey}
                         currentWord={currentWord}
                         allWords={activeLearnWords}
@@ -713,11 +713,8 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
                         total={activeLearnWords.length}
                         isResetting={isResetting}
                         onNext={handleNextWord}
-                        onReset={async () => { handleResetProgress(); await loadData(); }} 
+                        onReset={async () => { handleResetProgress(); await loadData(); }}
                         onExit={() => {
-                            // Lưu context cuối để Quick Learn tự restore
-                            // Dựa vào learnSysFolder (không phải viewMode) để phát hiện đúng
-                            // trường hợp user ở tab Personal nhưng đang học folder Oxford
                             if (typeof window !== 'undefined') {
                               if (learnSysFolder) {
                                 localStorage.setItem('quick_learn_last_mode', 'global');
@@ -747,6 +744,44 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
                         ? calculatedGroups.map((g: any) => ({ name: g.name, folder: g.folder }))
                         : undefined
                     }
+                />
+            ) : viewMode === 'personal' && currentFolder ? (
+                /* Personal mode: click folder → thẳng WordListView, không qua group */
+                <WordListView
+                    groupName={currentFolder}
+                    words={currentViewWords}
+                    onBack={() => updateUrl({ folder: null })}
+                    onUpdate={loadData}
+                    onAddWord={async (e, d, t) => {
+                        // Thêm từ vào group trùng tên folder (hoặc tạo mới)
+                        const folderGroupName = currentFolder;
+                        const tempWord = {
+                            id: `temp_${Date.now()}`,
+                            english: e, word: e, definition: d, type: t,
+                            group: folderGroupName,
+                            isGlobal: false,
+                            learned: false
+                        };
+                        setWords(prev => [...prev, tempWord]);
+                        try {
+                            const saved = await api.addWord({ english: e, definition: d, type: t, group: folderGroupName, isGlobal: false });
+                            setWords(prev => prev.map(w =>
+                                w.id === tempWord.id
+                                    ? { ...saved, id: String(saved._id || saved.id), isGlobal: false }
+                                    : w
+                            ));
+                            // Đảm bảo group này được gán vào folder hiện tại
+                            await api.updateGroup(folderGroupName, currentFolder, false);
+                            await loadMetaOnly();
+                        } catch {
+                            setWords(prev => prev.filter(w => w.id !== tempWord.id));
+                            notify.error("Error", "Failed to add word.");
+                        }
+                    }}
+                    onDeleteWord={handleDeleteWord}
+                    onLearn={handleStartLearn}
+                    allowEdit={canEdit}
+                    onEditWord={handleEditWord}
                 />
             ) : viewMode === 'personal' ? (
                 <PersonalGroupListView 

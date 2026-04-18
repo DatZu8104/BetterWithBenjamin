@@ -96,7 +96,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
       initialTabRef.current = initialTab;
       fetchUserFolders();
       fetchSavedWordIds();
-      setActiveTab(initialTabRef.current || "system");
+      setActiveTab(currentMode === 'personal' ? "existing" : (initialTabRef.current || "system"));
       setSelectedSystemGroup(null);
       setSelectedPersonalFolder(null);
       setSelectedWordIds([]);
@@ -377,46 +377,51 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="!max-w-[98vw] md:!maxw-[95vw] !w-full h-[95vh] md:h-[92vh] flex flex-col p-0 gap-0 bg-black text-zinc-100 border-zinc-800 shadow-2xl overflow-hidden z-[10000]">
-          <DialogHeader className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-6 pt-4 md:pt-6 z-20 flex flex-col md:flex-row md:items-end justify-between gap-2 md:gap-4 relative">
-            
-            <DialogTitle className="text-2xl font-black tracking-tight text-white pb-2 md:pb-4 shrink-0">
-              Manage learning paths
-            </DialogTitle>
-            
-            <div className="flex items-end justify-between md:justify-end gap-4 md:gap-8 w-full md:w-auto">
+          <DialogHeader className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-6 pt-4 md:pt-6 z-20 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 relative">
 
-              <FeatureHint
-                id={ONBOARDING_IDS.MODAL_STUDY_TABS}
-                side="bottom"
-                align="start"
-                message={
-                  <div className="space-y-1 max-w-[240px]">
-                    <p className="font-bold text-white flex items-center gap-1.5">Change tab</p>
-                    <p className="text-zinc-200 text-sm font-normal leading-snug">Switch between <span className="text-blue-300 font-bold">Oxford Warehouse</span> (create new lesson) and <span className="text-blue-300 font-bold">Folder</span> (review saved words).</p>
+            <div className="flex flex-col pb-2 md:pb-4">
+              <DialogTitle className="text-2xl font-black tracking-tight text-white shrink-0">
+                {isPersonalMode ? "Your Folders" : "Manage learning paths"}
+              </DialogTitle>
+              {isPersonalMode && (
+                <p className="text-sm text-zinc-500 mt-1">Select a folder to start learning</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between md:justify-end gap-4 md:gap-8 w-full md:w-auto pb-2 md:pb-4">
+
+              {!isPersonalMode && (
+                <FeatureHint
+                  id={ONBOARDING_IDS.MODAL_STUDY_TABS}
+                  side="bottom"
+                  align="start"
+                  message={
+                    <div className="space-y-1 max-w-[240px]">
+                      <p className="font-bold text-white flex items-center gap-1.5">Change tab</p>
+                      <p className="text-zinc-200 text-sm font-normal leading-snug">Switch between <span className="text-blue-300 font-bold">Oxford Warehouse</span> (create new lesson) and <span className="text-blue-300 font-bold">Folder</span> (review saved words).</p>
+                    </div>
+                  }
+                >
+                  <div className="flex gap-6 overflow-x-auto custom-scrollbar inline-flex">
+                    <button
+                      onClick={() => startTransition(() => { setActiveTab("system"); setSelectedPersonalFolder(null); setSelectedWordIds([]); })}
+                      className={cn("pb-0 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "system" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
+                    >
+                      <Library className="w-4 h-4" /> Vocabulary store Oxford
+                    </button>
+                    <button
+                      onClick={() => startTransition(() => setActiveTab("existing"))}
+                      className={cn("pb-0 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "existing" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
+                    >
+                      <FolderOpen className="w-4 h-4" /> Your Folders
+                    </button>
                   </div>
-                }
-              >
-                <div className="flex gap-6 overflow-x-auto custom-scrollbar inline-flex">
-                  {/* Tab 1: personal = "My Vocabulary", system = "Vocabulary store Oxford" */}
-                  <button
-                    onClick={() => startTransition(() => { setActiveTab("system"); setSelectedPersonalFolder(null); setSelectedWordIds([]); })}
-                    className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "system" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
-                  >
-                    {isPersonalMode ? <><FolderOpen className="w-4 h-4" /> My Vocabulary</> : <><Library className="w-4 h-4" /> Vocabulary store Oxford</>}
-                  </button>
+                </FeatureHint>
+              )}
 
-                  <button
-                    onClick={() => startTransition(() => setActiveTab("existing"))}
-                    className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "existing" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
-                  >
-                    <FolderOpen className="w-4 h-4" /> Your Folders
-                  </button>
-                </div>
-              </FeatureHint>
-
-              <button 
+              <button
                 onClick={onClose}
-                className="pb-4 text-zinc-500 hover:text-red-400 transition-colors shrink-0 outline-none"
+                className="text-zinc-500 hover:text-red-400 transition-colors shrink-0 outline-none"
                 title="Close window"
               >
                 <X className="w-6 h-6" />
@@ -550,8 +555,8 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
               </div>
             )}
 
-            {/* TAB 1: PERSONAL = MY VOCABULARY / SYSTEM = KHO OXFORD */}
-            {activeTab === "system" && (
+            {/* TAB 1: SYSTEM = KHO OXFORD (không dùng cho personal mode) */}
+            {activeTab === "system" && !isPersonalMode && (
               <div className="absolute inset-0 flex flex-col p-6 overflow-hidden">
                 {isPersonalMode ? (
                   /* ─── PERSONAL: folder tiles → words ─── */
@@ -844,25 +849,6 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
               </div>
             )}
           </div>
-          {/* Bottom bar: personal mode (tab 1 + folder selected) */}
-          {isPersonalMode && activeTab === "system" && selectedPersonalFolder && (
-            <div className="absolute bottom-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 p-4 md:px-6 flex flex-col md:flex-row justify-between items-center gap-4 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-              <div className="flex flex-col">
-                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Selected</span>
-                <span className="text-xl md:text-2xl font-black text-emerald-400">
-                  {selectedWordIds.length} <span className="text-sm font-bold text-zinc-400">words</span>
-                </span>
-              </div>
-              <Button
-                disabled={selectedWordIds.length === 0}
-                onClick={handleLearnSelectedPersonalWords}
-                className="h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-8 rounded-xl text-sm shrink-0 transition-transform active:scale-95 shadow-lg shadow-emerald-900/20 disabled:opacity-50 w-full md:w-auto"
-              >
-                <PlayCircle className="w-5 h-5 mr-2" /> Learn now ({selectedWordIds.length} words)
-              </Button>
-            </div>
-          )}
-
           {/* Bottom bar: system mode (Oxford create & learn) */}
           {!isPersonalMode && <div className="absolute bottom-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 p-4 md:px-6 flex flex-col md:flex-row justify-between items-center gap-4 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
 

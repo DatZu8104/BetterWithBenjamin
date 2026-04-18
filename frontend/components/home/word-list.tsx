@@ -186,9 +186,7 @@ export function WordListView({
         <div className="flex items-center gap-2">
            {!showForm && !showBulk ? (
              <>
-              <button onClick={onLearn} className="hidden sm:flex px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-900/20">
-                <PlayCircle className="w-4 h-4"/> Learn Now
-              </button>
+              
               <button onClick={onLearn} className="sm:hidden p-2 bg-blue-600 rounded-full text-white"><PlayCircle className="w-5 h-5"/></button>
 
               {allowEdit && (
