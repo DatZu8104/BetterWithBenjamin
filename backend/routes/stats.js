@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const { Vocabulary } = require('../models');
+const { Vocabulary, SavedWord } = require('../models');
 const { verifyToken } = require('../middleware');
 
 // API lấy thống kê tiến độ cho các Nhóm/Thư mục Cá nhân
@@ -43,7 +43,6 @@ router.get('/personal-groups-progress', verifyToken, async (req, res) => {
         res.status(500).json({ error: "Lỗi server khi tính tiến độ" });
     }
 });
-const { SavedWord } = require('../models');
 
 // API lấy thống kê tiến độ cho các Nhóm/Thư mục Hệ thống (Oxford)
 router.get('/system-groups-progress', verifyToken, async (req, res) => {

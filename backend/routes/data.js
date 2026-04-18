@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { Vocabulary, SystemVocabulary, Folder, GroupSetting, User, UserProgress, SavedWord, SystemFolder } = require('../models');
+const SrsProgress = require('../models/SrsProgress');
 const { verifyToken } = require('../middleware');
 
 const checkAdmin = async (userId) => {
@@ -156,7 +157,6 @@ router.patch('/words/:id', verifyToken, async (req, res) => {
 router.post('/words/reset-batch', verifyToken, async (req, res) => {
     try {
         const { ids, wordType } = req.body; // wordType: 'personal' | 'system'
-        const SrsProgress = require('../models/SrsProgress');
 
         if (wordType === 'system') {
             // Reset system folder: xóa UserProgress + SRS system
@@ -254,13 +254,13 @@ router.post('/import', verifyToken, async (req, res) => {
 
 router.post('/folders', verifyToken, async (req, res) => {
     try {
-        const { name, color, isGlobal, isSystemSaved } = req.body; 
-        
+        const { name, color, isGlobal, isSystemSaved, studyContext } = req.body;
+
         // NẾU LÀ ADMIN TẠO FOLDER HỆ THỐNG -> LƯU VÀO BẢNG SYSTEM FOLDER
         if (isGlobal) {
             const isAdmin = await checkAdmin(req.userId);
             if (!isAdmin) return res.status(403).json({ error: 'Only Admin can add system folders' });
-            
+
             const newSysFolder = new SystemFolder({
                 name: name,
                 color: color || '#3b82f6'
@@ -275,7 +275,9 @@ router.post('/folders', verifyToken, async (req, res) => {
             name: name,
             color: color || '#3b82f6',
             isGlobal: false,
-            isSystemSaved: isSystemSaved || false 
+            isSystemSaved: isSystemSaved || false,
+            // Phân biệt folder tạo từ tab System hay Personal, mặc định 'system'
+            studyContext: (studyContext === 'personal') ? 'personal' : 'system'
         });
         const savedFolder = await newFolder.save();
         res.status(201).json(savedFolder);
@@ -317,7 +319,7 @@ router.delete('/folders/:id', verifyToken, async (req, res) => {
     
     // Xóa tất cả từ vựng thuộc các group con + group tự tạo
     const allGroupNames = [...groupNames, folderName];
-    await SystemVocabulary.deleteMany({ group: { $in: allGroupNames } });
+    await Vocabulary.deleteMany({ userId: req.userId, group: { $in: allGroupNames } });
 
     // Xóa GroupSetting theo folder + theo tên tự tạo
     await GroupSetting.deleteMany({ 
@@ -346,8 +348,8 @@ router.delete('/folders/:id', verifyToken, async (req, res) => {
             });
             const groupNames = groupsInFolder.map(g => g.groupName);
             
-            const allGroupNames = [...groupNames, folderName]; 
-            await SystemVocabulary.deleteMany({ group: { $in: allGroupNames } });
+            const allGroupNames = [...groupNames, folderName];
+            await Vocabulary.deleteMany({ userId: req.userId, group: { $in: allGroupNames } });
 
             await GroupSetting.deleteMany({ 
                 userId: req.userId, 
@@ -365,11 +367,28 @@ router.delete('/folders/:id', verifyToken, async (req, res) => {
 
 router.get('/folders', verifyToken, async (req, res) => {
     try {
-        const folders = await Folder.find({ 
+        // context = 'system' | 'personal' — nếu không truyền thì lấy tất cả (backward compat)
+        const { context } = req.query;
+
+        const filter = {
             userId: req.userId,
             isGlobal: false,
-            isSystemSaved: true 
-        }).sort({ createdAt: -1 });
+            isSystemSaved: true
+        };
+
+        if (context === 'system' || context === 'personal') {
+            // Folder cũ (chưa có studyContext) coi như thuộc 'system'
+            if (context === 'system') {
+                filter.$or = [
+                    { studyContext: 'system' },
+                    { studyContext: { $exists: false } }
+                ];
+            } else {
+                filter.studyContext = 'personal';
+            }
+        }
+
+        const folders = await Folder.find(filter).sort({ createdAt: -1 });
         res.json(folders);
     } catch (err) {
         res.status(500).json({ error: 'Error getting directory list' });
@@ -392,7 +411,6 @@ router.get('/folders/:id', verifyToken, async (req, res) => {
 
 router.put('/folders/:id/reset', verifyToken, async (req, res) => {
     try {
-        const SrsProgress = require('../models/SrsProgress');
         const savedWords = await SavedWord.find({ folderId: req.params.id, userId: req.userId });
         const wordIds = savedWords.map(sw => sw.wordId);
 
@@ -504,7 +522,6 @@ router.put('/folders/:id', verifyToken, async (req, res) => {
 
 router.delete('/saved-words/:id', verifyToken, async (req, res) => {
     try {
-        const SrsProgress = require('../models/SrsProgress');
         const savedWord = await SavedWord.findOne({
             _id: req.params.id,
             userId: req.userId
@@ -530,6 +547,34 @@ router.delete('/saved-words/:id', verifyToken, async (req, res) => {
     } catch (err) {
         console.error("Error deleting saved word:", err);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ADMIN: Di chuyển tất cả từ vựng từ group này sang group khác
+router.put('/admin/groups/:groupName/move-words', verifyToken, async (req, res) => {
+    try {
+        const isAdmin = await checkAdmin(req.userId);
+        if (!isAdmin) return res.status(403).json({ error: "Admin only" });
+
+        const sourceGroup = decodeURIComponent(req.params.groupName);
+        const { targetGroup } = req.body;
+
+        if (!targetGroup) return res.status(400).json({ error: "Target group required" });
+        if (sourceGroup === targetGroup) return res.status(400).json({ error: "Source and target are the same group" });
+
+        // Chuyển tất cả từ vựng sang group mới
+        const result = await SystemVocabulary.updateMany(
+            { group: sourceGroup },
+            { $set: { group: targetGroup } }
+        );
+
+        // Xóa GroupSetting của group cũ (đã trống)
+        await GroupSetting.findOneAndDelete({ groupName: sourceGroup, isGlobal: true });
+
+        res.json({ success: true, movedCount: result.modifiedCount });
+    } catch (e) {
+        console.error("Move words error:", e);
+        res.status(500).json({ error: "Error moving words" });
     }
 });
 

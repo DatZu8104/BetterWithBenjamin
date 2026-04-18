@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useTransition } from "react";
+import { useState, useEffect, useMemo, useTransition, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,16 +21,29 @@ import { toast } from 'sonner';
 import { notify } from "@/lib/notify";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 
+interface PersonalFolderItem {
+  id: string;
+  name: string;
+  color: string;
+  createdAt?: string;
+  wordCount: number;
+  learnedCount: number;
+  words: any[];
+}
+
 interface StudyManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  systemWords: any[]; 
-  onStartLearn: (folderName: string, wordsToLearn: any[]) => void; 
+  systemWords: any[];
+  onStartLearn: (folderName: string, wordsToLearn: any[]) => void;
   onRefreshData?: () => void;
+  initialTab?: "existing" | "system";
+  currentMode?: 'personal' | 'global';
+  personalFolderData?: PersonalFolderItem[];
 }
 
-export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, onRefreshData }: StudyManagerModalProps) {
-  const [activeTab, setActiveTab] = useState<"existing" | "system">("system");
+export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, onRefreshData, initialTab, currentMode = 'global', personalFolderData = [] }: StudyManagerModalProps) {
+  const [activeTab, setActiveTab] = useState<"existing" | "system">(initialTab || "system");
   const [selectedSystemGroup, setSelectedSystemGroup] = useState<string | null>(null);
   
   const [userFolders, setUserFolders] = useState<any[]>([]); 
@@ -48,6 +61,12 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
 
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [folderToDeleteId, setFolderToDeleteId] = useState<string | null>(null);
+
+  // Personal mode: folder đang được chọn để xem từ vựng bên trong
+  const [selectedPersonalFolder, setSelectedPersonalFolder] = useState<string | null>(null);
+
+  // Dùng ref để lưu initialTab tại thời điểm modal mở — tránh useEffect re-run khi prop thay đổi sau khi mở
+  const initialTabRef = useRef(initialTab);
 
   const systemGroups = useMemo(() => {
     const groupsMap = new Map<string, number>();
@@ -73,13 +92,17 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
 
   useEffect(() => {
     if (isOpen) {
+      // Cập nhật ref khi modal vừa mở để dùng giá trị initialTab mới nhất
+      initialTabRef.current = initialTab;
       fetchUserFolders();
       fetchSavedWordIds();
-      setActiveTab("system");
+      setActiveTab(initialTabRef.current || "system");
       setSelectedSystemGroup(null);
+      setSelectedPersonalFolder(null);
       setSelectedWordIds([]);
       setNewFolderName("");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   useEffect(() => {
@@ -98,9 +121,10 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
 
   const fetchUserFolders = async () => {
     try {
-      const data = await api.getFoldersList();
-      const studyFolders = data.filter((f: any) => f.isGlobal !== true && f.isSystemSaved === true);
-      setUserFolders(studyFolders);
+      // Truyền context để backend chỉ trả về folder thuộc đúng mode
+      const studyContext = currentMode === 'personal' ? 'personal' : 'system';
+      const data = await api.getFoldersList(studyContext);
+      setUserFolders(data);
     } catch (err) {
       console.error("Error loading folders", err);
     }
@@ -284,7 +308,8 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     setIsLoading(true);
 
     try {
-      const newFolder = await api.createFolderAndGetId(newFolderName, '#9333ea', false, true);
+      const studyContext = currentMode === 'personal' ? 'personal' : 'system';
+      const newFolder = await api.createFolderAndGetId(newFolderName, '#9333ea', false, true, studyContext);
       const folderId = newFolder._id;
 
       await api.addWordsToFolder(folderId, selectedWordIds);
@@ -318,6 +343,36 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     }
   };
 
+  // Map color id → hex để hiển thị dot màu cho personal folder
+  const colorHexMap: Record<string, string> = {
+    blue: '#3b82f6', violet: '#7c3aed', emerald: '#10b981',
+    amber: '#f59e0b', rose: '#f43f5e', cyan: '#06b6d4',
+  };
+
+  const isPersonalMode = currentMode === 'personal';
+
+  // Tab 2 "Your Folders" personal: click folder → học toàn bộ từ trong folder đó
+  const handleLearnPersonalFolder = (folder: PersonalFolderItem) => {
+    onStartLearn(folder.name, folder.words);
+    onClose();
+  };
+
+  // Từ vựng trong folder personal đang được chọn
+  const wordsInSelectedPersonalFolder = useMemo(() => {
+    if (!selectedPersonalFolder) return [];
+    return personalFolderData.find(f => f.name === selectedPersonalFolder)?.words || [];
+  }, [personalFolderData, selectedPersonalFolder]);
+
+  // Học ngay các từ đã chọn trong personal folder (không cần tạo SavedWord trên DB)
+  const handleLearnSelectedPersonalWords = () => {
+    if (!selectedPersonalFolder || selectedWordIds.length === 0) return;
+    const toLearn = wordsInSelectedPersonalFolder.filter(
+      (w: any) => selectedWordIds.includes(w._id || w.id)
+    );
+    onStartLearn(selectedPersonalFolder, toLearn);
+    onClose();
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -329,9 +384,9 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
             </DialogTitle>
             
             <div className="flex items-end justify-between md:justify-end gap-4 md:gap-8 w-full md:w-auto">
-              
+
               <FeatureHint
-                id={ONBOARDING_IDS.MODAL_STUDY_TABS}  
+                id={ONBOARDING_IDS.MODAL_STUDY_TABS}
                 side="bottom"
                 align="start"
                 message={
@@ -342,14 +397,15 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                 }
               >
                 <div className="flex gap-6 overflow-x-auto custom-scrollbar inline-flex">
-                  <button 
-                    onClick={() => startTransition(() => setActiveTab("system"))}
+                  {/* Tab 1: personal = "My Vocabulary", system = "Vocabulary store Oxford" */}
+                  <button
+                    onClick={() => startTransition(() => { setActiveTab("system"); setSelectedPersonalFolder(null); setSelectedWordIds([]); })}
                     className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "system" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
                   >
-                    <Library className="w-4 h-4" /> Vocabulary store Oxford
+                    {isPersonalMode ? <><FolderOpen className="w-4 h-4" /> My Vocabulary</> : <><Library className="w-4 h-4" /> Vocabulary store Oxford</>}
                   </button>
-                  
-                  <button 
+
+                  <button
                     onClick={() => startTransition(() => setActiveTab("existing"))}
                     className={cn("pb-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 whitespace-nowrap", activeTab === "existing" ? "border-blue-500 text-blue-400" : "border-transparent text-zinc-500 hover:text-zinc-300")}
                   >
@@ -372,305 +428,444 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
 
           <div className={cn("flex-1 min-h-0 bg-zinc-950/50 flex flex-col relative transition-opacity duration-200", isPending && "opacity-50 pointer-events-none")}>
             {activeTab === "existing" && (
-              <div className="absolute inset-0 overflow-y-auto p-6 pb-40 md:pb-28 custom-scrollbar">
+              <div className={cn("absolute inset-0 overflow-y-auto p-6 custom-scrollbar", isPersonalMode ? "pb-6" : "pb-40 md:pb-28")}>
+                {isPersonalMode ? (
+                  /* ── PERSONAL MODE: hiện folder cá nhân của user ── */
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {userFolders.length === 0 ? (
-                    <div className="col-span-full py-12 text-center text-zinc-500">
-                      You don't have any saved folders yet.
-                    </div>
-                  ) : (
-                    userFolders.map((folder) => (
-                      <div 
-                        key={folder._id} 
-                        className="group bg-zinc-900 border border-zinc-800 rounded-2xl p-4 hover:border-blue-600 hover:bg-blue-950/20 transition-all flex items-center justify-between"
-                      >
-                        <div 
-                          className="flex-1 min-w-0 pr-4 cursor-pointer"
-                          onClick={() => handleLearnExistingFolder(folder)}
-                        >
-                          <h3 className="font-bold text-base text-white truncate group-hover:text-blue-400 mb-2">
-                             {folder.name}
-                          </h3>
-                          <div className="flex items-center gap-2 text-[11px] font-medium text-zinc-400">
-                             <span className="bg-zinc-950 px-2 py-1 rounded-md border border-zinc-800/80 flex items-center gap-1.5">
-                                📅 {folder.createdAt ? new Date(folder.createdAt).toLocaleDateString('en-US') : 'Just now'}                             </span>
-                             <span className="bg-blue-950/30 text-blue-400 px-2 py-1 rounded-md border border-blue-900/30 flex items-center gap-1.5">
-                                📦 {folderWordCounts[folder._id] || 0} words
-                             </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={(e) => handleOpenEditFolder(e, folder)}
-                            className="text-zinc-500 hover:text-blue-400 hover:bg-blue-500/10 h-8 w-8 rounded-full"
-                            title="Edit folder"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={(e) => handleDeleteFolderClick(e, folder._id)}
-                            className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10 h-8 w-8 rounded-full"
-                            title="Delete folder"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-
-                          <PlayCircle 
-                            onClick={() => handleLearnExistingFolder(folder)}
-                            className="w-8 h-8 ml-1 text-zinc-700 group-hover:text-blue-500 cursor-pointer" 
-                            title="Learn now"
-                          />
-                        </div>
+                    {personalFolderData.length === 0 ? (
+                      <div className="col-span-full py-16 text-center">
+                        <FolderOpen className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
+                        <p className="text-zinc-500 font-semibold">No personal folders found.</p>
+                        <p className="text-zinc-600 text-sm mt-1">Add words to a group in the Personal tab to create a folder here.</p>
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* TAB KHO OXFORD */}
-            {activeTab === "system" && (
-              <div className="absolute inset-0 flex flex-col p-6 overflow-hidden">
-                {!selectedSystemGroup ? (
-                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-40 md:pb-28">
-                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-                      {systemGroups.map((group, index) => {
-                        
-                        if (index === 0) {
-                          return (
-                            <FeatureHint
-                              key={group.name}
-                              id={ONBOARDING_IDS.MODAL_STUDY_SELECT_FOLDER}
-                              waitFor={ONBOARDING_IDS.MODAL_STUDY_TABS} 
-                              delay={400}
-                              side="right" 
-                              align="center"
-                              message={
-                                <div className="space-y-1 max-w-[240px]">
-                                  <p className="font-bold text-white flex items-center gap-1.5">📦 Start picking words</p>
-                                  <p className="text-zinc-200 text-sm font-normal leading-snug">Click on a level (e.g.: <span className="text-blue-300 font-bold">A1</span>) to enter and pick the words you want to learn!</p>
-                                </div>
-                              }
-                            >
-                              <button
-                                onClick={() => startTransition(() => setSelectedSystemGroup(group.name))}
-                                className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-blue-950/30 hover:border-blue-900/50 transition-all group shadow-sm w-full"
-                              >
-                                <FolderOpen className="w-12 h-12 text-zinc-600 group-hover:text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
-                                <span className="font-extrabold text-lg text-white group-hover:text-blue-400 mb-1">{group.name.toUpperCase()}</span>
-                                <span className="text-xs font-semibold text-zinc-500 bg-zinc-950 px-3 py-1 rounded-full">{group.count} words</span>
-                              </button>
-                            </FeatureHint>
-                          );
-                        }
-
+                    ) : (
+                      personalFolderData.map((folder) => {
+                        const dotColor = colorHexMap[folder.color] || folder.color || '#3b82f6';
+                        const progress = folder.wordCount > 0 ? Math.round((folder.learnedCount / folder.wordCount) * 100) : 0;
                         return (
-                          <button
-                            key={group.name}
-                            onClick={() => startTransition(() => setSelectedSystemGroup(group.name))}
-                            className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-blue-950/30 hover:border-blue-900/50 transition-all group shadow-sm w-full"
+                          <div
+                            key={folder.id}
+                            className="group bg-zinc-900 border border-zinc-800 rounded-2xl p-4 hover:border-emerald-600 hover:bg-emerald-950/20 transition-all flex items-center justify-between cursor-pointer"
+                            onClick={() => handleLearnPersonalFolder(folder)}
                           >
-                            <FolderOpen className="w-12 h-12 text-zinc-600 group-hover:text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
-                            <span className="font-extrabold text-lg text-white group-hover:text-blue-400 mb-1">{group.name.toUpperCase()}</span>
-                            <span className="text-xs font-semibold text-zinc-500 bg-zinc-950 px-3 py-1 rounded-full">{group.count} words</span>
-                          </button>
+                            <div className="flex-1 min-w-0 pr-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span
+                                  className="w-3 h-3 rounded-full shrink-0"
+                                  style={{ backgroundColor: dotColor }}
+                                />
+                                <h3 className="font-bold text-base text-white truncate group-hover:text-emerald-400">
+                                  {folder.name}
+                                </h3>
+                              </div>
+                              <div className="flex items-center gap-2 text-[11px] font-medium text-zinc-400 mb-2">
+                                <span className="bg-zinc-950 px-2 py-1 rounded-md border border-zinc-800/80 flex items-center gap-1.5">
+                                  📦 {folder.wordCount} words
+                                </span>
+                                <span className="bg-emerald-950/30 text-emerald-400 px-2 py-1 rounded-md border border-emerald-900/30 flex items-center gap-1.5">
+                                  ✅ {folder.learnedCount} learned
+                                </span>
+                              </div>
+                              {/* Progress bar */}
+                              <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-emerald-500 rounded-full transition-all"
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                              <p className="text-[10px] text-zinc-600 mt-1">{progress}% completed</p>
+                            </div>
+
+                            <PlayCircle
+                              className="w-9 h-9 shrink-0 text-zinc-700 group-hover:text-emerald-500 transition-colors"
+                              title="Learn now"
+                            />
+                          </div>
                         );
-                        
-                      })}
-                    </div>
+                      })
+                    )}
                   </div>
                 ) : (
-                  <div className="flex-1 flex flex-col min-h-0 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
-                    <div className="shrink-0 p-3 md:p-4 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between gap-2 z-10 w-full overflow-hidden">
-                      
-                      <div className="flex items-center gap-1.5 md:gap-3 min-w-0 pr-2">
-                        <FeatureHint
-                          id={ONBOARDING_IDS.MODAL_STUDY_BACK_BUTTON}
-                          waitFor={ONBOARDING_IDS.MODAL_STUDY_SELECT_FOLDER} 
-                          delay={600} 
-                          side="bottom"
-                          align="start"
-                          message={
-                            <div className="space-y-1 max-w-[220px]">
-                              <p className="font-bold text-white flex items-center gap-1.5">🔙 Back to list</p>
-                              <p className="text-zinc-200 text-sm font-normal leading-snug">If you want to choose another level (like A2, B1...), you can click here to go back to the overall list!</p>
-                            </div>
-                          }
+                  /* ── SYSTEM MODE: hiện Oxford saved folders ── */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {userFolders.length === 0 ? (
+                      <div className="col-span-full py-12 text-center text-zinc-500">
+                        You don't have any saved folders yet.
+                      </div>
+                    ) : (
+                      userFolders.map((folder) => (
+                        <div
+                          key={folder._id}
+                          className="group bg-zinc-900 border border-zinc-800 rounded-2xl p-4 hover:border-blue-600 hover:bg-blue-950/20 transition-all flex items-center justify-between"
                         >
-                          <div className="inline-block">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => startTransition(() => setSelectedSystemGroup(null))} 
-                              className="h-8 px-2 md:px-3 text-zinc-400 hover:text-white hover:bg-zinc-800 shrink-0"
-                            >
-                              <ArrowLeft className="w-5 h-5 md:w-4 md:h-4 md:mr-1"/> 
-                              <span className="hidden md:inline">Back</span>
-                            </Button>
-                          </div>
-                        </FeatureHint>
-                        <div className="h-4 w-px bg-zinc-700 shrink-0 hidden md:block"></div>
-                        <span className="font-bold text-white text-base md:text-lg truncate">
-                          {selectedSystemGroup.toUpperCase()}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 shrink-0">
-                        
-                        <div className="md:hidden">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="flex items-center justify-center gap-1.5 h-9 px-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-blue-400 shadow-sm outline-none transition-colors">
-                                {quickSelectInputValue || 0} / {availableWords.length}
-                                <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            
-                            <DropdownMenuContent align="end" className="w-52 bg-zinc-900 border-zinc-800 text-zinc-200 z-[10005]">
-                              <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                                Quick select (Max: {availableWords.length})
-                              </div>
-                              <DropdownMenuItem onClick={() => applyWordSelection(10)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-                                ⚡ Select 10 random words
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => applyWordSelection(20)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-                                ⚡ Select 20 random words
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => applyWordSelection(50)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-                                ⚡ Select 50 random words
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => applyWordSelection("ALL")} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white font-bold text-blue-400">
-                                ✨ Select all ({availableWords.length})
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => applyWordSelection(0)} className="cursor-pointer text-red-400 hover:bg-red-500/20 hover:text-red-300 focus:bg-red-500/20 focus:text-red-300 mt-1 border-t border-zinc-800 pt-2">
-                                Deselect all
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        <div className="hidden md:flex items-center h-10 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shrink-0 shadow-md focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
-                          <Input
-                            value={quickSelectInputValue}
-                            onChange={handleQuickSelectChange}
-                            onBlur={handleQuickSelectBlur}
-                            onKeyDown={handleQuickSelectKeyDown}
-                            placeholder="0"
-                            className="w-14 h-full border-0 bg-transparent text-center text-sm font-bold text-blue-300 focus-visible:ring-0 px-1 shadow-none"
-                          />
-                          
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="h-full px-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border-l border-zinc-700 transition-colors flex items-center justify-center outline-none">
-                                <ChevronDown className="w-4 h-4" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            
-                            <DropdownMenuContent align="end" className="w-52 bg-zinc-900 border-zinc-800 text-zinc-200 z-[10005]">
-                              <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                                Quick select (Max: {availableWords.length})
-                              </div>
-                              <DropdownMenuItem onClick={() => applyWordSelection(10)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">                             
-                                 Select 10 random words
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => applyWordSelection(20)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-                                 Select 20 random words
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => applyWordSelection(50)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">
-                                 Select 50 random words
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => applyWordSelection("ALL")} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white font-bold text-blue-400">
-                                 Select all ({availableWords.length})
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => applyWordSelection(0)} className="cursor-pointer text-red-400 hover:bg-red-500/20 hover:text-red-300 focus:bg-red-500/20 focus:text-red-300 mt-1 border-t border-zinc-800 pt-2">
-                                Deselect all
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-
-                          <div className="h-full flex items-center bg-zinc-950 px-3 border-l border-zinc-800 text-xs font-bold text-zinc-500 cursor-default">
-                            / {availableWords.length}
-                          </div>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-   
-                    <div 
-                      className="flex-1 overflow-y-auto p-4 pb-40 md:pb-28 custom-scrollbar"
-                      onScroll={handleScroll}
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
-                        {wordsInSelectedGroup.slice(0, visibleCount).map((word) => {
-                          const wordId = word._id || word.id;
-                          const isAlreadySaved = savedWordIds.has(wordId);
-                          const isSelected = selectedWordIds.includes(wordId);
-
-                          return (
-                            <div 
-                              key={wordId} 
-                              onClick={() => !isAlreadySaved && handleToggleWord(wordId)}
-                              className={cn(
-                                "flex items-center p-3 rounded-xl border transition-all cursor-pointer shadow-sm group",
-                                isAlreadySaved 
-                                  ? "bg-black/30 border-transparent opacity-50 cursor-not-allowed grayscale" 
-                                  : isSelected
-                                    ? "bg-blue-950/40 border-blue-600/50 ring-1 ring-blue-600/50" 
-                                    : "bg-zinc-900 border-zinc-800/60 hover:bg-zinc-800 hover:border-zinc-700"
-                              )}
-                            >
-                              <div className="mr-3 shrink-0">
-                                {isAlreadySaved ? (
-                                  <Lock className="w-4 h-4 text-zinc-600" />
-                                ) : (
-                                  <Checkbox 
-                                    checked={isSelected} 
-                                    className={cn("w-5 h-5 rounded transition-transform group-active:scale-95", isSelected && "bg-blue-600 border-blue-600")} 
-                                  />
-                                )}
-                              </div>
-                              
-                              <div className="flex-1 min-w-0 flex flex-col">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="font-bold text-white text-base truncate">
-                                    {word.word || word.english} 
-                                  </span>
-                                  {word.type && (
-                                    <span className="text-[9px] font-bold text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800 uppercase tracking-widest shrink-0">
-                                      {Array.isArray(word.type) ? word.type.join(', ') : word.type}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-zinc-400 truncate w-full">
-                                  {word.definition || (word.definitions && word.definitions[0]?.definition)}
-                                </p>
-                              </div>
-
-                              {isAlreadySaved && (
-                                <span className="text-[9px] font-bold text-zinc-600 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800/50 ml-2 shrink-0">
-                                  ĐÃ CÓ
-                                </span>
-                              )}
+                          <div
+                            className="flex-1 min-w-0 pr-4 cursor-pointer"
+                            onClick={() => handleLearnExistingFolder(folder)}
+                          >
+                            <h3 className="font-bold text-base text-white truncate group-hover:text-blue-400 mb-2">
+                               {folder.name}
+                            </h3>
+                            <div className="flex items-center gap-2 text-[11px] font-medium text-zinc-400">
+                               <span className="bg-zinc-950 px-2 py-1 rounded-md border border-zinc-800/80 flex items-center gap-1.5">
+                                  📅 {folder.createdAt ? new Date(folder.createdAt).toLocaleDateString('en-US') : 'Just now'}
+                               </span>
+                               <span className="bg-blue-950/30 text-blue-400 px-2 py-1 rounded-md border border-blue-900/30 flex items-center gap-1.5">
+                                  📦 {folderWordCounts[folder._id] || 0} words
+                               </span>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => handleOpenEditFolder(e, folder)}
+                              className="text-zinc-500 hover:text-blue-400 hover:bg-blue-500/10 h-8 w-8 rounded-full"
+                              title="Edit folder"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => handleDeleteFolderClick(e, folder._id)}
+                              className="text-zinc-500 hover:text-red-500 hover:bg-red-500/10 h-8 w-8 rounded-full"
+                              title="Delete folder"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+
+                            <PlayCircle
+                              onClick={() => handleLearnExistingFolder(folder)}
+                              className="w-8 h-8 ml-1 text-zinc-700 group-hover:text-blue-500 cursor-pointer"
+                              title="Learn now"
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
             )}
+
+            {/* TAB 1: PERSONAL = MY VOCABULARY / SYSTEM = KHO OXFORD */}
+            {activeTab === "system" && (
+              <div className="absolute inset-0 flex flex-col p-6 overflow-hidden">
+                {isPersonalMode ? (
+                  /* ─── PERSONAL: folder tiles → words ─── */
+                  !selectedPersonalFolder ? (
+                    /* Danh sách folder cá nhân */
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-6">
+                      {personalFolderData.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center py-16">
+                          <FolderOpen className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
+                          <p className="text-zinc-500 font-semibold">No personal folders found.</p>
+                          <p className="text-zinc-600 text-sm mt-1">Add words to a group in the Personal tab first.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {personalFolderData.map((folder) => {
+                            const dotColor = colorHexMap[folder.color] || folder.color || '#3b82f6';
+                            return (
+                              <button
+                                key={folder.id}
+                                onClick={() => { startTransition(() => setSelectedPersonalFolder(folder.name)); setSelectedWordIds([]); }}
+                                className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-emerald-950/30 hover:border-emerald-900/50 transition-all group shadow-sm w-full"
+                              >
+                                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform" style={{ backgroundColor: dotColor + '22', border: `2px solid ${dotColor}` }}>
+                                  <FolderOpen className="w-6 h-6" style={{ color: dotColor }} />
+                                </div>
+                                <span className="font-extrabold text-base text-white group-hover:text-emerald-400 mb-1 truncate w-full text-center">{folder.name}</span>
+                                <span className="text-xs font-semibold text-zinc-500 bg-zinc-950 px-3 py-1 rounded-full">{folder.wordCount} words</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Từ vựng trong folder đã chọn */
+                    <div className="flex-1 flex flex-col min-h-0 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+                      <div className="shrink-0 p-3 md:p-4 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between gap-2 z-10 w-full overflow-hidden">
+                        <div className="flex items-center gap-1.5 md:gap-3 min-w-0 pr-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => { startTransition(() => setSelectedPersonalFolder(null)); setSelectedWordIds([]); }}
+                            className="h-8 px-2 md:px-3 text-zinc-400 hover:text-white hover:bg-zinc-800 shrink-0"
+                          >
+                            <ArrowLeft className="w-5 h-5 md:w-4 md:h-4 md:mr-1" />
+                            <span className="hidden md:inline">Back</span>
+                          </Button>
+                          <div className="h-4 w-px bg-zinc-700 shrink-0 hidden md:block"></div>
+                          <span className="font-bold text-white text-base md:text-lg truncate">{selectedPersonalFolder}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => {
+                              const allIds = wordsInSelectedPersonalFolder.map((w: any) => w._id || w.id);
+                              setSelectedWordIds(allIds);
+                            }}
+                            className="h-8 px-3 text-xs font-bold text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 rounded-lg hover:bg-emerald-900/40 transition-colors"
+                          >
+                            Select all
+                          </button>
+                          <button
+                            onClick={() => setSelectedWordIds([])}
+                            className="h-8 px-3 text-xs font-bold text-zinc-400 bg-zinc-900 border border-zinc-700 rounded-lg hover:bg-zinc-800 transition-colors"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto p-4 pb-28 custom-scrollbar" onScroll={handleScroll}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+                          {wordsInSelectedPersonalFolder.slice(0, visibleCount).map((word: any) => {
+                            const wordId = word._id || word.id;
+                            const isSelected = selectedWordIds.includes(wordId);
+                            return (
+                              <div
+                                key={wordId}
+                                onClick={() => handleToggleWord(wordId)}
+                                className={cn(
+                                  "flex items-center p-3 rounded-xl border transition-all cursor-pointer shadow-sm group",
+                                  isSelected
+                                    ? "bg-emerald-950/40 border-emerald-600/50 ring-1 ring-emerald-600/50"
+                                    : "bg-zinc-900 border-zinc-800/60 hover:bg-zinc-800 hover:border-zinc-700"
+                                )}
+                              >
+                                <div className="mr-3 shrink-0">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    className={cn("w-5 h-5 rounded transition-transform group-active:scale-95", isSelected && "bg-emerald-600 border-emerald-600")}
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0 flex flex-col">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="font-bold text-white text-base truncate">{word.english || word.word}</span>
+                                    {word.type && (
+                                      <span className="text-[9px] font-bold text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800 uppercase tracking-widest shrink-0">
+                                        {Array.isArray(word.type) ? word.type.join(', ') : word.type}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-zinc-400 truncate w-full">{word.definition}</p>
+                                </div>
+                                {word.learned && (
+                                  <span className="text-[9px] font-bold text-emerald-600 bg-zinc-950 px-1.5 py-0.5 rounded border border-emerald-900/40 ml-2 shrink-0">✓</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  /* ─── SYSTEM: KHO OXFORD (logic cũ giữ nguyên) ─── */
+                  !selectedSystemGroup ? (
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-40 md:pb-28">
+                      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+                        {systemGroups.map((group, index) => {
+                          if (index === 0) {
+                            return (
+                              <FeatureHint
+                                key={group.name}
+                                id={ONBOARDING_IDS.MODAL_STUDY_SELECT_FOLDER}
+                                waitFor={ONBOARDING_IDS.MODAL_STUDY_TABS}
+                                delay={400}
+                                side="right"
+                                align="center"
+                                message={
+                                  <div className="space-y-1 max-w-[240px]">
+                                    <p className="font-bold text-white flex items-center gap-1.5">📦 Start picking words</p>
+                                    <p className="text-zinc-200 text-sm font-normal leading-snug">Click on a level (e.g.: <span className="text-blue-300 font-bold">A1</span>) to enter and pick the words you want to learn!</p>
+                                  </div>
+                                }
+                              >
+                                <button
+                                  onClick={() => startTransition(() => setSelectedSystemGroup(group.name))}
+                                  className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-blue-950/30 hover:border-blue-900/50 transition-all group shadow-sm w-full"
+                                >
+                                  <FolderOpen className="w-12 h-12 text-zinc-600 group-hover:text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
+                                  <span className="font-extrabold text-lg text-white group-hover:text-blue-400 mb-1">{group.name.toUpperCase()}</span>
+                                  <span className="text-xs font-semibold text-zinc-500 bg-zinc-950 px-3 py-1 rounded-full">{group.count} words</span>
+                                </button>
+                              </FeatureHint>
+                            );
+                          }
+                          return (
+                            <button
+                              key={group.name}
+                              onClick={() => startTransition(() => setSelectedSystemGroup(group.name))}
+                              className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-blue-950/30 hover:border-blue-900/50 transition-all group shadow-sm w-full"
+                            >
+                              <FolderOpen className="w-12 h-12 text-zinc-600 group-hover:text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
+                              <span className="font-extrabold text-lg text-white group-hover:text-blue-400 mb-1">{group.name.toUpperCase()}</span>
+                              <span className="text-xs font-semibold text-zinc-500 bg-zinc-950 px-3 py-1 rounded-full">{group.count} words</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col min-h-0 bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+                      <div className="shrink-0 p-3 md:p-4 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between gap-2 z-10 w-full overflow-hidden">
+                        <div className="flex items-center gap-1.5 md:gap-3 min-w-0 pr-2">
+                          <FeatureHint
+                            id={ONBOARDING_IDS.MODAL_STUDY_BACK_BUTTON}
+                            waitFor={ONBOARDING_IDS.MODAL_STUDY_SELECT_FOLDER}
+                            delay={600}
+                            side="bottom"
+                            align="start"
+                            message={
+                              <div className="space-y-1 max-w-[220px]">
+                                <p className="font-bold text-white flex items-center gap-1.5">🔙 Back to list</p>
+                                <p className="text-zinc-200 text-sm font-normal leading-snug">If you want to choose another level (like A2, B1...), you can click here to go back to the overall list!</p>
+                              </div>
+                            }
+                          >
+                            <div className="inline-block">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => startTransition(() => setSelectedSystemGroup(null))}
+                                className="h-8 px-2 md:px-3 text-zinc-400 hover:text-white hover:bg-zinc-800 shrink-0"
+                              >
+                                <ArrowLeft className="w-5 h-5 md:w-4 md:h-4 md:mr-1" />
+                                <span className="hidden md:inline">Back</span>
+                              </Button>
+                            </div>
+                          </FeatureHint>
+                          <div className="h-4 w-px bg-zinc-700 shrink-0 hidden md:block"></div>
+                          <span className="font-bold text-white text-base md:text-lg truncate">{selectedSystemGroup.toUpperCase()}</span>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 shrink-0">
+                          <div className="md:hidden">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="flex items-center justify-center gap-1.5 h-9 px-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-blue-400 shadow-sm outline-none transition-colors">
+                                  {quickSelectInputValue || 0} / {availableWords.length}
+                                  <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-52 bg-zinc-900 border-zinc-800 text-zinc-200 z-[10005]">
+                                <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Quick select (Max: {availableWords.length})</div>
+                                <DropdownMenuItem onClick={() => applyWordSelection(10)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">⚡ Select 10 random words</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => applyWordSelection(20)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">⚡ Select 20 random words</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => applyWordSelection(50)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">⚡ Select 50 random words</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => applyWordSelection("ALL")} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white font-bold text-blue-400">✨ Select all ({availableWords.length})</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => applyWordSelection(0)} className="cursor-pointer text-red-400 hover:bg-red-500/20 hover:text-red-300 focus:bg-red-500/20 focus:text-red-300 mt-1 border-t border-zinc-800 pt-2">Deselect all</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+
+                          <div className="hidden md:flex items-center h-10 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden shrink-0 shadow-md focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
+                            <Input
+                              value={quickSelectInputValue}
+                              onChange={handleQuickSelectChange}
+                              onBlur={handleQuickSelectBlur}
+                              onKeyDown={handleQuickSelectKeyDown}
+                              placeholder="0"
+                              className="w-14 h-full border-0 bg-transparent text-center text-sm font-bold text-blue-300 focus-visible:ring-0 px-1 shadow-none"
+                            />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="h-full px-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border-l border-zinc-700 transition-colors flex items-center justify-center outline-none">
+                                  <ChevronDown className="w-4 h-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-52 bg-zinc-900 border-zinc-800 text-zinc-200 z-[10005]">
+                                <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Quick select (Max: {availableWords.length})</div>
+                                <DropdownMenuItem onClick={() => applyWordSelection(10)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">Select 10 random words</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => applyWordSelection(20)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">Select 20 random words</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => applyWordSelection(50)} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white">Select 50 random words</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => applyWordSelection("ALL")} className="cursor-pointer hover:bg-blue-600 hover:text-white focus:bg-blue-600 focus:text-white font-bold text-blue-400">Select all ({availableWords.length})</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => applyWordSelection(0)} className="cursor-pointer text-red-400 hover:bg-red-500/20 hover:text-red-300 focus:bg-red-500/20 focus:text-red-300 mt-1 border-t border-zinc-800 pt-2">Deselect all</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <div className="h-full flex items-center bg-zinc-950 px-3 border-l border-zinc-800 text-xs font-bold text-zinc-500 cursor-default">/ {availableWords.length}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto p-4 pb-40 md:pb-28 custom-scrollbar" onScroll={handleScroll}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+                          {wordsInSelectedGroup.slice(0, visibleCount).map((word) => {
+                            const wordId = word._id || word.id;
+                            const isAlreadySaved = savedWordIds.has(wordId);
+                            const isSelected = selectedWordIds.includes(wordId);
+                            return (
+                              <div
+                                key={wordId}
+                                onClick={() => !isAlreadySaved && handleToggleWord(wordId)}
+                                className={cn(
+                                  "flex items-center p-3 rounded-xl border transition-all cursor-pointer shadow-sm group",
+                                  isAlreadySaved
+                                    ? "bg-black/30 border-transparent opacity-50 cursor-not-allowed grayscale"
+                                    : isSelected
+                                      ? "bg-blue-950/40 border-blue-600/50 ring-1 ring-blue-600/50"
+                                      : "bg-zinc-900 border-zinc-800/60 hover:bg-zinc-800 hover:border-zinc-700"
+                                )}
+                              >
+                                <div className="mr-3 shrink-0">
+                                  {isAlreadySaved ? (
+                                    <Lock className="w-4 h-4 text-zinc-600" />
+                                  ) : (
+                                    <Checkbox checked={isSelected} className={cn("w-5 h-5 rounded transition-transform group-active:scale-95", isSelected && "bg-blue-600 border-blue-600")} />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0 flex flex-col">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="font-bold text-white text-base truncate">{word.word || word.english}</span>
+                                    {word.type && (
+                                      <span className="text-[9px] font-bold text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800 uppercase tracking-widest shrink-0">
+                                        {Array.isArray(word.type) ? word.type.join(', ') : word.type}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-zinc-400 truncate w-full">{word.definition || (word.definitions && word.definitions[0]?.definition)}</p>
+                                </div>
+                                {isAlreadySaved && (
+                                  <span className="text-[9px] font-bold text-zinc-600 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800/50 ml-2 shrink-0">ĐÃ CÓ</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
           </div>
-          <div className="absolute bottom-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 p-4 md:px-6 flex flex-col md:flex-row justify-between items-center gap-4 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-            
+          {/* Bottom bar: personal mode (tab 1 + folder selected) */}
+          {isPersonalMode && activeTab === "system" && selectedPersonalFolder && (
+            <div className="absolute bottom-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 p-4 md:px-6 flex flex-col md:flex-row justify-between items-center gap-4 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Selected</span>
+                <span className="text-xl md:text-2xl font-black text-emerald-400">
+                  {selectedWordIds.length} <span className="text-sm font-bold text-zinc-400">words</span>
+                </span>
+              </div>
+              <Button
+                disabled={selectedWordIds.length === 0}
+                onClick={handleLearnSelectedPersonalWords}
+                className="h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-8 rounded-xl text-sm shrink-0 transition-transform active:scale-95 shadow-lg shadow-emerald-900/20 disabled:opacity-50 w-full md:w-auto"
+              >
+                <PlayCircle className="w-5 h-5 mr-2" /> Learn now ({selectedWordIds.length} words)
+              </Button>
+            </div>
+          )}
+
+          {/* Bottom bar: system mode (Oxford create & learn) */}
+          {!isPersonalMode && <div className="absolute bottom-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800 p-4 md:px-6 flex flex-col md:flex-row justify-between items-center gap-4 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+
             <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Vocabulary basket</span>
@@ -678,9 +873,8 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                   {selectedWordIds.length} <span className="text-sm font-bold text-zinc-400">Selected word</span>
                 </span>
               </div>
-              
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 onClick={handleClearCart}
                 disabled={selectedWordIds.length === 0}
                 className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-10 disabled:opacity-30 disabled:hover:bg-transparent"
@@ -690,13 +884,13 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto">
-              <Input 
-                placeholder="Folder name" 
+              <Input
+                placeholder="Folder name"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 className="h-11 bg-black border-zinc-700 focus-visible:ring-blue-500 text-white rounded-xl w-full md:w-64 shadow-inner"
               />
-              <Button 
+              <Button
                 disabled={isLoading || !newFolderName.trim() || selectedWordIds.length === 0}
                 onClick={handleCreateAndLearn}
                 className="h-11 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 rounded-xl text-sm shrink-0 transition-transform active:scale-95 shadow-lg shadow-blue-900/20 disabled:opacity-50"
@@ -705,7 +899,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
               </Button>
             </div>
 
-          </div>
+          </div>}
 
         </DialogContent>
       </Dialog>

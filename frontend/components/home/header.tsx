@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname  } from 'next/navigation';
 import { api } from '../../lib/api';
-import { LogOut, ChevronDown, Search, BookOpen, ShieldCheck, Loader2, KeyRound, X, Menu, Library, User, Check, Brain } from 'lucide-react';
+import { LogOut, ChevronDown, Search, BookOpen, ShieldCheck, Loader2, KeyRound, X, Menu, Library, User, Check, Brain, Zap } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { srsApi } from '../../lib/srsApi';
 import { FeatureHint } from '../onboarding/FeatureHint';
@@ -36,14 +36,14 @@ export function Header({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false); 
   // Smart Review
-const [dueCount, setDueCount] = useState(0);
 const [duePersonal, setDuePersonal] = useState(0);
 const [dueSystem, setDueSystem] = useState(0);
 
+const dueCount = duePersonal + dueSystem;
+
 const [isSmartReviewExpanded, setIsSmartReviewExpanded] = useState(false);
 useEffect(() => {
-    srsApi.getDueCount().then(setDueCount).catch(() => {});
-    // Lấy chi tiết personal/system
+    // Dùng /srs/due làm nguồn duy nhất để badge luôn khớp với danh sách từ thực tế
     srsApi.getDueWords().then(data => {
         setDuePersonal(data.personal.length);
         setDueSystem(data.system.length);
@@ -53,6 +53,19 @@ useEffect(() => {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPassModal, setShowPassModal] = useState(false);
+  const [quickLearnEnabled, setQuickLearnEnabled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setQuickLearnEnabled(localStorage.getItem('quick_learn_mode') === 'true');
+    }
+  }, []);
+
+  const toggleQuickLearn = () => {
+    const newValue = !quickLearnEnabled;
+    setQuickLearnEnabled(newValue);
+    localStorage.setItem('quick_learn_mode', newValue ? 'true' : 'false');
+  };
   const [oldPass, setOldPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [passError, setPassError] = useState('');
@@ -382,6 +395,18 @@ useEffect(() => {
                             </button>
                         )}
 
+                        <button
+                            onClick={toggleQuickLearn}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-800 rounded-lg flex items-center justify-between transition-colors text-zinc-300"
+                        >
+                            <div className="flex items-center gap-3">
+                                <Zap className={`w-4 h-4 transition-colors ${quickLearnEnabled ? 'text-amber-400' : 'text-zinc-500'}`} />
+                                <span>Quick Learn</span>
+                            </div>
+                            <div className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${quickLearnEnabled ? 'bg-amber-500' : 'bg-zinc-700'}`}>
+                                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${quickLearnEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                            </div>
+                        </button>
                         <button onClick={() => { setShowPassModal(true); setIsMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-800 rounded-lg flex gap-3 items-center transition-colors text-zinc-300">
                             <KeyRound className="w-4 h-4 text-zinc-500"/> Change Password
                         </button>

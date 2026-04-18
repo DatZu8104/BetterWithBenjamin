@@ -106,16 +106,6 @@ export function SmartReviewLearn({ words }: SmartReviewLearnProps) {
 
     useEffect(() => { return () => { hasInitialized.current = false; }; }, []);
 
-    const speakWord = (text: string) => {
-        if (typeof window === 'undefined' || !window.speechSynthesis) return;
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'en-US';
-        const v = window.speechSynthesis.getVoices().find(v => v.lang === 'en-US' && v.name.includes('Google'));
-        if (v) u.voice = v;
-        window.speechSynthesis.speak(u);
-    };
-
     const switchWord = (newWord: DueWord | null) => {
         setIsAnimating(true);
         setTimeout(() => { setLocalCurrentWord(newWord); resetModeState(); setIsAnimating(false); }, 100);
@@ -142,7 +132,6 @@ export function SmartReviewLearn({ words }: SmartReviewLearnProps) {
 
     const handleQuizAnswer = (wordId: string) => {
         if (selectedAnswer) return;
-        speakWord(getWordText(localCurrentWord));
         setSelectedAnswer(wordId);
         setTimeout(() => handleSrsButton(wordId === getWordId(localCurrentWord) ? 'good' : 'again'), 800);
     };
@@ -150,7 +139,6 @@ export function SmartReviewLearn({ words }: SmartReviewLearnProps) {
     const handleTypingSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (typingStatus !== 'idle') return;
-        speakWord(getWordText(localCurrentWord));
         if (typingInput.trim().toLowerCase() === getWordText(localCurrentWord).trim().toLowerCase()) {
             setTypingStatus('correct');
             setTimeout(() => handleSrsButton('good'), 800);

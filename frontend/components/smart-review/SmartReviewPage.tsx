@@ -112,11 +112,11 @@ export function SmartReviewPage({ defaultTab = 'personal' }: SmartReviewPageProp
                     </div>
                 </div>
                 <Button
-                    variant="ghost"
-                    onClick={() => router.back()}
-                    className="text-zinc-400 hover:text-white"
+                    onClick={handleStart}
+                    disabled={selectedWords.length === 0}
+                    className="bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-40 px-6"
                 >
-                    ← Back
+                    Start Review ({selectedWords.length})
                 </Button>
             </div>
             {/* Tab indicator — không có nút chuyển */}
@@ -192,17 +192,10 @@ export function SmartReviewPage({ defaultTab = 'personal' }: SmartReviewPageProp
             )}
 
             {/* Footer */}
-            <div className="flex items-center justify-between p-4 border-t border-zinc-800">
+            <div className="flex items-center p-4 border-t border-zinc-800">
                 <span className="text-sm text-zinc-400">
                     <span className="text-white font-bold">{selectedWords.length}</span> words selected
                 </span>
-                <Button
-                    onClick={handleStart}
-                    disabled={selectedWords.length === 0}
-                    className="bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-40 px-8"
-                >
-                    Start Review ({selectedWords.length})
-                </Button>
             </div>
         </div>
     );

@@ -1,6 +1,6 @@
 'use client';
 import { db } from '../../lib/db';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../../lib/api'; 
 import { Header } from '@/components/home/header';
 import { WordListView } from '@/components/home/word-list';
@@ -34,6 +34,7 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const [rawGroupSettings, setRawGroupSettings] = useState<any[]>([]); 
   
   const [personalFolders, setPersonalFolders] = useState<string[]>([]);
+  const [personalFolderObjects, setPersonalFolderObjects] = useState<any[]>([]); // full objects để lấy createdAt
   const [systemFolders, setSystemFolders] = useState<string[]>([]);
   const [personalGroupSettings, setPersonalGroupSettings] = useState<Record<string, string>>({});
   const [systemGroupSettings, setSystemGroupSettings] = useState<Record<string, string>>({});
@@ -49,11 +50,13 @@ export function MainApp({ currentUser, onLogout, role }: MainAppProps) {
   const [isResetting, setIsResetting] = useState(false);
 
   const [isStudyModalOpen, setIsStudyModalOpen] = useState(false);
+  const [studyModalInitialTab, setStudyModalInitialTab] = useState<"system" | "existing">("system");
   const [modalLearnWords, setModalLearnWords] = useState<any[] | null>(null);
-  const [modalFolderName, setModalFolderName] = useState<string>(''); 
-  const [isSyncingSystem, setIsSyncingSystem] = useState(false);  
+  const [modalFolderName, setModalFolderName] = useState<string>('');
+  const [isSyncingSystem, setIsSyncingSystem] = useState(false);
 
   const [learnResetKey, setLearnResetKey] = useState(0);
+  const hasAutoLearnedRef = useRef(false);
 
   const canEdit = viewMode === 'personal' || role === 'admin';
 const loadMetaOnly = async () => {
@@ -69,6 +72,7 @@ const loadMetaOnly = async () => {
         if(data.personalFolders) {
             const filteredPersonal = data.personalFolders.filter((f: any) => f.isSystemSaved !== true);
             setPersonalFolders(filteredPersonal.map((f: any) => f.name));
+            setPersonalFolderObjects(filteredPersonal);
         }
         if(data.systemFolders) setSystemFolders(data.systemFolders.map((f: any) => f.name));
 
@@ -139,6 +143,7 @@ const loadMetaOnly = async () => {
           if(data.personalFolders) {
                 const filteredPersonal = data.personalFolders.filter((f: any) => f.isSystemSaved !== true);
                 setPersonalFolders(filteredPersonal.map((f: any) => f.name));
+                setPersonalFolderObjects(filteredPersonal);
             }
         
           if(data.systemFolders) setSystemFolders(data.systemFolders.map((f: any) => f.name));
@@ -163,6 +168,58 @@ const loadMetaOnly = async () => {
       setIsLoading(false);
 
       syncSystemWordsInBackground(learnedSysIds);
+
+      // Auto-start learn mode nếu Quick Learn đang bật (chỉ chạy 1 lần/session)
+      if (!hasAutoLearnedRef.current && typeof window !== 'undefined' && localStorage.getItem('quick_learn_mode') === 'true') {
+        hasAutoLearnedRef.current = true;
+        const lastMode = localStorage.getItem('quick_learn_last_mode');
+        const lastSysFolder = localStorage.getItem('quick_learn_last_sysFolder');
+
+        if (!lastMode || lastMode === 'personal') {
+          // Vào personal learn mode trực tiếp
+          const unlearned = personalWords.filter((w: any) => !w.learned);
+          if (unlearned.length > 0) {
+            setCurrentWord(unlearned[Math.floor(Math.random() * unlearned.length)]);
+            router.push('/?tab=personal&learn=true');
+          }
+        } else if (lastMode === 'global' && lastSysFolder) {
+          // Fetch folder rồi vào system learn mode
+          setTimeout(async () => {
+            try {
+              const folders = await api.getFoldersList();
+              const folder = folders.find((f: any) => f.name === lastSysFolder);
+              if (folder) {
+                const detail = await api.getFolderDetail(folder._id);
+                const formattedWords = detail.savedWords
+                  .filter((sw: any) => sw && sw.wordId)
+                  .map((sw: any) => {
+                    const w = sw.wordId;
+                    return {
+                      ...w,
+                      savedWordId: sw._id,
+                      isMastered: sw.isMastered,
+                      english: w.word || w.english || '',
+                      word: w.word || w.english || '',
+                      definition: w.definition || (w.definitions && w.definitions[0]?.definition) || '',
+                      example: w.example || (w.definitions && w.definitions[0]?.examples?.[0]) || '',
+                      ipa: w.ipa || w.phonetics?.us || w.phonetics?.uk || '',
+                      type: w.type || '',
+                    };
+                  });
+                setModalFolderName(lastSysFolder);
+                setModalLearnWords(formattedWords);
+                sessionStorage.setItem('current_learn_words', JSON.stringify(formattedWords));
+                const unlearned = formattedWords.filter((w: any) => !w.isMastered);
+                if (unlearned.length > 0) setCurrentWord(unlearned[Math.floor(Math.random() * unlearned.length)]);
+                else setCurrentWord(null);
+                router.push(`/?tab=global&learn=true&sysFolder=${encodeURIComponent(lastSysFolder)}`);
+              }
+            } catch (e) {
+              console.error('Auto-start system learn failed:', e);
+            }
+          }, 400);
+        }
+      }
 
     } catch (error) {
       console.error("Data load error:", error);
@@ -260,7 +317,7 @@ const loadMetaOnly = async () => {
         else res = a.dateVal - b.dateVal; 
         return sortDirection === 'asc' ? res : -res;
     });
-  }, [wordsByMode, rawGroupSettings, activeGroupSettings, sortOption, sortDirection, viewMode, canEdit]);
+  }, [wordsByMode, rawGroupSettings, activeGroupSettings, sortOption, sortDirection, viewMode]);
 
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return [];
@@ -273,6 +330,57 @@ const loadMetaOnly = async () => {
       if (currentFolder) return wordsByMode.filter(w => activeGroupSettings[w.group] === currentFolder);
       return wordsByMode;
   }, [wordsByMode, selectedGroup, currentFolder, activeGroupSettings]);
+
+  // Dữ liệu các folder cá nhân cho study modal (chỉ dùng ở personal mode)
+  const personalFolderDataForModal = useMemo(() => {
+      const personalWords = words.filter(w => !w.isGlobal);
+
+      // Bước 1: build map folder → danh sách group từ personalGroupSettings
+      const folderToGroups: Record<string, string[]> = {};
+      Object.entries(personalGroupSettings).forEach(([groupName, folderName]) => {
+          if (folderName) {
+              if (!folderToGroups[folderName]) folderToGroups[folderName] = [];
+              folderToGroups[folderName].push(groupName);
+          }
+      });
+
+      const result: any[] = [];
+      const processedGroups = new Set<string>();
+
+      // Bước 2: tạo item cho từng folder (nhiều group gộp lại)
+      Object.entries(folderToGroups).forEach(([folderName, groupNames]) => {
+          const folderWords = personalWords.filter(w => groupNames.includes(w.group));
+          if (folderWords.length === 0) return;
+          groupNames.forEach(g => processedGroups.add(g));
+          result.push({
+              id: folderName,
+              name: folderName,
+              color: folderColors[folderName] || 'blue',
+              wordCount: folderWords.length,
+              learnedCount: folderWords.filter((w: any) => w.learned).length,
+              words: folderWords.map(w => ({ ...w, isMastered: !!w.learned })),
+          });
+      });
+
+      // Bước 3: các group chưa được gán folder → hiện riêng như 1 item
+      const allPersonalGroupNames = Array.from(new Set(personalWords.map(w => w.group).filter(Boolean)));
+      allPersonalGroupNames
+          .filter(g => !processedGroups.has(g))
+          .forEach(groupName => {
+              const groupWords = personalWords.filter(w => w.group === groupName);
+              if (groupWords.length === 0) return;
+              result.push({
+                  id: groupName,
+                  name: groupName,
+                  color: 'blue',
+                  wordCount: groupWords.length,
+                  learnedCount: groupWords.filter((w: any) => w.learned).length,
+                  words: groupWords.map(w => ({ ...w, isMastered: !!w.learned })),
+              });
+          });
+
+      return result;
+  }, [words, personalGroupSettings, folderColors]);
 
   const pickRandomWord = (list: any[] = currentViewWords) => {
       const unlearned = list.filter(w => modalLearnWords ? !w.isMastered : !w.learned);
@@ -294,25 +402,23 @@ const loadMetaOnly = async () => {
   };
 
   const handleStartLearn = () => {
-      if (viewMode === 'global') {
-          setIsStudyModalOpen(true);
-      } else {
-          updateUrl({ learn: 'true' }); 
-          setModalLearnWords(null);
-          sessionStorage.removeItem('current_learn_words'); 
-          const unlearned = currentViewWords.filter(w => !w.learned);
-          
-          if (unlearned.length === 0 && currentViewWords.length > 0) handleResetProgress();
-          else setTimeout(() => pickRandomWord(currentViewWords), 50);
-      }
+      // Cả personal và global đều mở study modal ở tab "Your Folders"
+      // Modal sẽ render đúng loại folder dựa theo currentMode prop
+      setStudyModalInitialTab("existing");
+      setIsStudyModalOpen(true);
   };
 
   const handleStartLearnFromModal = (folderName: string, formattedWords: any[]) => {
       setModalFolderName(folderName);
       setModalLearnWords(formattedWords);
       sessionStorage.setItem('current_learn_words', JSON.stringify(formattedWords));
-      updateUrl({ learn: 'true', sysFolder: folderName }); 
-      setIsStudyModalOpen(false); 
+      // Personal mode: không set sysFolder (exit handler sẽ lưu đúng context)
+      if (viewMode === 'personal') {
+          updateUrl({ learn: 'true' });
+      } else {
+          updateUrl({ learn: 'true', sysFolder: folderName });
+      }
+      setIsStudyModalOpen(false);
 
       const unlearned = formattedWords.filter((w: any) => !w.isMastered);
       if (unlearned.length > 0) setCurrentWord(unlearned[Math.floor(Math.random() * unlearned.length)]);
@@ -502,7 +608,40 @@ const handleDeleteWord = !canEdit ? async () => {} : async (id: string) => {
     } 
 };
   const handleMoveGroup = async (g: string, f: string) => { if(canEdit) { await api.updateGroup(g, f); loadData(); } };
-  const handleAddGroup = !canEdit ? async (n: string) => {} : async (n: string) => { 
+
+  const handleMoveGroupWords = async (sourceGroup: string, targetGroup: string) => {
+    if (!canEdit) return;
+    try {
+      // Cập nhật state ngay lập tức để UI phản hồi
+      setWords(prev => prev.map(w =>
+        w.group === sourceGroup && w.isGlobal ? { ...w, group: targetGroup } : w
+      ));
+      // Cập nhật Dexie cache
+      await db.systemWords.where('group').equals(sourceGroup).modify((w: any) => { w.group = targetGroup; });
+      // Gọi API
+      await api.moveSystemGroupWords(sourceGroup, targetGroup);
+      // Refresh meta (GroupSettings)
+      await loadMetaOnly();
+      notify.success("Moved!", `All words from "${sourceGroup}" moved to "${targetGroup}".`);
+    } catch(e) {
+      notify.error("Error", "Failed to move words.");
+      loadData();
+    }
+  };
+  const handleMoveWord = async (wordId: string, targetGroup: string) => {
+    if (role !== 'admin') return;
+    try {
+      await api.updateWord(wordId, { group: targetGroup });
+      setWords(prev => prev.map(w => w.id === wordId ? { ...w, group: targetGroup } : w));
+      await db.systemWords.update(wordId, { group: targetGroup });
+      notify.success("Moved!", "Word moved to new group.");
+    } catch(e) {
+      notify.error("Error", "Failed to move word.");
+      loadData();
+    }
+  };
+
+  const handleAddGroup = !canEdit ? async (n: string) => {} : async (n: string) => {
       try {
           await api.updateGroup(n, currentFolder || "", viewMode === 'global');
           loadData();
@@ -515,10 +654,10 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
     try {
         if (viewMode === 'global') {
             setWords(prev => prev.filter(w => w.group !== n));
-            
+
             await db.systemWords.where('group').equals(n).delete();
 
-            await api.deleteFolder(n);
+            await api.deleteGroup(n);
 
             await loadMetaOnly();
 
@@ -575,22 +714,39 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
                         isResetting={isResetting}
                         onNext={handleNextWord}
                         onReset={async () => { handleResetProgress(); await loadData(); }} 
-                        onExit={() => { 
-                            updateUrl({ learn: null, sysFolder: null }); 
-                            setModalLearnWords(null); 
+                        onExit={() => {
+                            // Lưu context cuối để Quick Learn tự restore
+                            // Dựa vào learnSysFolder (không phải viewMode) để phát hiện đúng
+                            // trường hợp user ở tab Personal nhưng đang học folder Oxford
+                            if (typeof window !== 'undefined') {
+                              if (learnSysFolder) {
+                                localStorage.setItem('quick_learn_last_mode', 'global');
+                                localStorage.setItem('quick_learn_last_sysFolder', learnSysFolder);
+                              } else {
+                                localStorage.setItem('quick_learn_last_mode', viewMode);
+                                localStorage.removeItem('quick_learn_last_sysFolder');
+                              }
+                            }
+                            updateUrl({ learn: null, sysFolder: null });
+                            setModalLearnWords(null);
                             sessionStorage.removeItem('current_learn_words');
                         }}
                         themeColor={viewMode === 'global' ? '#9333ea' : (currentFolder && folderColors[currentFolder] ? undefined : '#2563eb')}
                     />
                 </div>
             ) : selectedGroup ? (
-                <WordListView 
+                <WordListView
                     groupName={selectedGroup}
                     words={currentViewWords}
                     onBack={() => updateUrl({ group: null })}
                     onUpdate={loadData} onAddWord={handleAddWord} onDeleteWord={handleDeleteWord}
                     onLearn={handleStartLearn} allowEdit={canEdit}
                     onEditWord={handleEditWord}
+                    onMoveWord={viewMode === 'global' && role === 'admin' ? handleMoveWord : undefined}
+                    availableGroups={viewMode === 'global' && role === 'admin'
+                        ? calculatedGroups.map((g: any) => ({ name: g.name, folder: g.folder }))
+                        : undefined
+                    }
                 />
             ) : viewMode === 'personal' ? (
                 <PersonalGroupListView 
@@ -625,9 +781,10 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
                     onAddGroup={handleAddGroup} onDeleteGroup={handleDeleteGroup}
                     onDeleteWordResult={handleDeleteWord} onMoveGroup={handleMoveGroup} onCreateFolder={handleCreateFolder}
                     onUpdateFolder={handleUpdateFolder} onDeleteFolder={handleDeleteFolder}
+                    onMoveGroupWords={role === 'admin' ? handleMoveGroupWords : undefined}
                     onSort={(opt) => {
                         if (sortOption === opt) {
-                            setSortOption('date'); setSortDirection('desc'); 
+                            setSortOption('date'); setSortDirection('desc');
                         } else { setSortOption(opt); }
                     }}
                     onStartLearn={handleStartLearn} onResetLearn={handleResetProgress} onUpdate={loadData}
@@ -636,11 +793,16 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
         </div>
       </div>
 
-      <StudyManagerModal 
+      <StudyManagerModal
         isOpen={isStudyModalOpen}
-        onClose={() => { setIsStudyModalOpen(false) }}
-        systemWords={currentViewWords} onStartLearn={handleStartLearnFromModal} onRefreshData={loadData} 
-        />
+        onClose={() => { setIsStudyModalOpen(false); }}
+        systemWords={currentViewWords}
+        onStartLearn={handleStartLearnFromModal}
+        onRefreshData={loadData}
+        initialTab={studyModalInitialTab}
+        currentMode={viewMode}
+        personalFolderData={personalFolderDataForModal}
+      />
         {isSyncingSystem && (
         <div className="fixed bottom-4 right-4 bg-blue-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 text-sm border border-blue-400">
           <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

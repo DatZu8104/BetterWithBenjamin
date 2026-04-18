@@ -4,8 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { Volume2, ExternalLink, RotateCw, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 
+// Module-level dedup: ngăn 2 instance Flashcard (desktop + mobile) cùng tự phát âm 1 từ
+// vì cả hai đều được render trong DOM đồng thời (chỉ ẩn bằng CSS)
+const _autoPlayDedup = { key: '', ts: 0 };
+
 interface FlashcardProps {
-  word: any; 
+  word: any;
   className?: string;
   color?: string;
   volume?: number;
@@ -18,69 +22,94 @@ export function Flashcard({ word, className, color, volume = 1 }: FlashcardProps
   const [revealedDefs, setRevealedDefs] = useState<Record<number, boolean>>({});
   
   const hasPlayedRef = useRef(false);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const actualData = word?.wordId || word || {};
+
+  // Stable key để tránh re-trigger do object reference thay đổi
+  const wordKey = actualData.word || actualData.english || '';
 
   const playTTS = (text: string, type: 'us' | 'uk') => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.volume = volume;
-      
       utterance.lang = type === 'uk' ? 'en-GB' : 'en-US';
-      
       const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(v => 
+      const preferredVoice = voices.find(v =>
            v.lang === utterance.lang && (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel'))
       ) || voices.find(v => v.lang.includes(type === 'uk' ? 'GB' : 'US'));
-      
       if (preferredVoice) utterance.voice = preferredVoice;
-      window.speechSynthesis.speak(utterance);
+      // Fix Chrome double-speak bug: delay speak() after cancel()
+      setTimeout(() => window.speechSynthesis.speak(utterance), 100);
     }
   };
 
   const playAudioWithFallback = (preferredType: 'us' | 'uk', text: string) => {
     if (!text) return;
 
-    let audioUrl = actualData.audio?.[preferredType];
-    
-    if (!audioUrl || !audioUrl.startsWith('http')) {
-        const alternativeType = preferredType === 'us' ? 'uk' : 'us';
-        audioUrl = actualData.audio?.[alternativeType];
+    // Dừng audio đang phát (nếu có) trước khi play mới
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
     }
 
-    if (audioUrl && audioUrl.startsWith('http')) {
-        const audio = new Audio(audioUrl);
-        audio.volume = volume;
-        audio.play().catch(e => {
-            console.warn(`Original audio file error, converted to Google TTS:`, e);
-            playTTS(text, preferredType); 
-        });
+    // Ưu tiên US, fallback UK
+    const audioUrl = actualData.audio?.us?.startsWith('http')
+      ? actualData.audio.us
+      : actualData.audio?.uk?.startsWith('http')
+      ? actualData.audio.uk
+      : null;
+
+    if (audioUrl) {
+      const audio = new Audio(audioUrl);
+      audio.volume = volume;
+      currentAudioRef.current = audio;
+      audio.play().catch((err) => {
+        // Bỏ qua AbortError — xảy ra khi audio bị dừng do chuyển từ, không phải lỗi thật
+        if (err?.name !== 'AbortError') {
+          playTTS(text, 'us');
+        }
+      });
     } else {
-        playTTS(text, preferredType);
+      playTTS(text, 'us');
     }
   };
 
-
   useEffect(() => {
     setIsFlipped(false); 
-    setRevealedDefs({}); // Đặt lại trạng thái che toàn bộ tiếng Việt khi sang từ mới
+    setRevealedDefs({});
     hasPlayedRef.current = false;
     
     if (scrollRef.current) {
-        scrollRef.current.scrollTop = 0;
+      scrollRef.current.scrollTop = 0;
     }
 
     const timer = setTimeout(() => {
-        if (!hasPlayedRef.current && actualData) {
-            const textToRead = actualData.word || actualData.english || "";
-            playAudioWithFallback('us', textToRead); 
-            hasPlayedRef.current = true;
+      if (!hasPlayedRef.current) {
+        const now = Date.now();
+        // Nếu một instance khác đã phát âm từ này trong vòng 800ms → bỏ qua
+        if (_autoPlayDedup.key === wordKey && now - _autoPlayDedup.ts < 800) {
+          return;
         }
-    }, 10); 
+        hasPlayedRef.current = true; // set TRƯỚC khi play để chặn lần 2
+        _autoPlayDedup.key = wordKey;
+        _autoPlayDedup.ts = now;
+        const textToRead = wordKey;
+        if (textToRead) playAudioWithFallback('us', textToRead);
+      }
+    }, 50);
 
-    return () => clearTimeout(timer);
-  }, [word]); 
+    return () => {
+      clearTimeout(timer);
+      // Dừng audio nếu component unmount hoặc từ đổi
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+      window.speechSynthesis?.cancel();
+    };
+  }, [wordKey]); // dùng wordKey (string) thay vì word (object) để tránh re-trigger
 
   const handleManualPlay = (e: React.MouseEvent, type: 'us' | 'uk') => {
     e.stopPropagation(); 

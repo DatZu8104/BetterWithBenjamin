@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { WordForm } from '../word-form';
-import { ArrowLeft, Plus, Trash2, X, Pencil, PlayCircle, ListPlus, Save, CheckCircle, Loader2, Search, BookOpen, Volume2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Pencil, PlayCircle, ListPlus, Save, CheckCircle, Loader2, Search, BookOpen, Volume2, ExternalLink, MoveRight, Folder, FolderOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { FeatureHint } from '../onboarding/FeatureHint';
 import { notify } from '../../lib/notify';
@@ -18,13 +18,18 @@ interface WordListViewProps {
   onLearn: () => void;
   allowEdit?: boolean;
   onUpdate: () => void;
+  onMoveWord?: (wordId: string, targetGroup: string) => Promise<void>;
+  availableGroups?: { name: string; folder?: string }[];
 }
 
-export function WordListView({ 
-  groupName, words, onBack, onAddWord, onEditWord, onDeleteWord, onLearn, onUpdate, allowEdit 
+export function WordListView({
+  groupName, words, onBack, onAddWord, onEditWord, onDeleteWord, onLearn, onUpdate, allowEdit,
+  onMoveWord, availableGroups
 }: WordListViewProps) {
-  
+
   const [showForm, setShowForm] = useState(false);
+  const [wordToMove, setWordToMove] = useState<any | null>(null);
+  const [isMoveLoading, setIsMoveLoading] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [editingWord, setEditingWord] = useState<any | null>(null);
   const [localSearch, setLocalSearch] = useState('');
@@ -311,6 +316,15 @@ export function WordListView({
                               {/* BÊN PHẢI: Các nút hành động */}
                               <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                                 <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {allowEdit && onMoveWord && availableGroups && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setWordToMove(word); }}
+                                      title="Move to another group"
+                                      className="p-1.5 sm:p-2 text-zinc-500 hover:text-violet-400 hover:bg-violet-950/30 rounded-lg transition-colors"
+                                    >
+                                      <MoveRight className="w-4 h-4"/>
+                                    </button>
+                                  )}
                                   {allowEdit && (
                                     <button onClick={(e) => { e.stopPropagation(); startEdit(word); }} className="p-1.5 sm:p-2 text-zinc-500 hover:text-white hover:bg-zinc-700 rounded-lg transition-colors">
                                         <Pencil className="w-4 h-4"/>
@@ -503,7 +517,84 @@ export function WordListView({
               </div>
           );
       })()}
-      <ConfirmDialog 
+      {/* MODAL DI CHUYỂN TỪ VựNG SANG GROUP KHÁC */}
+      {wordToMove && availableGroups && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setWordToMove(null)}
+        >
+          <div
+            className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-4 border-b border-zinc-800">
+              <div>
+                <h3 className="font-bold text-white text-lg">Move word</h3>
+                <p className="text-sm text-violet-400 font-semibold mt-0.5">
+                  "{wordToMove.word || wordToMove.english}"
+                </p>
+              </div>
+              <button
+                onClick={() => setWordToMove(null)}
+                className="p-2 rounded-full hover:bg-zinc-800 text-zinc-500 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5"/>
+              </button>
+            </div>
+            <div className="p-2 max-h-[60vh] overflow-y-auto">
+              <p className="text-xs text-zinc-500 font-bold uppercase px-3 py-2 tracking-wider">
+                Select Destination Group
+              </p>
+              <div className="space-y-1">
+                {availableGroups
+                  .filter(g => g.name !== groupName)
+                  .map(g => (
+                    <button
+                      key={g.name}
+                      disabled={isMoveLoading}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800 disabled:opacity-50 transition-colors text-left group"
+                      onClick={async () => {
+                        if (!onMoveWord || isMoveLoading) return;
+                        setIsMoveLoading(true);
+                        try {
+                          await onMoveWord(wordToMove.id, g.name);
+                          setWordToMove(null);
+                        } catch {
+                          // error handled by parent
+                        } finally {
+                          setIsMoveLoading(false);
+                        }
+                      }}
+                    >
+                      <div className="p-2 bg-zinc-800 group-hover:bg-zinc-700 rounded-lg text-zinc-400 group-hover:text-violet-400 transition-colors">
+                        {isMoveLoading
+                          ? <Loader2 className="w-5 h-5 animate-spin"/>
+                          : <Folder className="w-5 h-5"/>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-zinc-300 group-hover:text-white block truncate">
+                          {g.name}
+                        </span>
+                        {g.folder && (
+                          <span className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
+                            <FolderOpen className="w-3 h-3"/>{g.folder}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))
+                }
+                {availableGroups.filter(g => g.name !== groupName).length === 0 && (
+                  <p className="text-center text-zinc-500 text-sm py-6">No other groups available.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={confirmDelete}

@@ -49,7 +49,9 @@ export function SmartReviewStudy({ words, onFinish, onExit }: SmartReviewStudyPr
     const getExample = (w: DueWord): string =>
         (w as any).example || (w as any).definitions?.[0]?.examples?.[0] || '';
 
-    const speakWord = (text: string) => {
+    const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+    const speakTTS = (text: string) => {
         if (typeof window === 'undefined' || !window.speechSynthesis) return;
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
@@ -57,14 +59,55 @@ export function SmartReviewStudy({ words, onFinish, onExit }: SmartReviewStudyPr
         const voices = window.speechSynthesis.getVoices();
         const preferred = voices.find(v => v.lang === 'en-US' && v.name.includes('Google'));
         if (preferred) utterance.voice = preferred;
-        window.speechSynthesis.speak(utterance);
+        // Delay nhỏ tránh Chrome double-speak sau cancel()
+        setTimeout(() => window.speechSynthesis.speak(utterance), 100);
+    };
+
+    const speakWord = (w: DueWord) => {
+        const text = getWordText(w);
+        if (!text) return;
+
+        // Dừng audio đang phát (nếu có)
+        if (currentAudioRef.current) {
+            currentAudioRef.current.pause();
+            currentAudioRef.current = null;
+        }
+        window.speechSynthesis?.cancel();
+
+        // Ưu tiên audio URL có sẵn (Oxford), chỉ fallback TTS nếu không có
+        const audioData = (w as any).audio;
+        const audioUrl = audioData?.us?.startsWith('http')
+            ? audioData.us
+            : audioData?.uk?.startsWith('http')
+            ? audioData.uk
+            : null;
+
+        if (audioUrl) {
+            const audio = new Audio(audioUrl);
+            currentAudioRef.current = audio;
+            audio.play().catch((err) => {
+                // Bỏ qua AbortError (do chuyển từ), chỉ fallback TTS khi lỗi thật
+                if (err?.name !== 'AbortError') {
+                    speakTTS(text);
+                }
+            });
+        } else {
+            speakTTS(text);
+        }
     };
 
     // Auto speak khi chuyển từ
     useEffect(() => {
-        if (currentWord) speakWord(getWordText(currentWord));
+        if (currentWord) speakWord(currentWord);
         setIsRevealed(false);
         hasHandled.current = false;
+        return () => {
+            if (currentAudioRef.current) {
+                currentAudioRef.current.pause();
+                currentAudioRef.current = null;
+            }
+            window.speechSynthesis?.cancel();
+        };
     }, [currentIndex]);
 
     // Keyboard shortcuts
@@ -108,6 +151,7 @@ export function SmartReviewStudy({ words, onFinish, onExit }: SmartReviewStudyPr
         setIsAnimating(true);
         setTimeout(() => {
             if (currentIndex + 1 >= words.length) {
+                setIsAnimating(false);
                 onFinish(newResults);
             } else {
                 setCurrentIndex(i => i + 1);
@@ -161,7 +205,7 @@ export function SmartReviewStudy({ words, onFinish, onExit }: SmartReviewStudyPr
                                 {getWordText(currentWord)}
                             </h2>
                             <button
-                                onClick={(e) => { e.stopPropagation(); speakWord(getWordText(currentWord)); }}
+                                onClick={(e) => { e.stopPropagation(); speakWord(currentWord); }}
                                 className="mt-1 p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all shrink-0"
                             >
                                 <Volume2 className="w-5 h-5" />

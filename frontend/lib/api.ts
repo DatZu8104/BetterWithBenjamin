@@ -3,23 +3,21 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 export const setApiToken = (token: string) => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('token', token);
-    sessionStorage.setItem('auth_token', token);
   }
 };
 
 export const clearApiToken = () => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('token');
-    sessionStorage.removeItem('auth_token');
   }
 };
 
 const getHeaders = () => {
   let token = '';
   if (typeof window !== 'undefined') {
-    token = localStorage.getItem('token') || sessionStorage.getItem('auth_token') || '';
-    token = token.replace(/(^"|"$)/g, ""); 
-    token = token.replace(/^Bearer\s+/i, ""); 
+    token = localStorage.getItem('token') || '';
+    token = token.replace(/(^"|"$)/g, "");
+    token = token.replace(/^Bearer\s+/i, "");
   }
   return {
     'Content-Type': 'application/json',
@@ -165,9 +163,12 @@ getSystemWords: async () => {
     if (!res.ok) throw new Error("Lỗi xóa nhóm");
   },
 
-  getFoldersList: async () => {
+  getFoldersList: async (studyContext?: 'system' | 'personal') => {
     try {
-      const res = await fetch(`${API_URL}/folders`, { headers: getHeaders() });
+      const url = studyContext
+        ? `${API_URL}/folders?context=${studyContext}`
+        : `${API_URL}/folders`;
+      const res = await fetch(url, { headers: getHeaders() });
       if (!res.ok) return [];
       return res.json();
     } catch {
@@ -175,11 +176,17 @@ getSystemWords: async () => {
     }
   },
 
-  createFolderAndGetId: async (name: string, color: string = '#3b82f6', isGlobal: boolean = false, isSystemSaved: boolean = false) => {
+  createFolderAndGetId: async (
+    name: string,
+    color: string = '#3b82f6',
+    isGlobal: boolean = false,
+    isSystemSaved: boolean = false,
+    studyContext: 'system' | 'personal' = 'system'
+  ) => {
     const res = await fetch(`${API_URL}/folders`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ name, color, isGlobal, isSystemSaved }) 
+      body: JSON.stringify({ name, color, isGlobal, isSystemSaved, studyContext })
     });
     if (!res.ok) throw new Error("Lỗi tạo thư mục mới");
     return res.json();
@@ -296,6 +303,17 @@ getSystemWords: async () => {
       headers: getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch system group stats');
+    return res.json();
+  },
+
+  // ADMIN: Di chuyển từ vựng từ group này sang group khác
+  moveSystemGroupWords: async (sourceGroup: string, targetGroup: string) => {
+    const res = await fetch(`${API_URL}/admin/groups/${encodeURIComponent(sourceGroup)}/move-words`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ targetGroup })
+    });
+    if (!res.ok) throw new Error("Error moving words");
     return res.json();
   },
 };

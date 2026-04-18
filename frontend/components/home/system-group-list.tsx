@@ -50,8 +50,9 @@ interface SystemGroupListProps {
   onStartLearn: () => void;
   onResetLearn: () => void;
 
-  onUpdate?: () => void; 
-  allowAdd?: boolean; 
+  onUpdate?: () => void;
+  allowAdd?: boolean;
+  onMoveGroupWords?: (sourceGroup: string, targetGroup: string) => Promise<void>;
 }
 
 export function SystemGroupListView({
@@ -60,12 +61,15 @@ export function SystemGroupListView({
   sortOption, sortDirection, onSort,
   folders, currentFolder, onSelectFolder, onMoveGroup, onCreateFolder, onUpdateFolder, onDeleteFolder,
   totalWords, learnedCount, onStartLearn, onResetLearn,
-  folderColors, 
+  folderColors,
   onUpdate,
-  allowAdd = false 
+  allowAdd = false,
+  onMoveGroupWords
 }: SystemGroupListProps) {
-  
+
   const [groupToMove, setGroupToMove] = useState<string | null>(null);
+  const [groupToMoveWords, setGroupToMoveWords] = useState<string | null>(null);
+  const [isMoveWordsLoading, setIsMoveWordsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [folderNameInput, setFolderNameInput] = useState('');
@@ -517,8 +521,13 @@ export function SystemGroupListView({
                                       <DropdownMenuLabel className="text-xs text-zinc-500 uppercase tracking-widest pl-2 py-2">Actions</DropdownMenuLabel>
                                       <DropdownMenuSeparator className="bg-zinc-800" />
                                       <DropdownMenuItem onSelect={() => setGroupToMove(g.name)} className="rounded-md focus:bg-zinc-800 focus:text-white py-2 px-2 cursor-pointer text-zinc-300">
-                                          <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Move to...</span>
+                                          <MoveRight className="w-4 h-4 mr-2 text-zinc-500" /> <span>Move to folder...</span>
                                       </DropdownMenuItem>
+                                      {onMoveGroupWords && (
+                                          <DropdownMenuItem onSelect={() => setGroupToMoveWords(g.name)} className="rounded-md focus:bg-zinc-800 focus:text-white py-2 px-2 cursor-pointer text-zinc-300">
+                                              <MoveRight className="w-4 h-4 mr-2 text-violet-400" /> <span>Move words to group...</span>
+                                          </DropdownMenuItem>
+                                      )}
                                       <DropdownMenuSeparator className="bg-zinc-800" />
                                       <DropdownMenuItem 
                                         onClick={() => {
@@ -639,6 +648,67 @@ export function SystemGroupListView({
                                     <span className="font-medium text-zinc-300 group-hover:text-white">{f}</span>
                                 </button>
                             )})}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL DI CHUYỂN TỪ VỰNG SANG GROUP KHÁC */}
+        {groupToMoveWords && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setGroupToMoveWords(null)}>
+                <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-between items-center p-4 border-b border-zinc-800 bg-zinc-900">
+                        <div>
+                            <h3 className="font-bold text-white text-lg">Move words from</h3>
+                            <p className="text-sm text-violet-400 font-semibold mt-0.5">"{groupToMoveWords}"</p>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => setGroupToMoveWords(null)} className="text-zinc-500 hover:text-white"><X className="w-5 h-5"/></Button>
+                    </div>
+                    <div className="p-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                        <p className="text-xs text-zinc-500 font-bold uppercase px-3 py-2 tracking-wider">Select Destination Group</p>
+                        <div className="space-y-1">
+                            {groups
+                                .filter(g => g.name !== groupToMoveWords)
+                                .map(g => {
+                                    const gColor = g.folder && folderColors[g.folder] ? folderColors[g.folder] : null;
+                                    const gStyle = gColor ? COLORS.find(c => c.id === gColor)?.style : null;
+                                    return (
+                                        <button
+                                            key={g.name}
+                                            disabled={isMoveWordsLoading}
+                                            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800 disabled:opacity-50 transition-colors text-left group"
+                                            onClick={async () => {
+                                                if (!onMoveGroupWords || isMoveWordsLoading) return;
+                                                setIsMoveWordsLoading(true);
+                                                try {
+                                                    await onMoveGroupWords(groupToMoveWords, g.name);
+                                                    toast.success(`Moved all words to "${g.name}"!`);
+                                                    setGroupToMoveWords(null);
+                                                } catch {
+                                                    toast.error("Failed to move words. Please try again.");
+                                                } finally {
+                                                    setIsMoveWordsLoading(false);
+                                                }
+                                            }}
+                                        >
+                                            <div className={cn("p-2 rounded-lg transition-all", gStyle ? gStyle.iconBox : "bg-zinc-800 text-zinc-400")}>
+                                                {isMoveWordsLoading ? <Loader2 className="w-5 h-5 animate-spin"/> : <Folder className="w-5 h-5"/>}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <span className="font-medium text-zinc-300 group-hover:text-white block truncate">{g.name}</span>
+                                                {g.folder && (
+                                                    <span className="text-xs text-zinc-500 truncate block">{g.folder}</span>
+                                                )}
+                                            </div>
+                                            <span className="text-xs text-zinc-600 shrink-0">{g.count} words</span>
+                                        </button>
+                                    );
+                                })
+                            }
+                            {groups.filter(g => g.name !== groupToMoveWords).length === 0 && (
+                                <p className="text-center text-zinc-500 text-sm py-6">No other groups available.</p>
+                            )}
                         </div>
                     </div>
                 </div>
