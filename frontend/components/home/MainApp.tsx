@@ -406,8 +406,57 @@ const loadMetaOnly = async () => {
       setIsStudyModalOpen(true);
   };
 
-  const handleContinueLearn = () => {
-      // Vào learn mode trực tiếp với currentViewWords (không mở modal)
+  const handleContinueLearn = async () => {
+      if (viewMode === 'global') {
+          // Global mode: ưu tiên folder hiện tại, nếu không có thì lấy folder lần trước
+          const targetFolder = currentFolder || (
+              typeof window !== 'undefined'
+                  ? localStorage.getItem('quick_learn_last_sysFolder')
+                  : null
+          );
+
+          if (targetFolder) {
+              try {
+                  const folders = await api.getFoldersList();
+                  const folder = folders.find((f: any) => f.name === targetFolder);
+                  if (folder) {
+                      const detail = await api.getFolderDetail(folder._id);
+                      const formattedWords = detail.savedWords
+                          .filter((sw: any) => sw && sw.wordId)
+                          .map((sw: any) => {
+                              const w = sw.wordId;
+                              return {
+                                  ...w,
+                                  savedWordId: sw._id,
+                                  isMastered: sw.isMastered,
+                                  english: w.word || w.english || '',
+                                  word: w.word || w.english || '',
+                                  definition: w.definition || (w.definitions && w.definitions[0]?.definition) || '',
+                                  example: w.example || (w.definitions && w.definitions[0]?.examples?.[0]) || '',
+                                  ipa: w.ipa || w.phonetics?.us || w.phonetics?.uk || '',
+                                  type: w.type || '',
+                              };
+                          });
+                      setModalFolderName(targetFolder);
+                      setModalLearnWords(formattedWords);
+                      sessionStorage.setItem('current_learn_words', JSON.stringify(formattedWords));
+                      const unlearned = formattedWords.filter((w: any) => !w.isMastered);
+                      if (unlearned.length > 0) setCurrentWord(unlearned[Math.floor(Math.random() * unlearned.length)]);
+                      else setCurrentWord(null);
+                      updateUrl({ learn: 'true', sysFolder: targetFolder });
+                      return;
+                  }
+              } catch (e) {
+                  console.error('Continue learn from folder failed:', e);
+              }
+          }
+
+          // Không có folder nào → mở modal để chọn folder
+          handleStartLearn();
+          return;
+      }
+
+      // Personal mode: tiếp tục với currentViewWords
       setModalLearnWords(null);
       sessionStorage.removeItem('current_learn_words');
       const unlearned = currentViewWords.filter((w: any) => !w.learned);

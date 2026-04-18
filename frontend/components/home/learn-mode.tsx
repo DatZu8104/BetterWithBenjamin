@@ -459,22 +459,44 @@ export function LearnModeView({
 
                     {/* ── DESKTOP: card flex-1, không drag handle ── */}
                     <div className="hidden md:flex flex-col flex-1 min-h-0 gap-3">
-                      <FeatureHint
-                        id={ONBOARDING_IDS.LEARN_CLICK_FLASHCARD}
-                        delay={400}
-                        side="bottom"
-                        align="center"
-                        message={
-                          <div className="space-y-1 max-w-[240px]">
-                            <p className="font-bold text-white flex items-center gap-1.5">
-                              <MousePointerClick className="w-4 h-4 text-blue-400" />Flip the flashcard
-                            </p>
-                            <p className="text-zinc-200 text-sm font-normal leading-snug">
-                              Click directly on this card to turn it over and see the meaning!
-                            </p>
+                      {/* Chỉ render tour khi thực sự là desktop (isMobile=false) */}
+                      {!isMobile ? (
+                        <FeatureHint
+                          id={ONBOARDING_IDS.LEARN_CLICK_FLASHCARD}
+                          delay={400}
+                          side="bottom"
+                          align="center"
+                          message={
+                            <div className="space-y-1 max-w-[240px]" style={{ fontFamily: 'var(--font-be-vietnam)' }}>
+                              <p className="font-bold text-white flex items-center gap-1.5">
+                                <MousePointerClick className="w-4 h-4 text-blue-400" />Lật thẻ từ vựng
+                              </p>
+                              <p className="text-zinc-200 text-sm font-normal leading-snug">
+                                Nhấp trực tiếp vào thẻ này để lật và xem nghĩa của từ!
+                              </p>
+                            </div>
+                          }
+                        >
+                          <div
+                            ref={cardWrapperRef}
+                            className="flex-1 min-h-0 transition-transform duration-200 relative"
+                            style={{ transform: `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.04}deg)` }}
+                          >
+                            {swipeOffset < -30 && (
+                              <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />
+                            )}
+                            {swipeOffset > 30 && (
+                              <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />
+                            )}
+                            <Flashcard
+                              word={localCurrentWord}
+                              className="text-white w-full h-full shadow-2xl"
+                              color={themeColor}
+                              volume={volume}
+                            />
                           </div>
-                        }
-                      >
+                        </FeatureHint>
+                      ) : (
                         <div
                           ref={cardWrapperRef}
                           className="flex-1 min-h-0 transition-transform duration-200 relative"
@@ -493,7 +515,7 @@ export function LearnModeView({
                             volume={volume}
                           />
                         </div>
-                      </FeatureHint>
+                      )}
 
                       {/* Swipe zone desktop */}
                       <FeatureHint
@@ -503,12 +525,14 @@ export function LearnModeView({
                         side="top"
                         align="center"
                         message={
-                          <div className="space-y-1 max-w-[260px]">
+                          <div className="space-y-1 max-w-[260px]" style={{ fontFamily: 'var(--font-be-vietnam)' }}>
                             <p className="font-bold text-white flex items-center gap-1.5">
-                              <Hand className="w-4 h-4 text-violet-400" />Click to answer
+                              <Hand className="w-4 h-4 text-violet-400" />Chọn câu trả lời
                             </p>
                             <p className="text-zinc-200 text-sm font-normal leading-snug">
-                              Click left = Unknown · Click right = Known
+                              Nhấp trái = Chưa nhớ
+                            </p><p className="text-zinc-200 text-sm font-normal leading-snug">
+                              Nhấp phải = Đã nhớ
                             </p>
                           </div>
                         }
@@ -533,28 +557,49 @@ export function LearnModeView({
                     {/* ── MOBILE: card flex động + drag handle + swipe zone ── */}
                     <div className="flex md:hidden flex-col flex-1 min-h-0">
 
-                      {/* Flashcard */}
+                      {/* Flashcard — chỉ render tour khi thực sự là mobile */}
                       <div style={{
                         flex: cardFlex,
                         minHeight: 0,
                         transition: isDraggingHandle ? 'none' : 'flex 0.2s ease',
                       }}>
-                        <FeatureHint
-                          id={ONBOARDING_IDS.LEARN_CLICK_FLASHCARD}
-                          delay={400}
-                          side="bottom"
-                          align="center"
-                          message={
-                            <div className="space-y-1 max-w-[240px]">
-                              <p className="font-bold text-white flex items-center gap-1.5">
-                                <MousePointerClick className="w-4 h-4 text-blue-400" />Flip the flashcard
-                              </p>
-                              <p className="text-zinc-200 text-sm font-normal leading-snug">
-                                Click directly on this card to turn it over and see the meaning!
-                              </p>
+                        {isMobile ? (
+                          <FeatureHint
+                            id={ONBOARDING_IDS.LEARN_CLICK_FLASHCARD_MOBILE}
+                            delay={400}
+                            side="bottom"
+                            align="center"
+                            message={
+                              <div className="space-y-1 max-w-[240px]" style={{ fontFamily: 'var(--font-be-vietnam)' }}>
+                                <p className="font-bold text-white flex items-center gap-1.5">
+                                  <MousePointerClick className="w-4 h-4 text-blue-400" />Lật thẻ từ vựng
+                                </p>
+                                <p className="text-zinc-200 text-sm font-normal leading-snug">
+                                  Chạm vào thẻ để lật và xem nghĩa của từ!
+                                </p>
+                              </div>
+                            }
+                          >
+                            <div
+                              ref={cardWrapperRef}
+                              className="w-full h-full transition-transform duration-200 relative"
+                              style={{ transform: `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.04}deg)` }}
+                            >
+                              {swipeOffset < -30 && (
+                                <div className="absolute inset-0 bg-green-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />
+                              )}
+                              {swipeOffset > 30 && (
+                                <div className="absolute inset-0 bg-red-500/20 rounded-3xl pointer-events-none transition-opacity z-10" />
+                              )}
+                              <Flashcard
+                                word={localCurrentWord}
+                                className="text-white w-full h-full shadow-2xl"
+                                color={themeColor}
+                                volume={volume}
+                              />
                             </div>
-                          }
-                        >
+                          </FeatureHint>
+                        ) : (
                           <div
                             ref={cardWrapperRef}
                             className="w-full h-full transition-transform duration-200 relative"
@@ -573,7 +618,7 @@ export function LearnModeView({
                               volume={volume}
                             />
                           </div>
-                        </FeatureHint>
+                        )}
                       </div>
 
                       {/* DRAG HANDLE — mobile only, y hệt SmartReviewLearn */}
@@ -620,24 +665,46 @@ export function LearnModeView({
                           />
                         </div>
 
-                        {/* Swipe zone */}
-                        <FeatureHint
-                          id={ONBOARDING_IDS.LEARN_UNKNOWN_BTN}
-                          waitFor={ONBOARDING_IDS.LEARN_CLICK_FLASHCARD}
-                          delay={400}
-                          side="top"
-                          align="center"
-                          message={
-                            <div className="space-y-1 max-w-[260px]">
-                              <p className="font-bold text-white flex items-center gap-1.5">
-                                <Hand className="w-4 h-4 text-violet-400" />Swipe to answer
-                              </p>
-                              <p className="text-zinc-200 text-sm font-normal leading-snug">
-                                Swipe <strong>left</strong> = Unknown · Swipe <strong>right</strong> = Known
-                              </p>
+                        {/* Swipe zone — chỉ render tour khi thực sự là mobile */}
+                        {isMobile ? (
+                          <FeatureHint
+                            id={ONBOARDING_IDS.LEARN_SWIPE_MOBILE}
+                            waitFor={ONBOARDING_IDS.LEARN_CLICK_FLASHCARD_MOBILE}
+                            delay={400}
+                            side="top"
+                            align="center"
+                            message={
+                              <div className="space-y-1 max-w-[260px]" style={{ fontFamily: 'var(--font-be-vietnam)' }}>
+                                <p className="font-bold text-white flex items-center gap-1.5">
+                                  <Hand className="w-4 h-4 text-violet-400" />Vuốt để trả lời
+                                </p>
+                                <p className="text-zinc-200 text-sm font-normal leading-snug">
+                                  Vuốt <strong>sang trái</strong> = Chưa nhớ · Vuốt <strong>sang phải</strong> = Đã nhớ
+                                </p>
+                              </div>
+                            }
+                          >
+                            <div
+                              className="flex-1 min-h-[56px] rounded-2xl overflow-hidden border border-zinc-800 relative select-none bg-zinc-950"
+                              onTouchStart={handleTouchStart}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={handleTouchEnd}
+                            >
+                              <button onClick={handleUnknown} disabled={isAnimating}
+                                className="absolute inset-y-0 left-0 w-[calc(50%-1px)] flex items-center gap-2 px-5 text-red-400 font-bold text-sm hover:bg-red-950/20 active:bg-red-950/30 transition-colors disabled:opacity-50">
+                                ← Unknown
+                              </button>
+                              <div className="absolute inset-y-3 left-1/2 w-px bg-zinc-700 -translate-x-1/2" />
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span className="text-[10px] font-bold tracking-widest text-zinc-600 uppercase bg-zinc-950 px-2">swipe or click</span>
+                              </div>
+                              <button onClick={handleKnown} disabled={isAnimating}
+                                className="absolute inset-y-0 right-0 w-[calc(50%-1px)] flex items-center justify-end gap-2 px-5 text-green-400 font-bold text-sm hover:bg-green-950/20 active:bg-green-950/30 transition-colors disabled:opacity-50">
+                                Known →
+                              </button>
                             </div>
-                          }
-                        >
+                          </FeatureHint>
+                        ) : (
                           <div
                             className="flex-1 min-h-[56px] rounded-2xl overflow-hidden border border-zinc-800 relative select-none bg-zinc-950"
                             onTouchStart={handleTouchStart}
@@ -657,7 +724,7 @@ export function LearnModeView({
                               Known →
                             </button>
                           </div>
-                        </FeatureHint>
+                        )}
                       </div>
 
                     </div>
@@ -801,13 +868,12 @@ export function LearnModeView({
             side="left"
             align="center"
             message={
-              <div className="space-y-1 max-w-[220px]">
+              <div className="space-y-1 max-w-[220px]" style={{ fontFamily: 'var(--font-be-vietnam)' }}>
                 <p className="font-bold text-white flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-violet-400" />AI Vocab Assistant
+                  <Sparkles className="w-4 h-4 text-violet-400" />Trợ lý AI từ vựng
                 </p>
                 <p className="text-zinc-200 text-sm font-normal leading-snug">
-                  Tap this button to ask AI anything about the current word — usage, examples, collocations and more!
-                  You can move that!
+                  Nhấn vào đây để hỏi AI về từ hiện tại — cách dùng, ví dụ, collocation và nhiều hơn nữa! Bạn có thể kéo thả nút này.
                 </p>
               </div>
             }

@@ -149,18 +149,18 @@ useEffect(() => {
 
       {/* --- 1. CỤM TRÁI: MENU & LOGO --- */}
       <div className="flex items-center gap-2 sm:gap-3 flex-shrink min-w-0 overflow-hidden">            
-        <FeatureHint 
+        <FeatureHint
             id={ONBOARDING_IDS.HOME_SYSTEM_WORDS}
             side="bottom"
             align="start"
             message={
-                <div className="space-y-1.5 min-w-[200px]">
+                <div className="space-y-1.5 min-w-[200px]" style={{ fontFamily: 'var(--font-be-vietnam)' }}>
                     <p className="font-bold text-white flex items-center gap-1.5">
-                        <Library className="w-4 h-4 text-400" /> 
-                        Vocabulary is available
+                        <Library className="w-4 h-4" />
+                        Từ vựng hệ thống có sẵn!
                     </p>
                     <p className="text-zinc-100 text-sm leading-snug font-normal">
-                        Click here to switch to <span className="font-bold text-300">System</span>. The website has prepared the Oxford vocabulary set (A1-C2) for you to learn right away!
+                        Nhấn vào đây để chuyển sang chế độ <span className="font-bold">System</span>. Website đã chuẩn bị sẵn bộ từ vựng Oxford (A1-C2) cho bạn học ngay!
                     </p>
                 </div>
             }
@@ -231,6 +231,22 @@ useEffect(() => {
                             {/* Smart Review — accordion */}
 <div className="pt-2 border-t border-zinc-800">
     {/* Dòng cha — chỉ xổ/đóng */}
+    <FeatureHint
+        id={ONBOARDING_IDS.MENU_SMART_REVIEW}
+        side="right"
+        align="center"
+        delay={500}
+        message={
+            <div className="space-y-1.5 min-w-[200px]" style={{ fontFamily: 'var(--font-be-vietnam)' }}>
+                <p className="font-bold text-white flex items-center gap-1.5">
+                    <Brain className="w-4 h-4 text-violet-300" />Smart Review
+                </p>
+                <p className="text-zinc-100 text-sm leading-snug font-normal">
+                    Thuật toán lặp lại cách quãng — tự tính thời điểm bạn sắp quên từ và nhắc bạn ôn đúng lúc. Hãy học một số từ trước khi sử dụng tính năng này!
+                </p>
+            </div>
+        }
+    >
     <button
     onClick={() => setIsSmartReviewExpanded(v => !v)}
     className={cn(
@@ -256,6 +272,7 @@ useEffect(() => {
         </div>
         <ChevronDown className={`w-4 h-4 text-violet-400 transition-transform duration-200 ${isSmartReviewExpanded ? 'rotate-180' : ''}`} />
     </button>
+    </FeatureHint>
 
     {/* Dropdown — personal & system */}
     {isSmartReviewExpanded && (
@@ -395,6 +412,22 @@ useEffect(() => {
                             </button>
                         )}
 
+                        <FeatureHint
+                            id={ONBOARDING_IDS.AVATAR_QUICK_LEARN}
+                            side="left"
+                            align="center"
+                            delay={400}
+                            message={
+                                <div className="space-y-1.5 min-w-[190px]" style={{ fontFamily: 'var(--font-be-vietnam)' }}>
+                                    <p className="font-bold text-white flex items-center gap-1.5">
+                                        <Zap className="w-4 h-4 text-amber-400" />Quick Learn
+                                    </p>
+                                    <p className="text-zinc-100 text-sm leading-snug font-normal">
+                                        Bật tính năng này để tự động vào chế độ học ngay khi đăng nhập — tiết kiệm thời gian mỗi ngày!
+                                    </p>
+                                </div>
+                            }
+                        >
                         <button
                             onClick={toggleQuickLearn}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-800 rounded-lg flex items-center justify-between transition-colors text-zinc-300"
@@ -407,6 +440,7 @@ useEffect(() => {
                                 <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${quickLearnEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
                             </div>
                         </button>
+                        </FeatureHint>
                         <button onClick={() => { setShowPassModal(true); setIsMenuOpen(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-800 rounded-lg flex gap-3 items-center transition-colors text-zinc-300">
                             <KeyRound className="w-4 h-4 text-zinc-500"/> Change Password
                         </button>

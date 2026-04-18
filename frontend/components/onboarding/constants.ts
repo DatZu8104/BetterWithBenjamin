@@ -9,8 +9,13 @@ export const ONBOARDING_IDS = {
   MODAL_STUDY_SELECT_FOLDER: 'tour-modal-study-folder',
   MODAL_STUDY_BACK_BUTTON: 'tour-modal-study-back',
 
+  // Menu & Avatar
+  MENU_SMART_REVIEW: 'tour-menu-smart-review',
+  AVATAR_QUICK_LEARN: 'tour-avatar-quick-learn',
+
   // Learn mode
   LEARN_CLICK_FLASHCARD: 'tour-learn-click-flashcard',
+  LEARN_CLICK_FLASHCARD_MOBILE: 'tour-learn-click-flashcard-mobile',
   LEARN_KNOWN_BTN: 'tour-learn-known-btn',
   LEARN_UNKNOWN_BTN: 'tour-learn-unknown-btn',
   LEARN_SWIPE_MOBILE: 'tour-learn-swipe-mobile',
