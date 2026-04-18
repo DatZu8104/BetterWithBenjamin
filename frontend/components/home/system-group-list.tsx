@@ -48,6 +48,7 @@ interface SystemGroupListProps {
   sortDirection: 'asc' | 'desc';
   onSort: (option: any) => void;
   onStartLearn: () => void;
+  onContinueLearn?: () => void;
   onResetLearn: () => void;
 
   onUpdate?: () => void;
@@ -60,7 +61,7 @@ export function SystemGroupListView({
   onSelectGroup, onAddGroup, onDeleteGroup, onDeleteWordResult,
   sortOption, sortDirection, onSort,
   folders, currentFolder, onSelectFolder, onMoveGroup, onCreateFolder, onUpdateFolder, onDeleteFolder,
-  totalWords, learnedCount, onStartLearn, onResetLearn,
+  totalWords, learnedCount, onStartLearn, onContinueLearn, onResetLearn,
   folderColors,
   onUpdate,
   allowAdd = false,
@@ -273,22 +274,35 @@ export function SystemGroupListView({
                     }
                 >
                     <div className="inline-block w-full">
-                        <Button size="lg" onClick={onStartLearn} className={cn("w-full md:w-64 h-14 text-lg font-bold shadow-lg transition-all hover:scale-105 rounded-2xl border-none", currentTheme.button)}>
+                        <Button size="lg"
+                            onClick={learnedCount > 0 && learnedCount < totalWords && onContinueLearn ? onContinueLearn : onStartLearn}
+                            className={cn("w-full md:w-64 h-14 text-lg font-bold shadow-lg transition-all hover:scale-105 rounded-2xl border-none", currentTheme.button)}>
                             <PlayCircle className="w-6 h-6 mr-2 fill-current" /> {learnedCount > 0 && learnedCount < totalWords ? "Continue Learning" : "Start Learning"}
                         </Button>
                     </div>
                 </FeatureHint>
 
+                {learnedCount > 0 && learnedCount < totalWords && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onStartLearn}
+                        className={cn("w-full transition-colors font-semibold", currentTheme.resetBtn)}
+                    >
+                        <Settings className="w-4 h-4 mr-2" /> Manage
+                    </Button>
+                )}
+
                 {learnedCount > 0 && (
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => { 
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
                             if(confirm("Are you sure you want to reset all progress for this section?")) {
-                                onResetLearn(); 
+                                onResetLearn();
                                 toast.success("Progress has been reset!");
                             }
-                        }} 
+                        }}
                         className={cn("w-full transition-colors", currentTheme.resetBtn)}
                     >
                     <RotateCcw className="w-4 h-4 mr-2" /> Reset Progress

@@ -402,10 +402,21 @@ const loadMetaOnly = async () => {
   };
 
   const handleStartLearn = () => {
-      // Cả personal và global đều mở study modal ở tab "Your Folders"
-      // Modal sẽ render đúng loại folder dựa theo currentMode prop
       setStudyModalInitialTab("existing");
       setIsStudyModalOpen(true);
+  };
+
+  const handleContinueLearn = () => {
+      // Vào learn mode trực tiếp với currentViewWords (không mở modal)
+      setModalLearnWords(null);
+      sessionStorage.removeItem('current_learn_words');
+      const unlearned = currentViewWords.filter((w: any) => !w.learned);
+      if (unlearned.length > 0) {
+          setCurrentWord(unlearned[Math.floor(Math.random() * unlearned.length)]);
+      } else {
+          setCurrentWord(null);
+      }
+      updateUrl({ learn: 'true' });
   };
 
   const handleStartLearnFromModal = (folderName: string, formattedWords: any[]) => {
@@ -801,7 +812,7 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
                             setSortOption('date'); setSortDirection('desc'); 
                         } else { setSortOption(opt); }
                     }}
-                    onStartLearn={handleStartLearn} onResetLearn={handleResetProgress} onUpdate={loadData}
+                    onStartLearn={handleStartLearn} onContinueLearn={handleContinueLearn} onResetLearn={handleResetProgress} onUpdate={loadData}
                 />
             ) : (
                 <SystemGroupListView 
@@ -822,7 +833,7 @@ const handleDeleteGroup = !canEdit ? async () => {} : async (n: string) => {
                             setSortOption('date'); setSortDirection('desc');
                         } else { setSortOption(opt); }
                     }}
-                    onStartLearn={handleStartLearn} onResetLearn={handleResetProgress} onUpdate={loadData}
+                    onStartLearn={handleStartLearn} onContinueLearn={handleContinueLearn} onResetLearn={handleResetProgress} onUpdate={loadData}
                 />
             )}
         </div>
