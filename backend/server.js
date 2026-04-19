@@ -10,9 +10,12 @@ const dataRoutes = require('./routes/data');
 const adminRoutes = require('./routes/admin');
 const statsRoutes = require('./routes/stats');
 
+const pingRoute = require('./routes/ping');
 dotenv.config();
 const app = express();
 
+
+app.use('/', pingRoute);
 // --- CONFIG SECURITY ---
 app.use(helmet());
 app.use(cors({
