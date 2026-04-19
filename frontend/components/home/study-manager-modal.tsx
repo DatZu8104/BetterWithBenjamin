@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { FolderOpen, PlayCircle, Lock, ChevronRight, ArrowLeft, Library, Trash2, Pencil, ChevronDown, X} from "lucide-react";
+import { FolderOpen, PlayCircle, Lock, ChevronRight, ArrowLeft, Library, Trash2, Pencil, ChevronDown, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api"; 
 import { GroupEditModal } from "./group-edit-modal"; 
@@ -65,6 +65,9 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
   // Personal mode: folder đang được chọn để xem từ vựng bên trong
   const [selectedPersonalFolder, setSelectedPersonalFolder] = useState<string | null>(null);
 
+  // Thanh tìm kiếm từ vựng cross-folder
+  const [wordSearchTerm, setWordSearchTerm] = useState('');
+
   // Dùng ref để lưu initialTab tại thời điểm modal mở — tránh useEffect re-run khi prop thay đổi sau khi mở
   const initialTabRef = useRef(initialTab);
 
@@ -90,6 +93,33 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
       );
     }, [wordsInSelectedGroup, savedWordIds]);
 
+  // Kết quả tìm kiếm cross-folder / cross-group
+  const wordSearchResults = useMemo(() => {
+    const term = wordSearchTerm.trim().toLowerCase();
+    if (!term) return [];
+    const personalMode = currentMode === 'personal';
+    if (personalMode) {
+      const results: any[] = [];
+      personalFolderData.forEach(folder => {
+        folder.words.forEach((w: any) => {
+          const text = (w.english || w.word || '').toLowerCase();
+          if (text.startsWith(term)) {
+            results.push({ ...w, _folderName: folder.name });
+          }
+        });
+      });
+      return results;
+    } else {
+      return systemWords
+        .filter(w => {
+          const text = (w.word || w.english || '').toLowerCase();
+          return text.startsWith(term);
+        })
+        .slice(0, 200)
+        .map(w => ({ ...w, _groupName: w.group || w.level || 'Uncategorized' }));
+    }
+  }, [wordSearchTerm, currentMode, personalFolderData, systemWords]);
+
   useEffect(() => {
     if (isOpen) {
       // Cập nhật ref khi modal vừa mở để dùng giá trị initialTab mới nhất
@@ -101,6 +131,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
       setSelectedPersonalFolder(null);
       setSelectedWordIds([]);
       setNewFolderName("");
+      setWordSearchTerm("");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -377,18 +408,20 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="!max-w-[98vw] md:!maxw-[95vw] !w-full h-[95vh] md:h-[92vh] flex flex-col p-0 gap-0 bg-black text-zinc-100 border-zinc-800 shadow-2xl overflow-hidden z-[10000]">
-          <DialogHeader className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-6 pt-4 md:pt-6 z-20 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 relative">
+          <DialogHeader className="shrink-0 border-b border-zinc-800 bg-zinc-950 px-6 pt-4 md:pt-6 z-20 flex flex-col gap-0 relative">
 
-            <div className="flex flex-col pb-2 md:pb-4">
-              <DialogTitle className="text-2xl font-black tracking-tight text-white shrink-0">
-                {isPersonalMode ? "Your Folders" : "Manage learning paths"}
-              </DialogTitle>
-              {isPersonalMode && (
-                <p className="text-sm text-zinc-500 mt-1">Select a folder to start learning</p>
-              )}
-            </div>
+            {/* Row 1: Tiêu đề + Tabs + Nút đóng */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 pb-2 md:pb-3">
+              <div className="flex flex-col">
+                <DialogTitle className="text-2xl font-black tracking-tight text-white shrink-0">
+                  {isPersonalMode ? "Your Folders" : "Manage learning paths"}
+                </DialogTitle>
+                {isPersonalMode && (
+                  <p className="text-sm text-zinc-500 mt-1">Select a folder to start learning</p>
+                )}
+              </div>
 
-            <div className="flex items-center justify-between md:justify-end gap-4 md:gap-8 w-full md:w-auto pb-2 md:pb-4">
+            <div className="flex items-center justify-between md:justify-end gap-4 md:gap-8 w-full md:w-auto">
 
               {!isPersonalMode && (
                 <FeatureHint
@@ -398,7 +431,9 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                   message={
                     <div className="space-y-1 max-w-[240px]">
                       <p className="font-bold text-white flex items-center gap-1.5">Change tab</p>
-                      <p className="text-zinc-200 text-sm font-normal leading-snug">Switch between <span className="text-blue-300 font-bold">Oxford Warehouse</span> (create new lesson) and <span className="text-blue-300 font-bold">Folder</span> (review saved words).</p>
+                      <p className="text-zinc-200 text-sm font-normal leading-snug">
+                        Chuyển đổi giữa tạo bài học mới và Thư mục ôn lại các từ đã lưu.
+                      </p>
                     </div>
                   }
                 >
@@ -428,11 +463,113 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
               </button>
 
             </div>
+            </div>
+
+            {/* Row 2: Thanh tìm kiếm từ vựng cross-folder */}
+            <div className="pb-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder={isPersonalMode ? "Tìm từ vựng trong tất cả folder..." : "Tìm từ vựng trong tất cả nhóm..."}
+                  value={wordSearchTerm}
+                  onChange={(e) => setWordSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-9 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-blue-500 focus:bg-zinc-800 transition-colors"
+                />
+                {wordSearchTerm && (
+                  <button
+                    onClick={() => setWordSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
           </DialogHeader>
           
 
           <div className={cn("flex-1 min-h-0 bg-zinc-950/50 flex flex-col relative transition-opacity duration-200", isPending && "opacity-50 pointer-events-none")}>
-            {activeTab === "existing" && (
+
+            {/* ─── KẾT QUẢ TÌM KIẾM (ưu tiên hiển thị khi có search term) ─── */}
+            {wordSearchTerm.trim() && (
+              <div className="absolute inset-0 overflow-y-auto p-4 md:p-6 custom-scrollbar" style={{ paddingBottom: isPersonalMode ? '24px' : '140px' }}>
+                {wordSearchResults.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+                    <Search className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+                    <p className="text-zinc-500 font-semibold">Không tìm thấy từ nào</p>
+                    <p className="text-zinc-600 text-sm mt-1">Thử từ khoá khác</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">
+                      {wordSearchResults.length} kết quả{wordSearchResults.length >= 200 ? ' (hiển thị 200 đầu tiên)' : ''}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+                      {wordSearchResults.map((word: any, idx: number) => {
+                        const wordId = word._id || word.id;
+                        const isAlreadySaved = !isPersonalMode && savedWordIds.has(wordId);
+                        const isSelected = selectedWordIds.includes(wordId);
+                        const label = isPersonalMode ? word._folderName : word._groupName;
+                        return (
+                          <div
+                            key={`${wordId}-${idx}`}
+                            onClick={() => !isAlreadySaved && handleToggleWord(wordId)}
+                            className={cn(
+                              "flex items-center p-3 rounded-xl border transition-all cursor-pointer shadow-sm group",
+                              isAlreadySaved
+                                ? "bg-black/30 border-transparent opacity-50 cursor-not-allowed grayscale"
+                                : isSelected
+                                  ? isPersonalMode
+                                    ? "bg-emerald-950/40 border-emerald-600/50 ring-1 ring-emerald-600/50"
+                                    : "bg-blue-950/40 border-blue-600/50 ring-1 ring-blue-600/50"
+                                  : "bg-zinc-900 border-zinc-800/60 hover:bg-zinc-800 hover:border-zinc-700"
+                            )}
+                          >
+                            <div className="mr-3 shrink-0">
+                              {isAlreadySaved ? (
+                                <Lock className="w-4 h-4 text-zinc-600" />
+                              ) : (
+                                <Checkbox
+                                  checked={isSelected}
+                                  className={cn(
+                                    "w-5 h-5 rounded transition-transform group-active:scale-95",
+                                    isSelected && (isPersonalMode ? "bg-emerald-600 border-emerald-600" : "bg-blue-600 border-blue-600")
+                                  )}
+                                />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 flex flex-col">
+                              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                <span className="font-bold text-white text-base truncate">{word.english || word.word}</span>
+                                {word.type && (
+                                  <span className="text-[9px] font-bold text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800 uppercase tracking-widest shrink-0">
+                                    {Array.isArray(word.type) ? word.type.join(', ') : word.type}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-zinc-400 truncate">{word.definition || (word.definitions?.[0]?.definition)}</p>
+                              {label && (
+                                <span className="mt-1 text-[10px] font-semibold text-zinc-600 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800/50 self-start truncate max-w-full">
+                                  {isPersonalMode ? '📁' : '📂'} {label}
+                                </span>
+                              )}
+                            </div>
+                            {isAlreadySaved && (
+                              <span className="text-[9px] font-bold text-zinc-600 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800/50 ml-2 shrink-0">ĐÃ CÓ</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ─── VIEW BÌNH THƯỜNG (ẩn khi đang search) ─── */}
+            {!wordSearchTerm.trim() && activeTab === "existing" && (
               <div className={cn("absolute inset-0 overflow-y-auto p-6 custom-scrollbar", isPersonalMode ? "pb-6" : "pb-40 md:pb-28")}>
                 {isPersonalMode ? (
                   /* ── PERSONAL MODE: hiện folder cá nhân của user ── */
@@ -556,7 +693,7 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
             )}
 
             {/* TAB 1: SYSTEM = KHO OXFORD (không dùng cho personal mode) */}
-            {activeTab === "system" && !isPersonalMode && (
+            {!wordSearchTerm.trim() && activeTab === "system" && !isPersonalMode && (
               <div className="absolute inset-0 flex flex-col p-6 overflow-hidden">
                 {isPersonalMode ? (
                   /* ─── PERSONAL: folder tiles → words ─── */
@@ -687,7 +824,9 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                                 message={
                                   <div className="space-y-1 max-w-[240px]">
                                     <p className="font-bold text-white flex items-center gap-1.5">📦 Start picking words</p>
-                                    <p className="text-zinc-200 text-sm font-normal leading-snug">Click on a level (e.g.: <span className="text-blue-300 font-bold">A1</span>) to enter and pick the words you want to learn!</p>
+                                    <p className="text-zinc-200 text-sm font-normal leading-snug">
+                                      Bấm vào một thư mục để nhập và chọn những từ bạn muốn học!
+                                    </p>
                                   </div>
                                 }
                               >
@@ -729,7 +868,9 @@ export function StudyManagerModal({ isOpen, onClose, systemWords, onStartLearn, 
                             message={
                               <div className="space-y-1 max-w-[220px]">
                                 <p className="font-bold text-white flex items-center gap-1.5">🔙 Back to list</p>
-                                <p className="text-zinc-200 text-sm font-normal leading-snug">If you want to choose another level (like A2, B1...), you can click here to go back to the overall list!</p>
+                                <p className="text-zinc-200 text-sm font-normal leading-snug">
+                                  Nếu bạn muốn chọn cấp độ khác (như A2, B1…), bạn có thể nhấp vào đây để quay lại danh sách tổng thể!
+                                </p>
                               </div>
                             }
                           >

@@ -298,7 +298,7 @@ export function PersonalGroupListView({
                                 Get started now!
                             </p>
                             <p className="text-zinc-100 text-sm leading-snug font-normal">
-                                Click here to start studying with flashcards!
+                                Bấm vào đây để bắt đầu học với flashcards!
                             </p>
                         </div>
                     }
@@ -674,7 +674,7 @@ export function PersonalGroupListView({
                                             <FolderOpen className="w-4 h-4 text-blue-400" /> Open Folder!
                                         </p>
                                         <p className="text-zinc-100 text-sm leading-snug font-normal">
-                                            Click on this folder to view the vocabulary groups inside.
+                                            Bấm vào thư mục này để xem các nhóm từ vựng bên trong.
                                         </p>
                                     </div>
                                 }

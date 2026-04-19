@@ -322,7 +322,7 @@ const loadMetaOnly = async () => {
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return [];
     const lower = searchTerm.toLowerCase();
-    return wordsByMode.filter(w => w.english.toLowerCase().includes(lower) || w.definition.toLowerCase().includes(lower));
+    return wordsByMode.filter(w => w.english.toLowerCase().startsWith(lower));
   }, [wordsByMode, searchTerm]);
 
   const currentViewWords = useMemo(() => {

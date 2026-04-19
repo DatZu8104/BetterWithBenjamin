@@ -863,7 +863,7 @@ export function LearnModeView({
         <>
           <FeatureHint
             id={ONBOARDING_IDS.LEARN_AI_CHATBOT}
-            waitFor={ONBOARDING_IDS.LEARN_UNKNOWN_BTN}
+            waitFor={isMobile ? ONBOARDING_IDS.LEARN_SWIPE_MOBILE : ONBOARDING_IDS.LEARN_UNKNOWN_BTN}
             delay={800}
             side="left"
             align="center"

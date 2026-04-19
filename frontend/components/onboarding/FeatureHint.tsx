@@ -71,13 +71,17 @@ export function FeatureHint({
     }
   });
 
-  // Tính toán vị trí popover dựa trên rect và side/align
-  const getPopoverStyle = (): React.CSSProperties => {
-    if (!rect) return { display: 'none' };
+  // Tính toán vị trí popover và offset mũi tên dựa trên rect, side/align
+  const getPopoverLayout = (): { style: React.CSSProperties; arrowOffsetX: number; arrowOffsetY: number } => {
+    const defaultLayout = { style: { display: 'none' } as React.CSSProperties, arrowOffsetX: 0, arrowOffsetY: 0 };
+    if (!rect) return defaultLayout;
 
     const OFFSET = 16;
     const POPOVER_W = 280;
     const POPOVER_H = 120; // ước tính
+
+    const elementCenterX = rect.left + rect.width / 2;
+    const elementCenterY = rect.top + rect.height / 2;
 
     let top = 0;
     let left = 0;
@@ -85,18 +89,18 @@ export function FeatureHint({
     switch (side) {
       case 'bottom':
         top = rect.bottom + OFFSET;
-        left = rect.left + rect.width / 2 - POPOVER_W / 2;
+        left = elementCenterX - POPOVER_W / 2;
         break;
       case 'top':
         top = rect.top - POPOVER_H - OFFSET;
-        left = rect.left + rect.width / 2 - POPOVER_W / 2;
+        left = elementCenterX - POPOVER_W / 2;
         break;
       case 'right':
-        top = rect.top + rect.height / 2 - POPOVER_H / 2;
+        top = elementCenterY - POPOVER_H / 2;
         left = rect.right + OFFSET;
         break;
       case 'left':
-        top = rect.top + rect.height / 2 - POPOVER_H / 2;
+        top = elementCenterY - POPOVER_H / 2;
         left = rect.left - POPOVER_W - OFFSET;
         break;
     }
@@ -104,10 +108,25 @@ export function FeatureHint({
     // Clamp vào viewport
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    left = Math.max(8, Math.min(left, vw - POPOVER_W - 8));
-    top = Math.max(8, Math.min(top, vh - POPOVER_H - 8));
+    const clampedLeft = Math.max(8, Math.min(left, vw - POPOVER_W - 8));
+    const clampedTop = Math.max(8, Math.min(top, vh - POPOVER_H - 8));
 
-    return { top, left, width: POPOVER_W };
+    // Tính offset mũi tên để luôn trỏ đúng vào element dù popover bị clamp
+    // arrowOffsetX: dùng cho side=top/bottom; arrowOffsetY: dùng cho side=left/right
+    const ARROW_MIN = 16;
+    const ARROW_MAX_X = POPOVER_W - 16;
+    const ARROW_MAX_Y = POPOVER_H - 16;
+
+    const rawArrowX = elementCenterX - clampedLeft;
+    const rawArrowY = elementCenterY - clampedTop;
+    const arrowOffsetX = Math.max(ARROW_MIN, Math.min(rawArrowX, ARROW_MAX_X));
+    const arrowOffsetY = Math.max(ARROW_MIN, Math.min(rawArrowY, ARROW_MAX_Y));
+
+    return {
+      style: { top: clampedTop, left: clampedLeft, width: POPOVER_W },
+      arrowOffsetX,
+      arrowOffsetY,
+    };
   };
 
   return (
@@ -198,12 +217,14 @@ export function FeatureHint({
           )}
 
           {/* POPOVER TỰ VẼ - luôn hiển thị trên cùng, không bị che */}
-          {rect && (
+          {rect && (() => {
+            const { style: popoverStyle, arrowOffsetX, arrowOffsetY } = getPopoverLayout();
+            return (
             <div
               className="animate-in fade-in zoom-in-95 duration-200"
               style={{
                 position: 'fixed',
-                ...getPopoverStyle(),
+                ...popoverStyle,
                 zIndex: 2147483640, // Cao nhất - luôn trên overlay
                 pointerEvents: 'auto',
               }}
@@ -220,35 +241,35 @@ export function FeatureHint({
                   maxWidth: '280px',
                 }}
               >
-                {/* Mũi tên chỉ hướng */}
+                {/* Mũi tên chỉ hướng — vị trí được tính động để luôn trỏ đúng element */}
                 {rect && (
                   <div
                     style={{
                       position: 'absolute',
                       ...(side === 'bottom' ? {
                         top: '-8px',
-                        left: '50%',
+                        left: arrowOffsetX,
                         transform: 'translateX(-50%)',
                         borderLeft: '8px solid transparent',
                         borderRight: '8px solid transparent',
                         borderBottom: '8px solid #2563eb',
                       } : side === 'top' ? {
                         bottom: '-8px',
-                        left: '50%',
+                        left: arrowOffsetX,
                         transform: 'translateX(-50%)',
                         borderLeft: '8px solid transparent',
                         borderRight: '8px solid transparent',
                         borderTop: '8px solid #2563eb',
                       } : side === 'right' ? {
                         left: '-8px',
-                        top: '50%',
+                        top: arrowOffsetY,
                         transform: 'translateY(-50%)',
                         borderTop: '8px solid transparent',
                         borderBottom: '8px solid transparent',
                         borderRight: '8px solid #2563eb',
                       } : {
                         right: '-8px',
-                        top: '50%',
+                        top: arrowOffsetY,
                         transform: 'translateY(-50%)',
                         borderTop: '8px solid transparent',
                         borderBottom: '8px solid transparent',
@@ -288,7 +309,8 @@ export function FeatureHint({
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
         </>,
         document.body
       )}

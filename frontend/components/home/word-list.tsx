@@ -355,7 +355,7 @@ export function WordListView({
                                                   View Definition!
                                               </p>
                                               <p className="text-zinc-100 text-sm leading-snug font-normal">
-                                                  Click anywhere on a word card to see its full meaning and examples.
+                                                  Nhấp vào bất kỳ vị trí nào trên thẻ từ để xem ý nghĩa và ví dụ đầy đủ của nó.
                                               </p>
                                           </div>
                                       }
@@ -433,7 +433,7 @@ export function WordListView({
                                                   Listen to pronunciation!
                                               </p>
                                               <p className="text-zinc-100 text-sm leading-snug font-normal">
-                                                  Click the US or UK button to hear the correct pronunciation of this word.
+                                                  Bấm vào nút US hoặc UK để nghe cách phát âm chính xác của từ này.
                                               </p>
                                           </div>
                                       }
@@ -601,7 +601,7 @@ export function WordListView({
         confirmText="Delete"
         variant="danger"
       />
-    
+
     </div>
   );
 }
